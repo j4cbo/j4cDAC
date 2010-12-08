@@ -1,0 +1,2 @@
+To build this, you will want to have the CodeSourcery ARM toolchain:
+  http://www.codesourcery.com/sgpp/lite/arm/portal/package7813/public/arm-none-eabi/arm-2010.09-51-arm-none-eabi-i686-pc-linux-gnu.tar.bz2
