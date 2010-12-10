@@ -35,7 +35,7 @@ __cs3_stack_mem:
 // </h>
 */
 
-    .equ    Heap_Size,  0x00001000
+    .equ    Heap_Size,  0x00007000
     
     .section ".heap", "w"
     .align  3
