@@ -1525,7 +1525,7 @@ dhcp_create_request(struct netif *netif)
   dhcp->msg_out->giaddr.addr = 0;
   for (i = 0; i < DHCP_CHADDR_LEN; i++) {
     /* copy netif hardware address, pad with zeroes */
-    dhcp->msg_out->chaddr[i] = (i < netif->hwaddr_len) ? netif->hwaddr[i] : 0/* pad byte*/;
+    dhcp->msg_out->chaddr[i] = (i < netif->hwaddr_len && i < NETIF_MAX_HWADDR_LEN) ? netif->hwaddr[i] : 0/* pad byte*/;
   }
   for (i = 0; i < DHCP_SNAME_LEN; i++) {
     dhcp->msg_out->sname[i] = 0;
