@@ -281,17 +281,19 @@
 // </e>
 */
 #define CLOCK_SETUP           1
-#define SCS_Val               0x00000020
+#define SCS_Val               0x00000030
 #define CLKSRCSEL_Val         0x00000001
 #define PLL0_SETUP            1
-#define PLL0CFG_Val           0x00050063
-#define PLL1_SETUP            1
-#define PLL1CFG_Val           0x00000023
-#define CCLKCFG_Val           0x00000003
-#define USBCLKCFG_Val         0x00000000
+#define PLL_M                   48
+#define PLL_N                   5
+#define PLL0CFG_Val           ((PLL_N - 1) << 16) | (PLL_M - 1)
+#define PLL1_SETUP            0
+// #define PLL1CFG_Val           0x00000023
+#define CCLKCFG_Val           0x00000004
+#define USBCLKCFG_Val         0x00000009
 #define PCLKSEL0_Val          0x00000000
 #define PCLKSEL1_Val          0x00000000
-#define PCONP_Val             0x042887DE
+#define PCONP_Val             0xE7288498
 #define CLKOUTCFG_Val         0x00000000
 
 
@@ -383,7 +385,7 @@
 /*----------------------------------------------------------------------------
   Define clocks
  *----------------------------------------------------------------------------*/
-#define XTAL        (12000000UL)        /* Oscillator frequency               */
+#define XTAL        (25000000UL)        /* Oscillator frequency               */
 #define OSC_CLK     (      XTAL)        /* Main oscillator frequency          */
 #define RTC_CLK     (   32000UL)        /* RTC oscillator frequency           */
 #define IRC_OSC     ( 4000000UL)        /* Internal RC oscillator frequency   */
