@@ -350,10 +350,6 @@
    #error "PLL1CFG: Invalid values of reserved bits!"
 #endif
 
-#if ((CCLKCFG_Val != 0) && (((CCLKCFG_Val - 1) % 2)))
-   #error "CCLKCFG: CCLKSEL field does not contain only odd values or 0!"
-#endif
-
 #if (CHECK_RSVD((USBCLKCFG_Val), ~0x0000000F))
    #error "USBCLKCFG: Invalid values of reserved bits!"
 #endif
