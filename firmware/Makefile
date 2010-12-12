@@ -1,6 +1,6 @@
 PREFIX = arm-none-eabi-
 
-CFLAGS = -Iinc -Ilib/core_cm3 -Ilib/lpc17xx -fno-common -mcpu=cortex-m3 -mthumb -O3
+CFLAGS = -Iinc -Ilib/core_cm3 -Ilib/lpc17xx -Idrivers/include -fno-common -mcpu=cortex-m3 -mthumb -O3
 CFLAGS += -Wall
 LDFLAGS = -Tlib/lpc17xx/lpc1758.lds -mcpu=cortex-m3 -mthumb
 
@@ -30,11 +30,11 @@ OBJS += test.o
 %.o: %.s
 	$(PREFIX)gcc $(CFLAGS) -c $< -o $@
 
-j4cDAC.elf: $(OBJS)
-	$(PREFIX)gcc $(LDFLAGS) $(OBJS) -o j4cDAC.elf
-
 j4cDAC.hex: j4cDAC.elf
 	$(PREFIX)objcopy -O ihex -R .eeprom -R .fuse -R .lock $< $@
+
+j4cDAC.elf: $(OBJS)
+	$(PREFIX)gcc $(LDFLAGS) $(OBJS) -o j4cDAC.elf
 
 .phony: CLEAN
 
