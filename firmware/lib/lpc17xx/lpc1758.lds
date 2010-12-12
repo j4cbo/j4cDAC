@@ -24,6 +24,7 @@ MEMORY
 {
   rom (rx)  : ORIGIN = 0x00000000, LENGTH = 512K
   ram (rwx) : ORIGIN = 0x10000000, LENGTH =  32K
+  ahb_sram_0 (rwx) : ORIGIN = 0x2007C000, LENGTH =  16K
 }
 
 /* These force the linker to search for particular symbols from
@@ -158,6 +159,10 @@ SECTIONS
   {
     *(.stack)
   } >ram
+  .ahb_sram_0 (NOLOAD) :
+  {
+    *(.ahb_sram_0)
+  } > ahb_sram_0
   __cs3_region_init_ram = LOADADDR (.data);
   __cs3_region_init_size_ram = _edata - __cs3_region_start_ram;
   __cs3_region_zero_size_ram = _end - _edata;
