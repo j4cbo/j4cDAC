@@ -45,3 +45,17 @@ void outputf(const char *fmt, ...) {
 
 	UART_Send(DEBUG_UART, (uint8_t *)buffer, n + 2, BLOCKING);
 }
+
+static const char hexarr[] = "0123456789ABCDEF";
+
+void hexdump(const char * data, int len) {
+	int i;
+	char c, buf[2];
+
+	for (i = 0; i < len; i++) {
+		c = data[i];
+		buf[0] = hexarr[c >> 4];
+		buf[1] = hexarr[c & 0xF];
+		UART_Send(DEBUG_UART, (uint8_t *)buf, 2, BLOCKING);
+	}
+}
