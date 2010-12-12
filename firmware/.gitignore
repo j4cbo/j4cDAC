@@ -1,2 +1,4 @@
 *.o
 j4cDAC.elf
+j4cDAC.hex
+debugout.bin
