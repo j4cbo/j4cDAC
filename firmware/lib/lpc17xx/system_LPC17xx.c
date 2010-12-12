@@ -286,7 +286,7 @@
 #define PLL0_SETUP            1
 #define PLL_M                   48
 #define PLL_N                   5
-#define PLL0CFG_Val           ((PLL_N - 1) << 16) | (PLL_M - 1)
+#define PLL0CFG_Val           (((PLL_N - 1) << 16) | (PLL_M - 1))
 #define PLL1_SETUP            0
 // #define PLL1CFG_Val           0x00000023
 #define CCLKCFG_Val           0x00000004
@@ -323,7 +323,7 @@
 // </e>
 */
 #define FLASH_SETUP           1
-#define FLASHCFG_Val          0x0000303A
+#define FLASHCFG_Val          0x0000403A
 
 /*
 //-------- <<< end of configuration section >>> ------------------------------
