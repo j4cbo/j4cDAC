@@ -60,7 +60,7 @@ static Status uart_set_divisors(LPC_UART_TypeDef *UARTx, uint32_t baudrate)
 {
 	Status errorStatus = ERROR;
 
-	uint32_t uClk;
+	uint32_t uClk = 0;
 	uint32_t calcBaudrate = 0;
 	uint32_t temp = 0;
 
@@ -668,7 +668,7 @@ void UART_ForceBreak(LPC_UART_TypeDef* UARTx)
  *********************************************************************/
 void UART_IntConfig(LPC_UART_TypeDef *UARTx, UART_INT_Type UARTIntCfg, FunctionalState NewState)
 {
-	uint32_t tmp;
+	uint32_t tmp = 0;
 
 	CHECK_PARAM(PARAM_UARTx(UARTx));
 	CHECK_PARAM(PARAM_FUNCTIONALSTATE(NewState));
@@ -1158,7 +1158,7 @@ void UART_FullModemForcePinState(LPC_UART1_TypeDef *UARTx, UART_MODEM_PIN_Type P
 void UART_FullModemConfigMode(LPC_UART1_TypeDef *UARTx, UART_MODEM_MODE_Type Mode, \
 							FunctionalState NewState)
 {
-	uint8_t tmp;
+	uint8_t tmp = 0;
 
 	CHECK_PARAM(PARAM_UART1_MODEM(UARTx));
 	CHECK_PARAM(PARAM_UART1_MODEM_MODE(Mode));
