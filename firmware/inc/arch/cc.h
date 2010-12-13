@@ -2,6 +2,7 @@
 #define _ARCH_CC_H
 
 #include <stdint.h>
+#include <serial.h>
 
 /* Because lwIP is written by idiots. */
 typedef uint8_t u8_t;
@@ -36,7 +37,7 @@ static inline uint32_t LWIP_PLATFORM_HTONL(uint32_t in) {
 
 #define LWIP_PLATFORM_BYTESWAP 1
 
-#define LWIP_PLATFORM_DIAG(x) // outputf x
+#define LWIP_PLATFORM_DIAG(x) outputf x
 #define LWIP_PLATFORM_ASSERT(x) // dologf("ASSERT FAILED: %s\n", (x));
 
 #endif

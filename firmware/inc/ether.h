@@ -71,7 +71,7 @@ FlagStatus EMAC_CheckReceiveDataStatus(uint32_t ulRxStatType);
 uint32_t EMAC_GetReceiveDataSize(void);
 FlagStatus EMAC_GetWoLStatus(uint32_t ulWoLMode);
 
-void eth_transmit(void * _info, struct pbuf * p);
+err_t eth_transmit(void * _info, struct pbuf * p);
 void eth_init(void);
 
 #endif

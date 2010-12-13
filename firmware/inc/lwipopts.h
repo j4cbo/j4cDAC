@@ -3,6 +3,12 @@
 
 #define NO_SYS 1
 
+#define LWIP_DEBUG	1
+#define DHCP_DEBUG	LWIP_DBG_ON | LWIP_DBG_TRACE
+#define MEMP_DEBUG	LWIP_DBG_ON | LWIP_DBG_TRACE
+#define PBUF_DEBUG	LWIP_DBG_ON | LWIP_DBG_TRACE
+#define MEM_DEBUG	LWIP_DBG_ON | LWIP_DBG_TRACE
+
 /* We have our own malloc. */
 #include <stdlib.h>
 #define MEM_LIBC_MALLOC	1
@@ -25,7 +31,7 @@
 #define TCP_MSS         1460
 #define TCP_WND		24000
 #define TCP_SND_BUF     (16 * TCP_MSS)
-#define TCP_SND_QUEUELEN 16
+#define TCP_SND_QUEUELEN 8
 
 /* This is only an array of descriptors - each is small. */
 #define MEMP_NUM_PBUF	256

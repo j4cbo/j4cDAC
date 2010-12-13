@@ -28,7 +28,7 @@
 #include <ether_private.h>
 
 #define NUM_TX_DESC	16
-#define NUM_RX_BUF	10
+#define NUM_RX_BUF	4
 #define RX_BUF_SIZE	1536
 
 #define AHB0 __attribute__((section(".ahb_sram_0")))
@@ -37,11 +37,14 @@
 static struct pbuf * eth_tx_pbufs[NUM_TX_DESC];
 static TX_Desc eth_tx_desc[NUM_TX_DESC] AHB0;
 static TX_Stat eth_tx_stat[NUM_TX_DESC] AHB0;
+static int eth_tx_free_consume = 0;
 
+static struct pbuf * eth_rx_pbufs[NUM_RX_BUF] AHB0;
 static RX_Desc eth_rx_desc[NUM_RX_BUF] AHB0;
 static RX_Stat eth_rx_stat[NUM_RX_BUF] AHB0 __attribute__((aligned (8)));
+static int eth_rx_read_index = 0;
 
-static uint8_t rx_buf[NUM_RX_BUF][RX_BUF_SIZE] AHB0;
+void handle_packet(struct pbuf *p);
 
 /* Private Functions ---------------------------------------------------------- */
 
@@ -53,12 +56,21 @@ static int32_t emac_CRCCalc(uint8_t frame_no_fcs[], int32_t frame_len);
  * SRAM; Rx lives in AHB SRAM and is statically allocated, so we set up the
  * pointers once during initialization.
  */
-static void eth_init_descriptors() {
+static int eth_init_descriptors() {
 	uint32_t i;
+	struct pbuf *p;
 
 	for (i = 0; i < NUM_RX_BUF; i++) {
-		eth_rx_desc[i].Packet  = (uint32_t)&rx_buf[i];
-		eth_rx_desc[i].Ctrl    = EMAC_RCTRL_INT | (RX_BUF_SIZE - 1);
+		p = pbuf_alloc(PBUF_RAW, RX_BUF_SIZE, PBUF_POOL);
+
+		if (!p) {
+			outputf("MAC: FATAL: out of memory during Rx init");
+			return -1;
+		}
+
+		eth_rx_desc[i].Packet = (uint32_t)p->payload;
+		eth_rx_desc[i].Ctrl = p->len;
+		eth_rx_pbufs[i] = p;
 	}
 
 	memset(&eth_tx_desc, 0, sizeof(eth_tx_desc));
@@ -76,6 +88,8 @@ static void eth_init_descriptors() {
 	/* Reset produce and consume indices */
 	LPC_EMAC->TxProduceIndex  = 0;
 	LPC_EMAC->RxConsumeIndex  = 0;
+
+	return 0;
 }
 
 
@@ -228,7 +242,7 @@ int EMAC_Init(EMAC_CFG_Type *EMAC_ConfigStruct) {
 	outputf("-- descriptor init");
 
 	/* Initialize Tx and Rx DMA Descriptors */
-	eth_init_descriptors();
+	if (eth_init_descriptors() < 0) return ERROR;
 
 
 	outputf("-- filters");
@@ -479,28 +493,22 @@ void EMAC_SetHashFilter(uint8_t dstMAC_addr[], FunctionalState NewState)
 /*********************************************************************//**
  * @brief		Enable/Disable Filter mode for each specified type EMAC peripheral
  * @param[in]	ulFilterMode	Filter mode, should be:
- * 								- EMAC_RFC_UCAST_EN: all frames of unicast types
- * 								will be accepted
- * 								- EMAC_RFC_BCAST_EN: broadcast frame will be
- * 								accepted
- * 								- EMAC_RFC_MCAST_EN: all frames of multicast
- * 								types will be accepted
- * 								- EMAC_RFC_UCAST_HASH_EN: The imperfect hash
- * 								filter will be applied to unicast addresses
- * 								- EMAC_RFC_MCAST_HASH_EN: The imperfect hash
- * 								filter will be applied to multicast addresses
- * 								- EMAC_RFC_PERFECT_EN: the destination address
- * 								will be compared with the 6 byte station address
- * 								programmed in the station address by the filter
- * 								- EMAC_RFC_MAGP_WOL_EN: the result of the magic
- * 								packet filter will generate a WoL interrupt when
- * 								there is a match
- * 								- EMAC_RFC_PFILT_WOL_EN: the result of the perfect address
- * 								matching filter and the imperfect hash filter will
- * 								generate a WoL interrupt when there is a match
+ * 		- EMAC_RFC_UCAST_EN: all frames of unicast types will be accepted
+ * 		- EMAC_RFC_BCAST_EN: broadcast frame will be accepted
+ * 		- EMAC_RFC_MCAST_EN: all frames of multicast types will be accepted
+ * 		- EMAC_RFC_UCAST_HASH_EN: The imperfect hash filter will be
+ *		  applied to unicast addresses
+ * 		- EMAC_RFC_MCAST_HASH_EN: The imperfect hash filter will be
+ *		  applied to multicast addresses
+ *		- EMAC_RFC_PERFECT_EN: the destination address will be compared with the
+ *		  6 byte station address programmed in the station address by the filter
+ * 		- EMAC_RFC_MAGP_WOL_EN: the result of the magic	packet filter will
+ *		  generate a WoL interrupt when there is a match
+ * 		- EMAC_RFC_PFILT_WOL_EN: the result of the perfect address matching filter and
+ *		  the imperfect hash filter will generate a WoL interrupt when there is a match
  * @param[in]	NewState	New State of this command, should be:
- * 								- ENABLE
- * 								- DISABLE
+ * 		- ENABLE
+ * 		- DISABLE
  * @return		None
  **********************************************************************/
 void EMAC_SetFilterMode(uint32_t ulFilterMode, FunctionalState NewState)
@@ -516,17 +524,14 @@ void EMAC_SetFilterMode(uint32_t ulFilterMode, FunctionalState NewState)
  * @brief		Get status of Wake On LAN Filter for each specified
  * 				type in EMAC peripheral, clear this status if it is set
  * @param[in]	ulWoLMode	WoL Filter mode, should be:
- * 								- EMAC_WOL_UCAST: unicast frames caused WoL
- * 								- EMAC_WOL_UCAST: broadcast frame caused WoL
- * 								- EMAC_WOL_MCAST: multicast frame caused WoL
- * 								- EMAC_WOL_UCAST_HASH: unicast frame that passes the
- * 								imperfect hash filter caused WoL
- * 								- EMAC_WOL_MCAST_HASH: multicast frame that passes the
- * 								imperfect hash filter caused WoL
- * 								- EMAC_WOL_PERFECT:perfect address matching filter
- * 								caused WoL
- * 								- EMAC_WOL_RX_FILTER: the receive filter caused WoL
- * 								- EMAC_WOL_MAG_PACKET: the magic packet filter caused WoL
+ * 		- EMAC_WOL_UCAST: unicast frames caused WoL
+ * 		- EMAC_WOL_UCAST: broadcast frame caused WoL
+ * 		- EMAC_WOL_MCAST: multicast frame caused WoL
+ * 		- EMAC_WOL_UCAST_HASH: unicast frame that passes the imperfect hash filter caused WoL
+ * 		- EMAC_WOL_MCAST_HASH: multicast frame that passes the imperfect hash filter caused WoL
+ * 		- EMAC_WOL_PERFECT:perfect address matching filter caused WoL
+ * 		- EMAC_WOL_RX_FILTER: the receive filter caused WoL
+ * 		- EMAC_WOL_MAG_PACKET: the magic packet filter caused WoL
  * @return		SET/RESET
  **********************************************************************/
 FlagStatus EMAC_GetWoLStatus(uint32_t ulWoLMode)
@@ -538,32 +543,6 @@ FlagStatus EMAC_GetWoLStatus(uint32_t ulWoLMode)
 		return RESET;
 	}
 }
-
-
-#if 0
-/*********************************************************************//**
- * @brief		Write data to Tx packet data buffer at current index due to
- * 				TxProduceIndex
- * @param[in]	pDataStruct		Pointer to a EMAC_PACKETBUF_Type structure
- * 							data that contain specified information about
- * 							Packet data buffer.
- * @return		None
- **********************************************************************/
-void EMAC_WritePacketBuffer(EMAC_PACKETBUF_Type *pDataStruct)
-{
-	uint32_t idx,len;
-	uint32_t *sp,*dp;
-
-	idx = LPC_EMAC->TxProduceIndex;
-	sp  = (uint32_t *)pDataStruct->pbDataBuf;
-	dp  = (uint32_t *)Tx_Desc[idx].Packet;
-	/* Copy frame data to EMAC packet buffers. */
-	for (len = (pDataStruct->ulDataLen + 3) >> 2; len; len--) {
-		*dp++ = *sp++;
-	}
-	Tx_Desc[idx].Ctrl = (pDataStruct->ulDataLen - 1) | (EMAC_TCTRL_INT | EMAC_TCTRL_LAST);
-}
-#endif
 
 /*********************************************************************//**
  * @brief		Read data from Rx packet data buffer at current index due
@@ -645,47 +624,6 @@ IntStatus EMAC_IntGetStatus(uint32_t ulIntType)
 
 
 /*********************************************************************//**
- * @brief		Check whether if the current RxConsumeIndex is not equal to the
- * 				current RxProduceIndex.
- * @param[in]	None
- * @return		TRUE if they're not equal, otherwise return FALSE
- *
- * Note: In case the RxConsumeIndex is not equal to the RxProduceIndex,
- * it means there're available data has been received. They should be read
- * out and released the Receive Data Buffer by updating the RxConsumeIndex value.
- **********************************************************************/
-Bool EMAC_CheckReceiveIndex(void)
-{
-	if (LPC_EMAC->RxConsumeIndex != LPC_EMAC->RxProduceIndex) {
-		return TRUE;
-	} else {
-		return FALSE;
-	}
-}
-
-
-/*********************************************************************//**
- * @brief		Check whether if the current TxProduceIndex is not equal to the
- * 				current RxProduceIndex - 1.
- * @param[in]	None
- * @return		TRUE if they're not equal, otherwise return FALSE
- *
- * Note: In case the RxConsumeIndex is equal to the RxProduceIndex - 1,
- * it means the transmit buffer is available and data can be written to transmit
- * buffer to be sent.
- **********************************************************************/
-Bool EMAC_CheckTransmitIndex(void)
-{
-	uint32_t tmp = LPC_EMAC->TxConsumeIndex -1;
-	if (LPC_EMAC->TxProduceIndex == tmp) {
-		return FALSE;
-	} else {
-		return TRUE;
-	}
-}
-
-
-/*********************************************************************//**
  * @brief		Get current status value of receive data (due to RxConsumeIndex)
  * @param[in]	ulRxStatType	Received Status type, should be one of following:
  * 							- EMAC_RINFO_CTRL_FRAME: Control Frame
@@ -711,37 +649,6 @@ FlagStatus EMAC_CheckReceiveDataStatus(uint32_t ulRxStatType)
 	return (((eth_rx_stat[idx].Info) & ulRxStatType) ? SET : RESET);
 }
 
-
-/*********************************************************************//**
- * @brief		Get size of current Received data in received buffer (due to
- * 				RxConsumeIndex)
- * @param[in]	None
- * @return		Size of received data
- **********************************************************************/
-uint32_t EMAC_GetReceiveDataSize(void)
-{
-	uint32_t idx;
-	idx =LPC_EMAC->RxConsumeIndex;
-	return ((eth_rx_stat[idx].Info) & EMAC_RINFO_SIZE);
-}
-
-/*********************************************************************//**
- * @brief		Increase the RxConsumeIndex (after reading the Receive buffer
- * 				to release the Receive buffer) and wrap-around the index if
- * 				it reaches the maximum Receive Number
- * @param[in]	None
- * @return		None
- **********************************************************************/
-void EMAC_UpdateRxConsumeIndex(void)
-{
-	// Get current Rx consume index
-	uint32_t idx = LPC_EMAC->RxConsumeIndex;
-
-	/* Release frame from EMAC buffer */
-	if (++idx == NUM_RX_BUF) idx = 0;
-	LPC_EMAC->RxConsumeIndex = idx;
-}
-
 #define EMAC_ADDR0              0x10
 #define EMAC_ADDR1              0x1F
 #define EMAC_ADDR2              0xE0
@@ -760,8 +667,6 @@ static struct netif ether_netif;
 
 static const uint8_t ether_pins[] = { 0, 1, 4, 8, 9, 10, 14, 15 };
 
-static int eth_tx_free_consume = 0;
-
 /* Clean up old transmitted pbufs */
 void eth_tx_cleanup() {
 	int consume = LPC_EMAC->TxConsumeIndex;
@@ -769,7 +674,7 @@ void eth_tx_cleanup() {
 
 	while (last != consume) {
 		outputf("reclaiming pbuf %d: status 0x%08x", last, eth_tx_stat[last]);
-	//	pbuf_free(eth_tx_pbufs[last]);
+		pbuf_free(eth_tx_pbufs[last]);
 		eth_tx_pbufs[last] = 0;
 		last++;
 		if (last == NUM_TX_DESC) last = 0;
@@ -790,7 +695,7 @@ static int eth_capacity() {
 	return capacity;
 }
 
-void eth_transmit(void * _info, struct pbuf * p) {
+err_t eth_transmit(void * _info, struct pbuf * p) {
 
 	/* Find the number of fragments in this pbuf */
 	int len = 0, n = 0;
@@ -803,7 +708,7 @@ void eth_transmit(void * _info, struct pbuf * p) {
 	if (n > (NUM_TX_DESC - 1)) {
 		outputf("MAC: FATAL: pbuf too long: %d > %d",
 		         n, NUM_TX_DESC - 1);
-		return;
+		return ERR_ABRT;
 	}
 
 	if (eth_capacity() < n) {
@@ -820,7 +725,6 @@ void eth_transmit(void * _info, struct pbuf * p) {
 	eth_tx_cleanup();
 
 	int produce = LPC_EMAC->TxProduceIndex;
-	pbuf_ref(p);
 
 	/* "Sup, hardware" */
 	for (; p; p = p->next) {
@@ -828,15 +732,70 @@ void eth_transmit(void * _info, struct pbuf * p) {
 		eth_tx_desc[produce].Ctrl = (p->len - 1) | (p->next ? 0 : EMAC_TCTRL_LAST) | EMAC_TCTRL_INT;
 	outputf("ctrl: %08x to %d", eth_tx_desc[produce].Ctrl, produce);
 	outputf("packet: %08x to %d", eth_tx_desc[produce].Packet, produce);
+
+		pbuf_ref(p);
+		eth_tx_pbufs[produce] = p;
+
 		produce = (produce + 1) % NUM_TX_DESC;
 	}
 
-
 	/* Shazam. */
 	LPC_EMAC->TxProduceIndex = produce;
+	return ERR_OK;
 }
 
+void eth_poll() {
+
+	int consume = LPC_EMAC->RxConsumeIndex;
+	int readpos = eth_rx_read_index;
+	struct pbuf * p;
+
+	while (readpos != LPC_EMAC->RxProduceIndex) {
+		uint32_t status = eth_rx_stat[readpos].Info;
+		struct pbuf *p = eth_rx_pbufs[readpos];
+
+		outputf("Rx packet %d: flags %08x, pbuf %08x",  consume, status, p);
+
+		int length = (status & EMAC_RINFO_SIZE) + 1;
+		pbuf_realloc(p, length);
+
+		readpos = (readpos + 1) % NUM_RX_BUF;
+
+//		outputf("Payload at %p, length %d", p->payload, length);
+
+//		hexdump(p->payload, length);
+//		outputf("");
+
+		handle_packet(p);
+	
+		outputf("after free: cons/ri/prod %d/%d/%d", consume, readpos, LPC_EMAC->RxProduceIndex);
+	}
+
+	while (consume != readpos) {
+		/* Try to allocate a new pbuf */
+		p = pbuf_alloc(PBUF_RAW, RX_BUF_SIZE, PBUF_POOL);
+		if (!p) {
+			outputf("MAC: out of memory refilling Rx: cons/ri/prod %d/%d/%d",
+			        consume, readpos, LPC_EMAC->RxProduceIndex);
+			break;
+		}
+
+		eth_rx_desc[consume].Packet = (uint32_t)p->payload;
+		eth_rx_desc[consume].Ctrl = p->len;
+		eth_rx_pbufs[consume] = p;
+
+		consume = (consume + 1) % NUM_RX_BUF;
+	}
+
+	LPC_EMAC->RxConsumeIndex = consume;
+	eth_rx_read_index = readpos;
+}
+
+err_t eth_netif_init(struct netif *netif) { return ERR_OK; }
+
 void eth_init() {
+	static struct ip_addr ipa = { 0 } , netmask = { 0 } , gw = { 0 };
+
 	/* Set up pins */
 	PINSEL_CFG_Type PinCfg;
 	PinCfg.Funcnum = 1;
@@ -874,20 +833,41 @@ void eth_init() {
 
 	/* Set up basic fields in ether_netif */
 	ether_netif.output = etharp_output;
-	//ether_netif.linkoutput = eth_transmit;
+	ether_netif.linkoutput = eth_transmit;
 	ether_netif.name[0] = 'e';
 	ether_netif.name[1] = 'n';
 	ether_netif.hwaddr_len = ETHARP_HWADDR_LEN;
 	ether_netif.flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_LINK_UP;
+	ether_netif.mtu = 1500;
+	memcpy(ether_netif.hwaddr, EMACAddr, 6);
 
 	outputf("netif_add");
 	/* Hand it over to lwIP */
-/*
-	netif_add(&ether_netif, &ipa, &netmask, &gw, NULL, NULL, ethernet_input);
+	netif_add(&ether_netif, &ipa, &netmask, &gw, NULL, eth_netif_init, ethernet_input);
 	netif_set_default(&ether_netif);
 	netif_set_up(&ether_netif);
 	dhcp_start(&ether_netif);
-*/
+
 	outputf("eth_init done");
+}
+
+void handle_packet(struct pbuf *p) {
+
+	struct eth_hdr *ethhdr = p->payload;
+
+	switch (htons(ethhdr->type)) {
+	case ETHTYPE_IP:
+	case ETHTYPE_ARP:
+		if (ether_netif.input(p, &ether_netif) != ERR_OK) {
+			outputf(NETIF_DEBUG, ("netdev_input: IP input error\n"));
+			pbuf_free(p);
+		}
+		break;
+
+	default:
+		outputf("Unhandled packet type %04x input", ethhdr->type);
+		pbuf_free(p);
+		break;
+	}
 }
 
