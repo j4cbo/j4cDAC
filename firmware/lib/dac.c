@@ -12,9 +12,9 @@
 
 #define AHB0 __attribute__((section(".ahb_sram_0")))
 
-#define BUFFER_WORDS		16000
+#define BUFFER_WORDS		4000
 #define BUFFER_BYTES		(BUFFER_WORDS * 2)
-#define BUFFER_SEGMENTS		40
+#define BUFFER_SEGMENTS		10
 
 #if (BUFFER_WORDS % BUFFER_SEGMENTS)
 #error BUFFER_SEGMENTS must evenly divide BUFFER_WORDS
@@ -23,7 +23,7 @@
 #define WORDS_PER_SEGMENT	 (BUFFER_WORDS / BUFFER_SEGMENTS)
 
 GPDMA_LLI_Type dac_segments[BUFFER_SEGMENTS] AHB0;
-uint16_t dac_buffer[256] AHB0;
+uint16_t dac_buffer[BUFFER_WORDS] AHB0;
 
 /* We have a 40ms buffer.
  *
@@ -154,17 +154,16 @@ outputf("dma setup");
 /* XXX: temporarily,  link each segment to itself. */
 dac_segments[i].NextLLI = (uint32_t)&dac_segments[i];
 		dac_segments[i].Control = WORDS_PER_SEGMENT
-			| GPDMA_DMACCxControl_SBSize(GPDMA_BSIZE_4)
-			| GPDMA_DMACCxControl_DBSize(GPDMA_BSIZE_4)
+			| GPDMA_DMACCxControl_SBSize(GPDMA_BSIZE_8)
+			| GPDMA_DMACCxControl_DBSize(GPDMA_BSIZE_8)
 			| GPDMA_DMACCxControl_SWidth(GPDMA_WIDTH_HALFWORD) 
 			| GPDMA_DMACCxControl_DWidth(GPDMA_WIDTH_HALFWORD) 
 			| GPDMA_DMACCxControl_SI;
 	}
-/*
+
 	for (i = 0; i < BUFFER_WORDS; i++) {
 		dac_buffer[i] = (1 << (i % 8));
 	}
-*/
 
 	/* Turn on the SSP peripheral */
 	SSP_CFG_Type SSP_ConfigStruct;
