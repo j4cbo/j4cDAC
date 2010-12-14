@@ -1061,7 +1061,7 @@ typedef struct
 #define LPC_QEI               ((LPC_QEI_TypeDef       *) LPC_QEI_BASE      )
 #define LPC_EMAC              ((LPC_EMAC_TypeDef      *) LPC_EMAC_BASE     )
 #define LPC_GPDMA             ((LPC_GPDMA_TypeDef     *) LPC_GPDMA_BASE    )
-#define DMAREQSEL             (*(__IO uint32_t *)  ( 0x4000C1C4))
+//#define DMAREQSEL             (*(__IO uint32_t *)  ( 0x4000C1C4))
 #define LPC_GPDMACH0          ((LPC_GPDMACH_TypeDef   *) LPC_GPDMACH0_BASE )
 #define LPC_GPDMACH1          ((LPC_GPDMACH_TypeDef   *) LPC_GPDMACH1_BASE )
 #define LPC_GPDMACH2          ((LPC_GPDMACH_TypeDef   *) LPC_GPDMACH2_BASE )
