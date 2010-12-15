@@ -24,7 +24,7 @@ MEMORY
 {
   rom (rx)  : ORIGIN = 0x00000000, LENGTH = 512K
   ram (rwx) : ORIGIN = 0x10000000, LENGTH =  32K
-  ahb_sram_0 (rwx) : ORIGIN = 0x2007C000, LENGTH =  16K
+  ahb_sram_0 (rwx) : ORIGIN = 0x2007C000, LENGTH =  32K
 }
 
 /* These force the linker to search for particular symbols from
