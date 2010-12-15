@@ -140,11 +140,13 @@ NMI_Handler:
     B       .
     .size   NMI_Handler, . - NMI_Handler
 
-    .weak   HardFault_Handler
+
     .type   HardFault_Handler, %function
 HardFault_Handler:
-    B       .
+    MOV     R0, SP
+    B       HardFault_Handler_C
     .size   HardFault_Handler, . - HardFault_Handler
+
 
     .weak   MemManage_Handler
     .type   MemManage_Handler, %function
@@ -152,10 +154,11 @@ MemManage_Handler:
     B       .
     .size   MemManage_Handler, . - MemManage_Handler
 
-    .weak   BusFault_Handler
+
     .type   BusFault_Handler, %function
 BusFault_Handler:
-    B       .
+    MOV     R0, SP
+    B       BusFault_Handler_C
     .size   BusFault_Handler, . - BusFault_Handler
 
     .weak   UsageFault_Handler

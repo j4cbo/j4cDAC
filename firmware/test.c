@@ -4,6 +4,11 @@
 #include <lwip/init.h>
 #include <lwip/tcp.h>
 #include <lwip/dhcp.h>
+#include <string.h>
+#include <dac.h>
+
+#include <lpc17xx_gpdma.h>
+#include <lpc17xx_timer.h>
 
 volatile uint32_t time;
 volatile uint32_t halfsecond;
@@ -20,17 +25,17 @@ void delay_ms(uint16_t length) {
 	while (time < end);
 }
 
-char ether_data[] = {
-	0x00, 0x11, 0x22, 0x02, 0x03, 0x04,	// source mac
-	0xff, 0xff, 0xff, 0xff, 0xff, 0xff,	// dest mac
-	0x08, 0xFF,				// ethertype
-	0x12, 0x34, 0x56, 0x78,
-	0x12, 0x34, 0x56, 0x78,
-	0x12, 0x34, 0x56, 0x78,
-	0x12, 0x34, 0x56, 0x78,
-	0xf0, 0x0f, 0xc7, 0xc8 
-};
-	
+void HardFault_Handler_C(uint32_t *stack) {
+	outputf("*** HARD FAULT ***");
+	outputf("pc: %p", stack[6]);
+	while(1);
+}
+
+void BusFault_Handler_C(uint32_t *stack) {
+	outputf("*** BUS FAULT ***");
+	outputf("pc: %p", stack[6]);
+	while(1);
+}
 
 int main(int argc, char **argv) {
 	time = 0;
@@ -47,18 +52,47 @@ int main(int argc, char **argv) {
 	__enable_irq();
 
 	outputf("=== j4cDAC ===");
-
+	dac_init();
+/*
 	outputf("lwip_init()");
 	lwip_init();
 
 	outputf("eth_init()");
 	eth_init();
 
+*/
 	outputf("Entering main loop...");
 
+	dac_configure(30000);
 	int status = 0;
+	int ctr = 0;
 
 	while(1) {
+		uint16_t * ptr = 0;
+		int len = dac_request(&ptr);
+		if (len < 0) {
+			outputf("*** UNDERFLOW ***");
+			dac_configure(30000);
+		} else if (len > 0) {
+			int i;
+			for (i = 0; i < len; i++) {
+				ptr[i] = ctr & 0xFFF;
+				ctr += 2;
+			}
+			dac_advance(len);
+		}
+
+		if (!(LPC_GPIO1->FIOPIN & (1 << 26))) {
+			outputf("Blocking...");
+			while (!(LPC_GPIO1->FIOPIN & (1 << 26)));
+		}
+/*
+		outputf("ch0: %p -> %p", LPC_GPDMACH0->DMACCSrcAddr, LPC_GPDMACH0->DMACCDestAddr);
+		outputf("dmac: int %x, tc %x, er %x, rawinttc %x", LPC_GPDMA->DMACIntStat, LPC_GPDMA->DMACIntTCStat, LPC_GPDMA->DMACIntErrStat,
+			LPC_GPDMA->DMACRawIntTCStat);
+		outputf("dmac: rawinterr %x ena %x", LPC_GPDMA->DMACRawIntErrStat, LPC_GPDMA->DMACEnbldChns);
+		outputf("t3tc: %x dmaccfg %x ctrl %x", LPC_TIM3->TC, LPC_GPDMACH0->DMACCConfig, LPC_GPDMACH0->DMACCControl);
+continue;
 		if (status) {
 			LPC_GPIO0->FIOPIN = 1;
 			LPC_GPIO1->FIOPIN = 0;
@@ -88,5 +122,6 @@ int main(int argc, char **argv) {
 		}
 
 		eth_poll();
+*/
 	}
 }
