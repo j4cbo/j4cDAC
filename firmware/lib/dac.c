@@ -105,8 +105,8 @@ int dac_request(uint16_t **addrp) {
 		return -1;
 	}
 
-	outputf("d_r: sa %p b %p", LPC_GPDMACH0->DMACCSrcAddr, dac_buffer);
-	outputf("d_r: p %d, c %d", dac_produce, consume);
+//	outputf("d_r: sa %p b %p", LPC_GPDMACH0->DMACCSrcAddr, dac_buffer);
+//	outputf("d_r: p %d, c %d", dac_produce, consume);
 
 	*addrp = &dac_buffer[dac_produce];
 
@@ -125,7 +125,7 @@ int dac_request(uint16_t **addrp) {
 		ret = (consume - dac_produce) - 1;
 	}
 
-	if (ret == 0 && dac_state != DAC_STARTED) {
+	if (ret < 10 && dac_state != DAC_STARTED) {
 		dac_go();
 	}
 
