@@ -1,3 +1,11 @@
+/* j4cDAC DMA/DAC driver
+ *
+ * Jacob Potter
+ * December 2010
+ *
+ * Copyright (c) 2010 Jacob Potter. All rights reserved.
+ */
+
 #include <serial.h>
 #include <lpc17xx_pinsel.h>
 #include <lpc17xx_gpdma.h>
@@ -5,25 +13,12 @@
 #include <lpc17xx_pwm.h>
 #include <lpc17xx_clkpwr.h>
 #include <lpc17xx_timer.h>
-
 #include <dac.h>
+#include <assert.h>
 
-#define DAC_TIMER	LPC_TIM1
-
-#define AHB0 __attribute__((section(".ahb_sram_0")))
-
-#define BUFFER_WORDS		4000
-#define BUFFER_BYTES		(BUFFER_WORDS * 2)
-#define BUFFER_SEGMENTS		10
-
-#if (BUFFER_WORDS % BUFFER_SEGMENTS)
-#error BUFFER_SEGMENTS must evenly divide BUFFER_WORDS
-#endif
-
-#define WORDS_PER_SEGMENT	 (BUFFER_WORDS / BUFFER_SEGMENTS)
-
-GPDMA_LLI_Type dac_segments[BUFFER_SEGMENTS] AHB0;
-uint16_t dac_buffer[BUFFER_WORDS] AHB0;
+/* Pick our hardware. XXX: TIM1 is hardcoded elsewhere in this file. */
+#define DAC_TIMER		LPC_TIM1
+#define DAC_TIMER_PCLKSEL	CLKPWR_PCLKSEL_TIMER1
 
 /* We have a 40ms buffer.
  *
@@ -36,8 +31,49 @@ uint16_t dac_buffer[BUFFER_WORDS] AHB0;
  * 'next' pointer, so when it is reached, an underflow interrupt will be
  * triggered.
  */
+#define AHB0 __attribute__((section(".ahb_sram_0")))
 
+#define BUFFER_WORDS		16000
+#define BUFFER_BYTES		(BUFFER_WORDS * 2)
+#define BUFFER_SEGMENTS		32
+
+#if (BUFFER_WORDS % BUFFER_SEGMENTS)
+#error BUFFER_SEGMENTS must evenly divide BUFFER_WORDS
+#endif
+
+#define WORDS_PER_SEGMENT	 (BUFFER_WORDS / BUFFER_SEGMENTS)
+
+GPDMA_LLI_Type dac_segments[BUFFER_SEGMENTS] AHB0;
+uint16_t dac_buffer[BUFFER_WORDS] AHB0;
+
+/* Internal state. */
 int dac_produce;
+enum {
+	DAC_NOTREADY,
+	DAC_READY,
+	DAC_STARTED
+} dac_state;
+
+/* dac_go()
+ *
+ * Unsuspend the timers controlling the DAC.
+ */
+void dac_go() {
+	ASSERT_EQUAL(dac_state, DAC_READY);
+
+	outputf("dac: starting");
+
+	LPC_PWM1->TCR = PWM_TCR_COUNTER_ENABLE | PWM_TCR_PWM_ENABLE;
+	DAC_TIMER->TCR = TIM_ENABLE;
+
+	dac_state = DAC_STARTED;
+}
+
+
+void DMA_IRQHandler() {
+	outputf("WTF: DMA IRQ?");
+	while(1);
+}
 
 /* dac_request
  *
@@ -52,8 +88,27 @@ int dac_request(uint16_t **addrp) {
 	 * in DMACCSrcAdddr, but it's certainly not before that point. */
 	int bytes = (LPC_GPDMACH0->DMACCSrcAddr - ((uint32_t)dac_buffer));
 	int consume = bytes / 2;
+	int ret;
 
+	ASSERT(dac_state == DAC_READY || dac_state == DAC_STARTED);
+
+	if (dac_state != DAC_STARTED) {
+		/* If the DAC hasn't started yet, then the DMACCSrcAddr
+		 * register won't be quite valid. */
+		consume = 0;
+	}
+
+	if (!(LPC_GPDMACH0->DMACCConfig & GPDMA_DMACCxConfig_A)) {
+		/* Oops! We underflowed. */
+		outputf("d_r: underflow!");
+		dac_state = DAC_NOTREADY;
+		return -1;
+	}
+
+	outputf("d_r: sa %p b %p", LPC_GPDMACH0->DMACCSrcAddr, dac_buffer);
 	outputf("d_r: p %d, c %d", dac_produce, consume);
+
+	*addrp = &dac_buffer[dac_produce];
 
 	if (dac_produce >= consume) {
 		/* The read pointer is behind the write pointer, so we can
@@ -61,16 +116,21 @@ int dac_request(uint16_t **addrp) {
 		if (consume == 0) {
 			/* But not if consume = 0, since the buffer can only
 			 * ever become one word short of full. */
-			return BUFFER_WORDS - 1;
+			ret = (BUFFER_WORDS - dac_produce) - 1;
 		} else {
-			return BUFFER_WORDS - dac_produce;
+			ret = BUFFER_WORDS - dac_produce;
 		}
 	} else {
 		/* We can only fil up as far as the write pointer. */
-		return (consume - dac_produce) - 1;
+		ret = (consume - dac_produce) - 1;
 	}
-}
 
+	if (ret == 0 && dac_state != DAC_STARTED) {
+		dac_go();
+	}
+
+	return ret;
+}
 
 /* dac_advance
  *
@@ -81,8 +141,9 @@ int dac_request(uint16_t **addrp) {
  * than dac_request allowed, but it should not write *more*.
  */
 void dac_advance(int count) {
-	int new_produce = (dac_produce + count) % BUFFER_WORDS;
+	ASSERT(dac_state == DAC_READY || dac_state == DAC_STARTED);
 
+	int new_produce = (dac_produce + count) % BUFFER_WORDS;
 	int seg = dac_produce / WORDS_PER_SEGMENT;
 	int new_produce_seg = new_produce / WORDS_PER_SEGMENT;
 
@@ -90,6 +151,7 @@ void dac_advance(int count) {
 
 	/* If we're only partially filling the current segment, stop now */
 	if (seg == new_produce_seg) {
+		dac_produce = new_produce;
 		return;
 	}
 
@@ -102,6 +164,7 @@ void dac_advance(int count) {
 	 * one in which the produce index now resides. */
 	do {
 		/* Link in this segment */
+		dac_segments[next].NextLLI = 0;
 		dac_segments[seg].NextLLI = (uint32_t)&dac_segments[next];
 		seg = next;
 		next = (next + 1) % BUFFER_SEGMENTS;
@@ -110,12 +173,16 @@ void dac_advance(int count) {
 	dac_produce = new_produce;
 }
 
+/* dac_init
+ *
+ * Initialize the DAC. This must be called once after reset.
+ */
 void dac_init() {
 
-	/* Turn on the PWM peripheral */
+	/* Turn on the PWM and timer peripherals. */
 	CLKPWR_ConfigPPWR (CLKPWR_PCONP_PCPWM1, ENABLE);
 	CLKPWR_SetPCLKDiv (CLKPWR_PCLKSEL_PWM1, CLKPWR_PCLKSEL_CCLK_DIV_4);
-	CLKPWR_SetPCLKDiv (CLKPWR_PCLKSEL_TIMER1, CLKPWR_PCLKSEL_CCLK_DIV_4);
+	CLKPWR_SetPCLKDiv (DAC_TIMER_PCLKSEL, CLKPWR_PCLKSEL_CCLK_DIV_4);
 
 	/* Set up the SPI pins: SCLK, SYNC, DIN */
 	PINSEL_CFG_Type PinCfg;
@@ -129,8 +196,6 @@ void dac_init() {
 	PINSEL_ConfigPin(&PinCfg);
 	PinCfg.Pinnum = 9;
 	PINSEL_ConfigPin(&PinCfg);
-
-outputf("ldac");
 
 	/* ... and LDAC on the PWM peripheral */
 	PinCfg.Funcnum = 1;
@@ -161,37 +226,26 @@ dac_segments[i].NextLLI = (uint32_t)&dac_segments[i];
 			| GPDMA_DMACCxControl_SI;
 	}
 
-	for (i = 0; i < BUFFER_WORDS; i++) {
-		dac_buffer[i] = (1 << (i % 8));
-	}
-
 	/* Turn on the SSP peripheral */
 	SSP_CFG_Type SSP_ConfigStruct;
 	SSP_ConfigStructInit(&SSP_ConfigStruct);
 	SSP_ConfigStruct.CPOL = SSP_CR0_CPOL_HI;
 	SSP_ConfigStruct.CPHA = 0;
-	SSP_ConfigStruct.ClockRate = 2500000;
+	SSP_ConfigStruct.ClockRate = 25000000;
 	SSP_ConfigStruct.Databit = SSP_DATABIT_16;
 	SSP_ConfigStruct.Mode = SSP_MASTER_MODE;
 	SSP_Init(LPC_SSP1, &SSP_ConfigStruct);
 	SSP_Cmd(LPC_SSP1, ENABLE);
 
-outputf("dmacon");
-	dac_configure(3000);
-	return;
-
-	/* The buffer is initially empty. */
-
-	LPC_SSP1->DR = 0xC000;
-	delay_ms(1);
-
-	i = 0;
-	while(1) {
-		LPC_SSP1->DR = 0x6000 | (i & 0xFFF);
-		LPC_SSP1->DR = 0x7000 | (i & 0xFFF);
-		delay_ms(1);
-		i += 2;
+	/* Set all the DAC channels to zero... */
+	for (i = 0; i < 8; i++) {
+		LPC_SSP1->DR = (i << 12);
 	}
+
+	/* ... and then power it up. */
+	LPC_SSP1->DR = 0xC000;
+
+	dac_state = DAC_NOTREADY;
 }
 
 /* dac_configure
@@ -215,21 +269,24 @@ void dac_configure(int points_per_second) {
 
 	/* The LDAC low pulse must be at least 20ns long. At CCLK/4 = 24
 	 * MHz, one cycle is 42ns. */
-	LPC_PWM1->MR5 = (ticks_per_point * 9) / 10; // XXX for debugging
+	LPC_PWM1->MR5 = ticks_per_point - 1;
 
 	/* Now set up the timer similarly. */
 	DAC_TIMER->TCR = TIM_ENABLE | TIM_RESET;
 	DAC_TIMER->MR0 = ticks_per_point - 1;
 	DAC_TIMER->MCR = TIM_RESET_ON_MATCH(0);
 
-	/* mat1 */
+#if 0
+	/* This may be enabled for debugging - indicate timer match events
+	 * by toggling the corresponding pin. */
 	DAC_TIMER->EMR = TIM_EM_SET(0, TIM_EM_TOGGLE);
+#endif
 
 	/* Turn on the DMA controller */
 	LPC_GPDMA->DMACConfig = GPDMA_DMACConfig_E;
 
 	/* Something about synchronizers. WTF. */
-	LPC_GPDMA->DMACSync   = 1 << 10;
+	LPC_GPDMA->DMACSync = 1 << 10;
 
 	/* Use timer as input for DMA request line */
 	LPC_SC->DMAREQSEL = 0x5;
@@ -245,7 +302,8 @@ void dac_configure(int points_per_second) {
 		| GPDMA_DMACCxConfig_DestPeripheral(10)
                 | GPDMA_DMACCxConfig_TransferType(GPDMA_TRANSFERTYPE_M2P);
 
-	/* Go! */
-	LPC_PWM1->TCR = PWM_TCR_COUNTER_ENABLE | PWM_TCR_PWM_ENABLE;
-	DAC_TIMER->TCR = TIM_ENABLE;
+	/* Now everything is ready. The timers will be brought out of reset
+	 * in dac_go(). */
+	dac_produce = 0;
+	dac_state = DAC_READY;
 }

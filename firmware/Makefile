@@ -7,8 +7,12 @@ LDFLAGS = -Tlib/lpc17xx/lpc1758.lds -mcpu=cortex-m3 -mthumb
 # Cortex-M3 support code
 CFLAGS += -Ilib/core_cm3 -Ilib/lpc17xx
 OBJS += lib/core_cm3/core_cm3.o lib/lpc17xx/system_LPC17xx.o lib/lpc17xx/startup_LPC17xx.o \
+	test.o \
         drivers/source/lpc17xx_uart.o drivers/source/lpc17xx_clkpwr.o \
         drivers/source/lpc17xx_pinsel.o lib/serial.o
+
+# Application
+OBJS += lib/dac.o drivers/source/lpc17xx_ssp.o lib/panic.o
 
 # lwIP
 LWIP = lwip-1.3.2/src
@@ -25,9 +29,6 @@ OBJS += $(LWIP)/core/dhcp.o $(LWIP)/core/dns.o $(LWIP)/core/init.o \
 
 # Ethernet driver
 OBJS += lib/ether.o drivers/source/mdio.o
-
-# Application
-OBJS += test.o
 
 %.o: %.c
 	$(PREFIX)gcc $(CFLAGS) -c $< -o $@
@@ -47,4 +48,4 @@ clean:
 	rm -f j4cDAC.elf $(OBJS)
 
 flash:
-	~/lpc21isp/lpc21isp -debug5 j4cDAC.hex /dev/ttyUSB0 115200 14746
+	~/lpc21isp/lpc21isp -debug3 j4cDAC.hex /dev/ttyUSB0 115200 14746
