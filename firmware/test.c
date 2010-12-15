@@ -15,6 +15,8 @@ volatile uint32_t halfsecond;
 
 #define DEBUG_UART	((LPC_UART_TypeDef *)LPC_UART0)
 
+extern const unsigned char ildatest_bts[7164];
+
 void SysTick_Handler(void) {
 	time++;
 	if ((time % 500) == 0) halfsecond = 1;
@@ -74,10 +76,25 @@ int main(int argc, char **argv) {
 			outputf("*** UNDERFLOW ***");
 			dac_configure(30000);
 		} else if (len > 0) {
+			/* Trim to be multiple of 8 words */
+			len &= ~7;
+
 			int i;
-			for (i = 0; i < len; i++) {
-				ptr[i] = ctr & 0xFFF;
-				ctr += 2;
+			for (i = 0; i < len;) {
+				const unsigned char * w = &ildatest_bts[ctr];
+				/* X */
+				ptr[i] = ((w[3] << 4) & 0xF00) | w[4] | 0x6000; 
+				ptr[i + 1] = ((w[3] << 8) & 0xF00) | w[5] | 0x7000; 
+				ptr[i + 2] = w[0] | 0x4000;
+				ptr[i + 3] = w[1] | 0x3000;
+				ptr[i + 4] = w[2] | 0x2000;
+				ptr[i + 5] = 0;
+				ptr[i + 6] = 0;
+				ptr[i + 7] = 0;
+
+				i += 8;
+				ctr += 6;
+				if (ctr >= 7164) ctr = 0;
 			}
 			dac_advance(len);
 		}

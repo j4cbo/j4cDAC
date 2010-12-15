@@ -12,7 +12,7 @@ OBJS += lib/core_cm3/core_cm3.o lib/lpc17xx/system_LPC17xx.o lib/lpc17xx/startup
         drivers/source/lpc17xx_pinsel.o lib/serial.o
 
 # Application
-OBJS += lib/dac.o drivers/source/lpc17xx_ssp.o lib/panic.o
+OBJS += lib/dac.o drivers/source/lpc17xx_ssp.o lib/panic.o ildatest.o
 
 # lwIP
 LWIP = lwip-1.3.2/src
