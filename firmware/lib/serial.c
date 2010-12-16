@@ -31,24 +31,25 @@ void serial_init() {
 }
 
 void outputf(const char *fmt, ...) {
-        va_list va;
+	va_list va;
 	char buffer[80];
 	int n;
 
 	va_start(va, fmt);
 	n = vsnprintf(buffer, sizeof(buffer) - 2, fmt, va);
 
-	if (n > (sizeof(buffer) - 2)) n = sizeof(buffer) - 2;
+	if (n > (sizeof(buffer) - 2))
+		n = sizeof(buffer) - 2;
 
 	buffer[n] = '\r';
 	buffer[n + 1] = '\n';
 
-	UART_Send(DEBUG_UART, (uint8_t *)buffer, n + 2, BLOCKING);
+	UART_Send(DEBUG_UART, (uint8_t *) buffer, n + 2, BLOCKING);
 }
 
 static const char hexarr[] = "0123456789ABCDEF";
 
-void hexdump(const char * data, int len) {
+void hexdump(const char *data, int len) {
 	int i;
 	char c, buf[2];
 
@@ -56,6 +57,6 @@ void hexdump(const char * data, int len) {
 		c = data[i];
 		buf[0] = hexarr[c >> 4];
 		buf[1] = hexarr[c & 0xF];
-		UART_Send(DEBUG_UART, (uint8_t *)buf, 2, BLOCKING);
+		UART_Send(DEBUG_UART, (uint8_t *) buf, 2, BLOCKING);
 	}
 }
