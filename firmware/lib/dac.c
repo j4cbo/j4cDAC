@@ -72,7 +72,7 @@ void dac_go() {
 
 void DMA_IRQHandler() {
 	outputf("WTF: DMA IRQ?");
-	while(1);
+	while (1);
 }
 
 /* dac_request
@@ -82,11 +82,11 @@ void DMA_IRQHandler() {
  * This returns a number of words (not bytes) to be written. If the return
  * value is nonzero, addrp will have been set to the address to write to. 
  */
-int dac_request(uint16_t **addrp) {
+int dac_request(uint16_t ** addrp) {
 	/* Figure out where the current consume pointer is. The DMA
 	 * controller may have actually read past whatever is currently
 	 * in DMACCSrcAdddr, but it's certainly not before that point. */
-	int bytes = (LPC_GPDMACH0->DMACCSrcAddr - ((uint32_t)dac_buffer));
+	int bytes = (LPC_GPDMACH0->DMACCSrcAddr - ((uint32_t) dac_buffer));
 	int consume = bytes / 2;
 	int ret;
 
@@ -105,8 +105,10 @@ int dac_request(uint16_t **addrp) {
 		return -1;
 	}
 
-//	outputf("d_r: sa %p b %p", LPC_GPDMACH0->DMACCSrcAddr, dac_buffer);
-//	outputf("d_r: p %d, c %d", dac_produce, consume);
+/*
+	outputf("d_r: sa %p b %p", LPC_GPDMACH0->DMACCSrcAddr, dac_buffer);
+	outputf("d_r: p %d, c %d", dac_produce, consume);
+*/
 
 	*addrp = &dac_buffer[dac_produce];
 
@@ -165,7 +167,7 @@ void dac_advance(int count) {
 	do {
 		/* Link in this segment */
 		dac_segments[next].NextLLI = 0;
-		dac_segments[seg].NextLLI = (uint32_t)&dac_segments[next];
+		dac_segments[seg].NextLLI = (uint32_t) & dac_segments[next];
 		seg = next;
 		next = (next + 1) % BUFFER_SEGMENTS;
 	} while (next != new_produce_seg);
@@ -180,9 +182,9 @@ void dac_advance(int count) {
 void dac_init() {
 
 	/* Turn on the PWM and timer peripherals. */
-	CLKPWR_ConfigPPWR (CLKPWR_PCONP_PCPWM1, ENABLE);
-	CLKPWR_SetPCLKDiv (CLKPWR_PCLKSEL_PWM1, CLKPWR_PCLKSEL_CCLK_DIV_4);
-	CLKPWR_SetPCLKDiv (DAC_TIMER_PCLKSEL, CLKPWR_PCLKSEL_CCLK_DIV_4);
+	CLKPWR_ConfigPPWR(CLKPWR_PCONP_PCPWM1, ENABLE);
+	CLKPWR_SetPCLKDiv(CLKPWR_PCLKSEL_PWM1, CLKPWR_PCLKSEL_CCLK_DIV_4);
+	CLKPWR_SetPCLKDiv(DAC_TIMER_PCLKSEL, CLKPWR_PCLKSEL_CCLK_DIV_4);
 
 	/* Set up the SPI pins: SCLK, SYNC, DIN */
 	PINSEL_CFG_Type PinCfg;
@@ -209,12 +211,12 @@ void dac_init() {
 	PinCfg.Funcnum = 3;
 	PINSEL_ConfigPin(&PinCfg);
 
-outputf("dma setup");
 	/* Set up DMA. The buffer is initially unlinked. */
 	int i;
 	for (i = 0; i < BUFFER_SEGMENTS; i++) {
-		dac_segments[i].SrcAddr = (int32_t)&dac_buffer[i * WORDS_PER_SEGMENT];
-		dac_segments[i].DstAddr = (int32_t)&LPC_SSP1->DR;
+		dac_segments[i].SrcAddr = (int32_t)
+		    (&dac_buffer[i * WORDS_PER_SEGMENT]);
+		dac_segments[i].DstAddr = (int32_t) (&LPC_SSP1->DR);
 		dac_segments[i].NextLLI = 0;
 /* XXX: temporarily,  link each segment to itself. */
 dac_segments[i].NextLLI = (uint32_t)&dac_segments[i];
@@ -294,13 +296,13 @@ void dac_configure(int points_per_second) {
 	/* Enable DMA ch. 0 */
 	LPC_GPDMACH0->DMACCSrcAddr = dac_segments[0].SrcAddr;
 	LPC_GPDMACH0->DMACCDestAddr = dac_segments[0].DstAddr;
-	LPC_GPDMACH0->DMACCLLI = (uint32_t)&dac_segments[0];
+	LPC_GPDMACH0->DMACCLLI = (uint32_t) (&dac_segments[0]);
 	LPC_GPDMACH0->DMACCControl = dac_segments[0].Control;
 
 	/* Configure DMA ch. 0 */
 	LPC_GPDMACH0->DMACCConfig = GPDMA_DMACCxConfig_E
-		| GPDMA_DMACCxConfig_DestPeripheral(10)
-                | GPDMA_DMACCxConfig_TransferType(GPDMA_TRANSFERTYPE_M2P);
+	    | GPDMA_DMACCxConfig_DestPeripheral(10)
+	    | GPDMA_DMACCxConfig_TransferType(GPDMA_TRANSFERTYPE_M2P);
 
 	/* Now everything is ready. The timers will be brought out of reset
 	 * in dac_go(). */
