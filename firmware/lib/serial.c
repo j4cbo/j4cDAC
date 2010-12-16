@@ -23,7 +23,7 @@ void serial_init() {
 	UART_CFG_Type UARTConfigStruct;
 	UART_FIFO_CFG_Type UARTFIFOConfigStruct;
 	UART_ConfigStructInit(&UARTConfigStruct);
-	UARTConfigStruct.Baud_rate = 115200;
+	UARTConfigStruct.Baud_rate = 230400;
 	UART_Init(DEBUG_UART, &UARTConfigStruct);
 	UART_FIFOConfigStructInit(&UARTFIFOConfigStruct);
 	UART_FIFOConfig(DEBUG_UART, &UARTFIFOConfigStruct);

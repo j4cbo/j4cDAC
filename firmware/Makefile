@@ -48,4 +48,4 @@ clean:
 	rm -f j4cDAC.elf $(OBJS)
 
 flash:
-	~/lpc21isp/lpc21isp -debug3 j4cDAC.hex /dev/ttyUSB0 115200 14746
+	~/lpc21isp/lpc21isp -debug3 j4cDAC.hex /dev/ttyUSB0 230400 14746
