@@ -30,6 +30,10 @@ OBJS += $(LWIP)/core/dhcp.o $(LWIP)/core/dns.o $(LWIP)/core/init.o \
 # Ethernet driver
 OBJS += lib/ether.o drivers/source/mdio.o
 
+# FAT
+OBJS += lib/fatfs/ff.o lib/sdcard.o lib/fatfs/ccsbcs.o lib/fatfs/diskio.o
+CFLAGS += -Ilib/fatfs
+
 %.o: %.c
 	$(PREFIX)gcc $(CFLAGS) -c $< -o $@
 
