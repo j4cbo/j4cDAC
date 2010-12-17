@@ -1,4 +1,6 @@
 #include <LPC17xx.h>
+#include <diskio.h>
+#include <ff.h>
 #include <serial.h>
 #include "ether.h"
 #include <lwip/init.h>
@@ -13,13 +15,17 @@
 volatile uint32_t time;
 volatile uint32_t halfsecond;
 
+FATFS fs;
+char filename_buf[512];
+
 #define DEBUG_UART	((LPC_UART_TypeDef *)LPC_UART0)
 
 extern const unsigned char ildatest_bts[7164];
 
 void SysTick_Handler(void) {
 	time++;
-	if ((time % 500) == 0) halfsecond = 1;
+	if ((time % 500) == 0)
+		halfsecond = 1;
 }
 
 void delay_ms(uint16_t length) {
@@ -27,16 +33,68 @@ void delay_ms(uint16_t length) {
 	while (time < end);
 }
 
-void HardFault_Handler_C(uint32_t *stack) {
+void HardFault_Handler_C(uint32_t * stack) {
 	outputf("*** HARD FAULT ***");
 	outputf("pc: %p", stack[6]);
-	while(1);
+	while (1);
 }
 
-void BusFault_Handler_C(uint32_t *stack) {
+void BusFault_Handler_C(uint32_t * stack) {
 	outputf("*** BUS FAULT ***");
 	outputf("pc: %p", stack[6]);
-	while(1);
+	while (1);
+}
+
+void sd_init(void) {
+	int res = disk_initialize(0);
+	if (res) {
+		outputf("SD initialization failed: %d", res);
+		return;
+	}
+
+	/* This code sucks. It comes from the fatfs example code. */
+	memset(&fs, 0, sizeof(fs));
+	res = f_mount(0, &fs);
+	if (res) {
+		outputf("f_mount() failed: %d", res);
+		return;
+	}
+
+	DIR dir;
+	res = f_opendir(&dir, "");
+	if (res)
+		return;
+
+	FILINFO finfo;
+	int num_subdirs = 0, num_files = 0, total_size = 0;
+
+	while (1) {
+		finfo.lfname = filename_buf;
+		finfo.lfsize = sizeof(filename_buf);
+		res = f_readdir(&dir, &finfo);
+		if ((res != FR_OK) || !finfo.fname[0])
+			break;
+
+		if (finfo.fattrib & AM_DIR) {
+			num_subdirs++;
+		} else {
+			num_files++;
+			total_size += finfo.fsize;
+		}
+
+		outputf("%c%c%c%c%c %u/%02u/%02u %02u:%02u %9lu  %s  %s",
+			(finfo.fattrib & AM_DIR) ? 'D' : '-',
+			(finfo.fattrib & AM_RDO) ? 'R' : '-',
+			(finfo.fattrib & AM_HID) ? 'H' : '-',
+			(finfo.fattrib & AM_SYS) ? 'S' : '-',
+			(finfo.fattrib & AM_ARC) ? 'A' : '-',
+			(finfo.fdate >> 9) + 1980, (finfo.fdate >> 5) & 15,
+			finfo.fdate & 31, (finfo.ftime >> 11),
+			(finfo.ftime >> 5) & 63, finfo.fsize,
+			&(finfo.fname[0]), filename_buf);
+	}
+	outputf("%4u File(s),%10lu bytes total\n%4u Dir(s)",
+		num_files, total_size, num_subdirs);
 }
 
 int main(int argc, char **argv) {
@@ -54,23 +112,27 @@ int main(int argc, char **argv) {
 	__enable_irq();
 
 	outputf("=== j4cDAC ===");
+
+	outputf("dac_init()");
 	dac_init();
-/*
+
 	outputf("lwip_init()");
 	lwip_init();
 
 	outputf("eth_init()");
 	eth_init();
 
-*/
+	outputf("sd_init()");
+	sd_init();
+
 	outputf("Entering main loop...");
 
 	dac_configure(30000);
 	int status = 0;
 	int ctr = 0;
 
-	while(1) {
-		uint16_t * ptr = 0;
+	while (1) {
+		uint16_t *ptr = 0;
 		int len = dac_request(&ptr);
 		if (len < 0) {
 			outputf("*** UNDERFLOW ***");
@@ -81,10 +143,11 @@ int main(int argc, char **argv) {
 
 			int i;
 			for (i = 0; i < len;) {
-				const unsigned char * w = &ildatest_bts[ctr];
-				/* X */
-				ptr[i] = ((w[3] << 4) & 0xF00) | w[4] | 0x6000; 
-				ptr[i + 1] = ((w[3] << 8) & 0xF00) | w[5] | 0x7000; 
+				const unsigned char *w = &ildatest_bts[ctr];
+				ptr[i] =
+				    ((w[3] << 4) & 0xF00) | w[4] | 0x6000;
+				ptr[i + 1] =
+				    ((w[3] << 8) & 0xF00) | w[5] | 0x7000;
 				ptr[i + 2] = w[0] | 0x4000;
 				ptr[i + 3] = w[1] | 0x3000;
 				ptr[i + 4] = w[2] | 0x2000;
@@ -94,7 +157,8 @@ int main(int argc, char **argv) {
 
 				i += 8;
 				ctr += 6;
-				if (ctr >= 7164) ctr = 0;
+				if (ctr >= 7164)
+					ctr = 0;
 			}
 			dac_advance(len);
 		}
@@ -103,13 +167,7 @@ int main(int argc, char **argv) {
 			outputf("Blocking...");
 			while (!(LPC_GPIO1->FIOPIN & (1 << 26)));
 		}
-/*
-		outputf("ch0: %p -> %p", LPC_GPDMACH0->DMACCSrcAddr, LPC_GPDMACH0->DMACCDestAddr);
-		outputf("dmac: int %x, tc %x, er %x, rawinttc %x", LPC_GPDMA->DMACIntStat, LPC_GPDMA->DMACIntTCStat, LPC_GPDMA->DMACIntErrStat,
-			LPC_GPDMA->DMACRawIntTCStat);
-		outputf("dmac: rawinterr %x ena %x", LPC_GPDMA->DMACRawIntErrStat, LPC_GPDMA->DMACEnbldChns);
-		outputf("t3tc: %x dmaccfg %x ctrl %x", LPC_TIM3->TC, LPC_GPDMACH0->DMACCConfig, LPC_GPDMACH0->DMACCControl);
-continue;
+
 		if (status) {
 			LPC_GPIO0->FIOPIN = 1;
 			LPC_GPIO1->FIOPIN = 0;
@@ -139,6 +197,5 @@ continue;
 		}
 
 		eth_poll();
-*/
 	}
 }
