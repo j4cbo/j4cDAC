@@ -5,9 +5,11 @@
 
 #define LWIP_DEBUG	1
 #define DHCP_DEBUG	LWIP_DBG_ON | LWIP_DBG_TRACE
+/*
 #define MEMP_DEBUG	LWIP_DBG_ON | LWIP_DBG_TRACE
 #define PBUF_DEBUG	LWIP_DBG_ON | LWIP_DBG_TRACE
 #define MEM_DEBUG	LWIP_DBG_ON | LWIP_DBG_TRACE
+*/
 
 /* We have our own malloc. */
 #include <stdlib.h>
