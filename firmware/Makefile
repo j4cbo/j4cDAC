@@ -34,6 +34,8 @@ OBJS += lib/ether.o drivers/source/mdio.o
 OBJS += lib/fatfs/ff.o lib/sdcard.o lib/fatfs/ccsbcs.o lib/fatfs/diskio.o
 CFLAGS += -Ilib/fatfs
 
+all: j4cDAC.hex size
+
 %.o: %.c
 	$(PREFIX)gcc $(CFLAGS) -c $< -o $@
 
@@ -46,10 +48,13 @@ j4cDAC.hex: j4cDAC.elf
 j4cDAC.elf: $(OBJS)
 	$(PREFIX)gcc $(LDFLAGS) $(OBJS) -o j4cDAC.elf
 
-.PHONY: clean flash
+.PHONY: clean flash size
 
 clean:
 	rm -f j4cDAC.elf $(OBJS)
 
 flash:
 	~/lpc21isp/lpc21isp -debug3 j4cDAC.hex /dev/ttyUSB0 230400 14746
+
+size:
+	$(PREFIX)size -A j4cDAC.elf
