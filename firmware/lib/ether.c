@@ -34,12 +34,12 @@
 #define AHB0 __attribute__((section(".ahb_sram_0")))
 
 /* Transmit descriptors, receive descriptors, and receive buffers */
-static struct pbuf * eth_tx_pbufs[NUM_TX_DESC];
+static struct pbuf *eth_tx_pbufs[NUM_TX_DESC];
 static TX_Desc eth_tx_desc[NUM_TX_DESC] AHB0;
 static TX_Stat eth_tx_stat[NUM_TX_DESC] AHB0;
 static int eth_tx_free_consume = 0;
 
-static struct pbuf * eth_rx_pbufs[NUM_RX_BUF] AHB0;
+static struct pbuf *eth_rx_pbufs[NUM_RX_BUF] AHB0;
 static RX_Desc eth_rx_desc[NUM_RX_BUF] AHB0;
 static RX_Stat eth_rx_stat[NUM_RX_BUF] AHB0 __attribute__((aligned (8)));
 static int eth_rx_read_index = 0;
@@ -78,16 +78,16 @@ static int eth_init_descriptors() {
 	memset(&eth_rx_stat, 0, sizeof(eth_rx_stat));
 
 	/* Point the hardware at our descriptors. */
-	LPC_EMAC->TxDescriptor       = (uint32_t)&eth_tx_desc[0];
-	LPC_EMAC->TxStatus           = (uint32_t)&eth_tx_stat[0];
+	LPC_EMAC->TxDescriptor = (uint32_t) (&eth_tx_desc[0]);
+	LPC_EMAC->TxStatus = (uint32_t) (&eth_tx_stat[0]);
 	LPC_EMAC->TxDescriptorNumber = NUM_TX_DESC - 1;
-	LPC_EMAC->RxDescriptor       = (uint32_t)&eth_rx_desc[0];
-	LPC_EMAC->RxStatus           = (uint32_t)&eth_rx_stat[0];
+	LPC_EMAC->RxDescriptor = (uint32_t) (&eth_rx_desc[0]);
+	LPC_EMAC->RxStatus = (uint32_t) (&eth_rx_stat[0]);
 	LPC_EMAC->RxDescriptorNumber = NUM_RX_BUF - 1;
 
 	/* Reset produce and consume indices */
-	LPC_EMAC->TxProduceIndex  = 0;
-	LPC_EMAC->RxConsumeIndex  = 0;
+	LPC_EMAC->TxProduceIndex = 0;
+	LPC_EMAC->RxConsumeIndex = 0;
 
 	return 0;
 }
@@ -97,10 +97,10 @@ static int eth_init_descriptors() {
  *
  * Set the MAC address of the system.
  */
-static void eth_set_mac(uint8_t *addr) {
-	LPC_EMAC->SA0 = ((uint32_t)addr[5] << 8) | (uint32_t)addr[4];
-	LPC_EMAC->SA1 = ((uint32_t)addr[3] << 8) | (uint32_t)addr[2];
-	LPC_EMAC->SA2 = ((uint32_t)addr[1] << 8) | (uint32_t)addr[0];
+static void eth_set_mac(uint8_t * addr) {
+	LPC_EMAC->SA0 = ((uint32_t) addr[5] << 8) | (uint32_t) addr[4];
+	LPC_EMAC->SA1 = ((uint32_t) addr[3] << 8) | (uint32_t) addr[2];
+	LPC_EMAC->SA2 = ((uint32_t) addr[1] << 8) | (uint32_t) addr[0];
 }
 
 
