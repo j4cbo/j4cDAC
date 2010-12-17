@@ -1,0 +1,1 @@
+-kr -i8 -l78 -lc78 -brf -cp0 -il0
