@@ -218,14 +218,12 @@ void dac_init() {
 		    (&dac_buffer[i * WORDS_PER_SEGMENT]);
 		dac_segments[i].DstAddr = (int32_t) (&LPC_SSP1->DR);
 		dac_segments[i].NextLLI = 0;
-/* XXX: temporarily,  link each segment to itself. */
-dac_segments[i].NextLLI = (uint32_t)&dac_segments[i];
 		dac_segments[i].Control = WORDS_PER_SEGMENT
-			| GPDMA_DMACCxControl_SBSize(GPDMA_BSIZE_8)
-			| GPDMA_DMACCxControl_DBSize(GPDMA_BSIZE_8)
-			| GPDMA_DMACCxControl_SWidth(GPDMA_WIDTH_HALFWORD) 
-			| GPDMA_DMACCxControl_DWidth(GPDMA_WIDTH_HALFWORD) 
-			| GPDMA_DMACCxControl_SI;
+		    | GPDMA_DMACCxControl_SBSize(GPDMA_BSIZE_8)
+		    | GPDMA_DMACCxControl_DBSize(GPDMA_BSIZE_8)
+		    | GPDMA_DMACCxControl_SWidth(GPDMA_WIDTH_HALFWORD)
+		    | GPDMA_DMACCxControl_DWidth(GPDMA_WIDTH_HALFWORD)
+		    | GPDMA_DMACCxControl_SI;
 	}
 
 	/* Turn on the SSP peripheral */
