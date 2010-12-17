@@ -98,7 +98,7 @@ int dac_request(uint16_t ** addrp) {
 		consume = 0;
 	}
 
-	if (!(LPC_GPDMACH0->DMACCConfig & GPDMA_DMACCxConfig_A)) {
+	if (!(LPC_GPDMACH0->DMACCConfig & GPDMA_DMACCxConfig_E)) {
 		/* Oops! We underflowed. */
 		outputf("d_r: underflow!");
 		dac_state = DAC_NOTREADY;
