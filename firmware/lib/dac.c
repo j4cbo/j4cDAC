@@ -149,7 +149,7 @@ void dac_advance(int count) {
 	int seg = dac_produce / WORDS_PER_SEGMENT;
 	int new_produce_seg = new_produce / WORDS_PER_SEGMENT;
 
-	outputf("d_a: +%d, cs %d, ns %d", count, seg, new_produce_seg);
+//	outputf("d_a: +%d, cs %d, ns %d", count, seg, new_produce_seg);
 
 	/* If we're only partially filling the current segment, stop now */
 	if (seg == new_produce_seg) {
