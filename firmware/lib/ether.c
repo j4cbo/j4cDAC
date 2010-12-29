@@ -695,7 +695,7 @@ static int eth_capacity() {
 	return capacity;
 }
 
-err_t eth_transmit(void * _info, struct pbuf * p) {
+err_t eth_transmit(struct netif * _info, struct pbuf * p) {
 
 	/* Find the number of fragments in this pbuf */
 	int len = 0, n = 0;
