@@ -1,3 +1,20 @@
+/* j4cDAC test code
+ *
+ * Copyright 2010 Jacob Potter
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include <LPC17xx.h>
 #include <diskio.h>
 #include <ff.h>
@@ -8,6 +25,7 @@
 #include <lwip/dhcp.h>
 #include <string.h>
 #include <dac.h>
+#include <assert.h>
 
 #include <lpc17xx_gpdma.h>
 #include <lpc17xx_timer.h>
@@ -127,7 +145,7 @@ int main(int argc, char **argv) {
 
 	outputf("Entering main loop...");
 
-	dac_configure(30000);
+	ASSERT_EQUAL(dac_prepare(), 0);
 	int status = 0;
 	int ctr = 0;
 
@@ -136,8 +154,14 @@ int main(int argc, char **argv) {
 		int len = dac_request(&ptr);
 		if (len < 0) {
 			outputf("*** UNDERFLOW ***");
-			dac_configure(30000);
-		} else if (len > 0) {
+			dac_prepare();
+		}
+
+		if (len >= 0 && len < 10 && dac_get_state() != DAC_PLAYING) {
+			dac_start(30000);
+		}
+		 if (len > 0) {
+
 			int i;
 			for (i = 0; i < len;) {
 				const unsigned char *w = &ildatest_bts[ctr];

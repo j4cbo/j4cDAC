@@ -30,9 +30,18 @@ typedef struct dac_point {
 	uint16_t u2;
 } dac_point_t;
 
+enum dac_state {
+	DAC_IDLE = 0,
+	DAC_PREPARED = 1,
+	DAC_PLAYING = 2
+};
+
 void dac_init(void);
-void dac_configure(int points_per_second);
+
+int dac_prepare(void);
+int dac_start(int points_per_second);
 int dac_request(dac_point_t **addrp);
 void dac_advance(int count);
+enum dac_state dac_get_state(void);
 
 #endif
