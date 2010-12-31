@@ -24,6 +24,7 @@
 
 
 #include <stdint.h>
+#include <attrib.h>
 #include "LPC17xx.h"
 
 /*
@@ -477,6 +478,7 @@ void SystemCoreClockUpdate (void)            /* Get Core Clock Frequency      */
  * @brief  Setup the microcontroller system.
  *         Initialize the System.
  */
+void SystemInit (void) ATTR_VISIBLE;
 void SystemInit (void)
 {
 #if (CLOCK_SETUP)                       /* Clock Setup                        */

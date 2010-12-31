@@ -26,6 +26,7 @@
 #include <string.h>
 #include <dac.h>
 #include <assert.h>
+#include <attrib.h>
 
 #include <lpc17xx_gpdma.h>
 #include <lpc17xx_timer.h>
@@ -51,17 +52,32 @@ void delay_ms(uint16_t length) {
 	while (time < end);
 }
 
+void HardFault_Handler_C(uint32_t * stack) ATTR_VISIBLE;
 void HardFault_Handler_C(uint32_t * stack) {
 	outputf("*** HARD FAULT ***");
 	outputf("pc: %p", stack[6]);
 	while (1);
 }
 
+void BusFault_Handler_C(uint32_t * stack) ATTR_VISIBLE;
 void BusFault_Handler_C(uint32_t * stack) {
 	outputf("*** BUS FAULT ***");
 	outputf("pc: %p", stack[6]);
 	while (1);
 }
+
+struct periodic_event {
+	void (*f)(void);
+	int period;
+	const char *msg;
+} const events[] = {
+	{ tcp_tmr, 250, "TCP TICK" },
+	{ dhcp_coarse_tmr, 60000, "DHCP COARSE TICK" },
+	{ dhcp_fine_tmr, 500, "DHCP FINE TICK" },
+	{ 0, 0, 0 }
+};
+
+int events_last[sizeof(events) / sizeof(events[0])];
 
 void sd_init(void) {
 	int res = disk_initialize(0);
@@ -118,7 +134,7 @@ void sd_init(void) {
 int main(int argc, char **argv) {
 	time = 0;
 
-	uint32_t last_tcp_tick = 0, last_dhcp_coarse = 0, last_dhcp_fine = 0;
+	int i;
 
 	SysTick_Config(SystemCoreClock / 1000);
 	serial_init();
@@ -200,22 +216,12 @@ int main(int argc, char **argv) {
 			status = 1;
 		}
 
-		if (time > (last_tcp_tick + 250)) {
-			outputf("=== TCP TICK ===");
-			tcp_tmr();
-			last_tcp_tick += 250;
-		}
-
-		if (time > (last_dhcp_coarse + 60000)) {
-			outputf("=== DHCP COARSE TICK ===");
-			dhcp_coarse_tmr();
-			last_dhcp_coarse += 60000;
-		}
-
-		if (time > (last_dhcp_fine + 500)) {
-			outputf("=== DHCP FINE TICK ===");
-			dhcp_fine_tmr();
-			last_dhcp_fine += 500;
+		for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
+			if (time > events_last[i] + events[i].period) {
+				outputf("=== %s ===", events[i].msg);
+				events[i].f();
+				events_last[i] += events[i].period;
+			}
 		}
 
 		eth_poll();

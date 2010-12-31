@@ -26,12 +26,11 @@
 
 #include <ether.h>
 #include <ether_private.h>
+#include <attrib.h>
 
 #define NUM_TX_DESC	12
 #define NUM_RX_BUF	4
 #define RX_BUF_SIZE	1536
-
-#define AHB0 __attribute__((section(".ahb_sram_0")))
 
 /* Transmit descriptors, receive descriptors, and receive buffers */
 static struct pbuf *eth_tx_pbufs[NUM_TX_DESC];

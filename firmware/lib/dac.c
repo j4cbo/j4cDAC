@@ -25,6 +25,7 @@
 #include <ether.h>
 #include <dac.h>
 #include <assert.h>
+#include <attrib.h>
 #include <lightengine.h>
 
 /* Each point is 18 bytes. We buffer 1800 points = 32400 bytes.
@@ -32,8 +33,6 @@
  * This gives us up to 60ms at 30k, 45ms at 40k, 36ms at 50k, or 30ms at
  * 60k.
  */
-#define AHB0 __attribute__((section(".ahb_sram_0")))
-
 static dac_point_t dac_buffer[DAC_BUFFER_POINTS] AHB0;
 
 /* Internal state. */
