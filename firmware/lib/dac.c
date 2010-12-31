@@ -25,6 +25,7 @@
 #include <ether.h>
 #include <dac.h>
 #include <assert.h>
+#include <lightengine.h>
 
 /* Each point is 18 bytes. We buffer 1800 points = 32400 bytes.
  *
@@ -33,10 +34,7 @@
  */
 #define AHB0 __attribute__((section(".ahb_sram_0")))
 
-#define BUFFER_POINTS		1800
-#define BUFFER_BYTES		(BUFFER_POINTS * sizeof(dac_point_t))
-
-static dac_point_t dac_buffer[BUFFER_POINTS] AHB0;
+static dac_point_t dac_buffer[DAC_BUFFER_POINTS] AHB0;
 
 /* Internal state. */
 static int dac_produce;
@@ -103,9 +101,9 @@ int dac_request(dac_point_t ** addrp) {
 		if (consume == 0) {
 			/* But not if consume = 0, since the buffer can only
 			 * ever become one word short of full. */
-			ret = (BUFFER_POINTS - dac_produce) - 1;
+			ret = (DAC_BUFFER_POINTS - dac_produce) - 1;
 		} else {
-			ret = BUFFER_POINTS - dac_produce;
+			ret = DAC_BUFFER_POINTS - dac_produce;
 		}
 	} else {
 		/* We can only fil up as far as the write pointer. */
@@ -126,7 +124,7 @@ int dac_request(dac_point_t ** addrp) {
 void dac_advance(int count) {
 	ASSERT(dac_state == DAC_PREPARED || dac_state == DAC_PLAYING);
 
-	int new_produce = (dac_produce + count) % BUFFER_POINTS;
+	int new_produce = (dac_produce + count) % DAC_BUFFER_POINTS;
 
 	dac_produce = new_produce;
 }
@@ -211,6 +209,9 @@ int dac_prepare(void) {
 	if (dac_state != DAC_IDLE)
 		return -1;
 
+	if (le_get_state() != LIGHTENGINE_READY)
+		return -1;
+
 	dac_produce = 0;
 	dac_consume = 0;
 	dac_state = DAC_PREPARED;
@@ -274,7 +275,7 @@ void PWM1_IRQHandler(void) {
 
 	consume++;
 
-	if (consume > BUFFER_POINTS)
+	if (consume > DAC_BUFFER_POINTS)
 		consume = 0;
 
 	dac_consume = consume;
@@ -282,4 +283,15 @@ void PWM1_IRQHandler(void) {
 
 enum dac_state dac_get_state(void) {
 	return dac_state;
+}
+
+/* dac_fullness
+ *
+ * Returns the number of points currently in the buffer.
+ */
+int dac_fullness(void) {
+	int fullness = dac_produce - dac_consume;
+	if (fullness < 0)
+		fullness += DAC_BUFFER_POINTS;
+	return fullness;
 }

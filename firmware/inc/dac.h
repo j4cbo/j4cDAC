@@ -36,12 +36,16 @@ enum dac_state {
 	DAC_PLAYING = 2
 };
 
+#define DAC_BUFFER_POINTS	1800
+
 void dac_init(void);
 
 int dac_prepare(void);
 int dac_start(int points_per_second);
 int dac_request(dac_point_t **addrp);
 void dac_advance(int count);
+void dac_stop(void);
 enum dac_state dac_get_state(void);
+int dac_fullness(void);
 
 #endif
