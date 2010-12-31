@@ -48,4 +48,7 @@ void dac_stop(void);
 enum dac_state dac_get_state(void);
 int dac_fullness(void);
 
+extern int dac_current_pps;
+extern int dac_count;
+
 #endif

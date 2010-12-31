@@ -39,6 +39,8 @@ static dac_point_t dac_buffer[DAC_BUFFER_POINTS] AHB0;
 /* Internal state. */
 static int dac_produce;
 static volatile int dac_consume;
+int dac_current_pps;
+int dac_count;
 enum dac_state dac_state = DAC_IDLE;
 
 /* dac_start()
@@ -63,6 +65,7 @@ int dac_start(int points_per_second) {
 	LPC_PWM1->TCR = PWM_TCR_COUNTER_ENABLE | PWM_TCR_PWM_ENABLE;
 
 	dac_state = DAC_PLAYING;
+	dac_current_pps = points_per_second;
 
 	return 0;
 }
@@ -80,14 +83,6 @@ int dac_request(dac_point_t ** addrp) {
 
 	if (dac_state == DAC_IDLE)
 		return -1;
-
-	if (consume == -1) {
-		/* Oops! We underflowed. Shut off the timer. */
-		outputf("d_r: underflow!");
-		LPC_PWM1->TCR = PWM_TCR_COUNTER_RESET | PWM_TCR_COUNTER_ENABLE;
-		dac_state = DAC_IDLE;
-		return -1;
-	}
 
 /*
 	outputf("d_r: p %d, c %d", dac_produce, consume);
@@ -198,6 +193,8 @@ void dac_init() {
 	NVIC_EnableIRQ(PWM1_IRQn);
 
 	dac_state = DAC_IDLE;
+	dac_count = 0;
+	dac_current_pps = 0;
 }
 
 /* dac_configure
@@ -244,6 +241,8 @@ void dac_stop(void) {
 
 	/* Now, reset state */
 	dac_state = DAC_IDLE;
+	dac_count = 0;
+	dac_current_pps = 0;
 }
 
 void PWM1_IRQHandler(void) {
@@ -272,6 +271,8 @@ void PWM1_IRQHandler(void) {
 	LPC_SSP1->DR = (dac_buffer[consume].b >> 4) | 0x2000;
 	LPC_SSP1->DR = (dac_buffer[consume].u1 >> 4) | 0x1000;
 	LPC_SSP1->DR = (dac_buffer[consume].u2 >> 4);
+
+	dac_count++;
 
 	consume++;
 
