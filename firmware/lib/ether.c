@@ -871,3 +871,12 @@ void handle_packet(struct pbuf *p) {
 	}
 }
 
+/* This is very hacky. */
+void eth_get_mac(uint8_t *mac) {
+	mac[0] = EMAC_ADDR0;
+	mac[1] = EMAC_ADDR1;
+	mac[2] = EMAC_ADDR2;
+	mac[3] = EMAC_ADDR3;
+	mac[4] = EMAC_ADDR4;
+	mac[5] = EMAC_ADDR5;
+}
