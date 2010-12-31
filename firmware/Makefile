@@ -1,38 +1,41 @@
 PREFIX = arm-none-eabi-
 
-CFLAGS = -Iinc -Ilib/core_cm3 -Ilib/lpc17xx -Idrivers/include -fno-common -mcpu=cortex-m3 -mthumb -O3
+CFLAGS = -Iinc -Ilib/core_cm3 -Ilib/lpc17xx -Idrivers/include -fno-common -mcpu=cortex-m3 -mthumb -Os -g
 CFLAGS += -Wall
-LDFLAGS = -Tlib/lpc17xx/lpc1758.lds -mcpu=cortex-m3 -mthumb
+LDFLAGS = -Tlib/lpc17xx/lpc1758.lds -mcpu=cortex-m3 -mthumb -fwhole-program
 
 # Cortex-M3 support code
 CFLAGS += -Ilib/core_cm3 -Ilib/lpc17xx
-OBJS += lib/core_cm3/core_cm3.o lib/lpc17xx/system_LPC17xx.o lib/lpc17xx/startup_LPC17xx.o \
-	test.o \
-        drivers/source/lpc17xx_uart.o drivers/source/lpc17xx_clkpwr.o \
-        drivers/source/lpc17xx_pinsel.o lib/serial.o
+SRCS += lib/core_cm3/core_cm3.c lib/lpc17xx/system_LPC17xx.c lib/lpc17xx/startup_LPC17xx.s \
+	drivers/source/lpc17xx_clkpwr.c drivers/source/lpc17xx_pinsel.c \
+	drivers/source/lpc17xx_uart.c lib/serial.c test.c
 
 # Application
-OBJS += lib/dac.o drivers/source/lpc17xx_ssp.o lib/panic.o ildatest.o
+SRCS += lib/dac.c drivers/source/lpc17xx_ssp.c lib/panic.c ildatest.c lib/lightengine.c
 
 # lwIP
 LWIP = lwip-1.3.2/src
 CFLAGS += -Ilwip-1.3.2/src/include -Ilwip-1.3.2/src/include/ipv4
-OBJS += $(LWIP)/core/dhcp.o $(LWIP)/core/dns.o $(LWIP)/core/init.o \
-        $(LWIP)/core/mem.o $(LWIP)/core/memp.o $(LWIP)/core/netif.o \
-        $(LWIP)/core/pbuf.o $(LWIP)/core/raw.o $(LWIP)/core/stats.o \
-        $(LWIP)/core/sys.o $(LWIP)/core/tcp.o $(LWIP)/core/tcp_in.o \
-        $(LWIP)/core/tcp_out.o $(LWIP)/core/udp.o $(LWIP)/core/ipv4/autoip.o \
-	$(LWIP)/core/ipv4/icmp.o $(LWIP)/core/ipv4/igmp.o $(LWIP)/core/ipv4/inet.o \
-	$(LWIP)/core/ipv4/inet_chksum.o $(LWIP)/core/ipv4/ip_addr.o \
-        $(LWIP)/core/ipv4/ip.o $(LWIP)/core/ipv4/ip_frag.o \
-        $(LWIP)/netif/etharp.o
+SRCS += $(LWIP)/core/dhcp.c $(LWIP)/core/dns.c $(LWIP)/core/init.c \
+	$(LWIP)/core/memp.c $(LWIP)/core/netif.c \
+        $(LWIP)/core/pbuf.c $(LWIP)/core/raw.c $(LWIP)/core/stats.c \
+        $(LWIP)/core/sys.c $(LWIP)/core/tcp.c $(LWIP)/core/tcp_in.c \
+        $(LWIP)/core/tcp_out.c $(LWIP)/core/udp.c $(LWIP)/core/ipv4/autoip.c \
+	$(LWIP)/core/ipv4/icmp.c $(LWIP)/core/ipv4/igmp.c $(LWIP)/core/ipv4/inet.c \
+	$(LWIP)/core/ipv4/inet_chksum.c $(LWIP)/core/ipv4/ip_addr.c \
+        $(LWIP)/core/ipv4/ip.c $(LWIP)/core/ipv4/ip_frag.c \
+        $(LWIP)/netif/etharp.c
+
 
 # Ethernet driver
-OBJS += lib/ether.o drivers/source/mdio.o
+SRCS += lib/ether.c drivers/source/mdio.c
 
 # FAT
-OBJS += lib/fatfs/ff.o lib/sdcard.o lib/fatfs/ccsbcs.o lib/fatfs/diskio.o
+SRCS += lib/fatfs/ff.c lib/sdcard.c lib/fatfs/ccsbcs.c lib/fatfs/diskio.c
 CFLAGS += -Ilib/fatfs
+
+OBJS1 = $(SRCS:.c=.o)
+OBJS = $(OBJS1:.s=.o)
 
 all: j4cDAC.hex size
 
