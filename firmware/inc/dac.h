@@ -38,6 +38,10 @@ enum dac_state {
 
 #define DAC_BUFFER_POINTS	1800
 
+/* This is the maximum point rate that we advertise in our periodic
+ * broadcast packet. 100kpps ought to be enough for anyone. */
+#define DAC_MAX_POINT_RATE	100000
+
 void dac_init(void);
 
 int dac_prepare(void);
