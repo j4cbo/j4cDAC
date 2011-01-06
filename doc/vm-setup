@@ -1,0 +1,13 @@
+Start with debian-507-i386-netinst.iso; install a minimal system.
+
+As root:
+
+  apt-get install git-core sudo python-serial openssh-server wget bzip2 subversion
+  cd /usr/local
+  wget -O- http://www.codesourcery.com/sgpp/lite/arm/portal/package7813/public/arm-none-eabi/arm-2010.09-51-arm-none-eabi-i686-pc-linux-gnu.tar.bz2 | tar xvj
+  cd bin; for i in /usr/local/arm-2010.09/bin/*; do ln -s $i; done
+
+Then, as the user you've created:
+
+  git clone https://j4cbo@github.com/j4cbo/j4cDAC.git
+  svn co https://lpc21isp.svn.sourceforge.net/svnroot/lpc21isp
