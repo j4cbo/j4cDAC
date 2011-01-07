@@ -34,6 +34,8 @@ SRCS += lib/ether.c drivers/source/mdio.c
 SRCS += lib/fatfs/ff.c lib/sdcard.c lib/fatfs/ccsbcs.c lib/fatfs/diskio.c
 CFLAGS += -Ilib/fatfs
 
+SRCS += net/point-stream.c net/broadcast.c
+
 OBJS1 = $(SRCS:.c=.o)
 OBJS = $(OBJS1:.s=.o)
 
@@ -51,7 +53,7 @@ j4cDAC.hex: j4cDAC.elf
 j4cDAC.elf: $(OBJS)
 	$(PREFIX)gcc $(LDFLAGS) $(OBJS) -o j4cDAC.elf
 
-.PHONY: clean flash size
+.PHONY: clean flash size term
 
 clean:
 	rm -f j4cDAC.elf $(OBJS)
