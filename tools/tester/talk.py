@@ -1,0 +1,29 @@
+#!/usr/bin/env python
+#
+# j4cDAC test code
+#
+# Copyright 2011 Jacob Potter
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, version 3.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+import dac
+
+class NullPointStream(object):
+	def read(self, n):
+		return [(0, 0, 0, 0, 0)] * n
+
+#dac.find_dac()
+
+d = dac.DAC("10.0.0.10")
+
+d.play_stream(NullPointStream())
