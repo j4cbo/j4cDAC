@@ -26,7 +26,6 @@
 #define BROADCAST_PORT	7654
 
 static struct udp_pcb * broadcast_pcb;
-static struct pbuf * broadcast_pbuf;
 
 /* fill_status
  *
@@ -42,6 +41,7 @@ void fill_status(struct dac_status *status) {
 
 	status->playback_flags = 0;	// XXX TODO
 	status->source = 0;	// XXX TODO
+	status->source_flags = 0;	// XXX TODO
 }
 
 /* broadcast_init
@@ -57,8 +57,6 @@ void broadcast_init(void) {
 
 	udp_connect(broadcast_pcb, IP_ADDR_BROADCAST, BROADCAST_PORT);
 
-	broadcast_pbuf = pbuf_alloc(PBUF_TRANSPORT, sizeof(struct
-		dac_broadcast), PBUF_RAM);
 }
 
 /* broadcast_send
@@ -66,8 +64,21 @@ void broadcast_init(void) {
  * Fire off a broadcast packet with information about this DAC.
  */
 void broadcast_send(void) {
-	struct dac_broadcast *pkt = (struct dac_broadcast *)
-		broadcast_pbuf->payload;
+	/* Because lwip is an enormous steaming pile of the finest software
+	 * engineering, it is not possible to just allocate *one* pbuf
+	 * during initialization - udp_send modifies the pbuf it is given
+	 * and changes, among other things, its total length. (??!) So we
+	 * allocatea fresh one each time.
+	 */
+
+	struct pbuf * p = pbuf_alloc(PBUF_TRANSPORT, sizeof(struct
+		dac_broadcast), PBUF_RAM);
+
+	/* Shamefully bail out. */
+	if (!p)
+		return;
+
+	struct dac_broadcast *pkt = (struct dac_broadcast *) p->payload;
 
 	eth_get_mac(pkt->mac_address);
 	fill_status(&pkt->status);
@@ -77,5 +88,6 @@ void broadcast_send(void) {
 	pkt->hw_revision = 0;	// XXX TODO
 	pkt->sw_revision = 1;	// XXX TODO - integrate into build system
 
-	udp_send(broadcast_pcb, broadcast_pbuf);
+	udp_send(broadcast_pcb, p);
+	pbuf_free(p);
 }
