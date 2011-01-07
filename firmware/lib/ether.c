@@ -28,8 +28,8 @@
 #include <ether_private.h>
 #include <attrib.h>
 
-#define NUM_TX_DESC	12
-#define NUM_RX_BUF	4
+#define NUM_TX_DESC	10
+#define NUM_RX_BUF	12
 #define RX_BUF_SIZE	1536
 
 /* Transmit descriptors, receive descriptors, and receive buffers */
@@ -672,7 +672,7 @@ void eth_tx_cleanup() {
 	int last = eth_tx_free_consume;
 
 	while (last != consume) {
-		outputf("reclaiming pbuf %d: status 0x%08x", last, eth_tx_stat[last]);
+//		outputf("reclaiming pbuf %d: status 0x%08x", last, eth_tx_stat[last]);
 		pbuf_free(eth_tx_pbufs[last]);
 		eth_tx_pbufs[last] = 0;
 		last++;
@@ -685,7 +685,7 @@ void eth_tx_cleanup() {
 static int eth_capacity() {
 	int produce = LPC_EMAC->TxProduceIndex;
 	int consume = LPC_EMAC->TxConsumeIndex;
-	outputf("MAC: capacity: prod %d, cons %d", produce, consume);
+//	outputf("MAC: capacity: prod %d, cons %d", produce, consume);
 
 	int capacity = (consume - produce) - 1;
 	if (capacity < 0)
@@ -729,8 +729,6 @@ err_t eth_transmit(struct netif * _info, struct pbuf * p) {
 	for (; p; p = p->next) {
 		eth_tx_desc[produce].Packet = (uint32_t) p->payload;
 		eth_tx_desc[produce].Ctrl = (p->len - 1) | (p->next ? 0 : EMAC_TCTRL_LAST) | EMAC_TCTRL_INT;
-	outputf("ctrl: %08x to %d", eth_tx_desc[produce].Ctrl, produce);
-	outputf("packet: %08x to %d", eth_tx_desc[produce].Packet, produce);
 
 		pbuf_ref(p);
 		eth_tx_pbufs[produce] = p;
@@ -746,29 +744,28 @@ err_t eth_transmit(struct netif * _info, struct pbuf * p) {
 void eth_poll() {
 
 	int consume = LPC_EMAC->RxConsumeIndex;
+	int produce = LPC_EMAC->RxProduceIndex;
 	int readpos = eth_rx_read_index;
 	struct pbuf * p;
 
-	while (readpos != LPC_EMAC->RxProduceIndex) {
-		uint32_t status = eth_rx_stat[readpos].Info;
-		struct pbuf *p = eth_rx_pbufs[readpos];
+	int packets_waiting = produce - readpos;
+	if (packets_waiting < 0) packets_waiting += NUM_RX_BUF;
 
-		outputf("Rx packet %d: flags %08x, pbuf %08x",  consume, status, p);
+	if (!packets_waiting) return;
 
-		int length = (status & EMAC_RINFO_SIZE) + 1;
-		pbuf_realloc(p, length);
+	outputf("poll: %d in buffer: c/ri/p %d/%d/%d", packets_waiting, consume, readpos, produce);
 
-		readpos = (readpos + 1) % NUM_RX_BUF;
+	uint32_t status = eth_rx_stat[readpos].Info;
+	p = eth_rx_pbufs[readpos];
 
-//		outputf("Payload at %p, length %d", p->payload, length);
+	int length = (status & EMAC_RINFO_SIZE) + 1;
+	pbuf_realloc(p, length);
 
-//		hexdump(p->payload, length);
-//		outputf("");
+//	outputf("Rx %d: fl %08x, pbuf %08x, d %p/%d",  consume, status, p, p->payload, length);
 
-		handle_packet(p);
-	
-		outputf("after free: cons/ri/prod %d/%d/%d", consume, readpos, LPC_EMAC->RxProduceIndex);
-	}
+	readpos = (readpos + 1) % NUM_RX_BUF;
+
+	handle_packet(p);
 
 	while (consume != readpos) {
 		/* Try to allocate a new pbuf */
@@ -793,7 +790,7 @@ void eth_poll() {
 err_t eth_netif_init(struct netif *netif) { return ERR_OK; }
 
 void eth_init() {
-	static struct ip_addr ipa = { 0 } , netmask = { 0 } , gw = { 0 };
+	static struct ip_addr ipa = { 0x0a00000a } , netmask = { 0x00ffffff } , gw = { 0 };
 
 	/* Set up pins */
 	PINSEL_CFG_Type PinCfg;
@@ -845,7 +842,7 @@ void eth_init() {
 	netif_add(&ether_netif, &ipa, &netmask, &gw, NULL, eth_netif_init, ethernet_input);
 	netif_set_default(&ether_netif);
 	netif_set_up(&ether_netif);
-	dhcp_start(&ether_netif);
+	//dhcp_start(&ether_netif);
 
 	outputf("eth_init done");
 }

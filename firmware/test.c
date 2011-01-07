@@ -174,6 +174,7 @@ int main(int argc, char **argv) {
 	int ctr = 0;
 
 	while (1) {
+#if 0
 		dac_point_t *ptr = 0;
 		int len = dac_request(&ptr);
 		if (len < 0) {
@@ -208,6 +209,7 @@ int main(int argc, char **argv) {
 			}
 			dac_advance(len);
 		}
+#endif
 
 		if (!(LPC_GPIO1->FIOPIN & (1 << 26))) {
 			outputf("Blocking...");

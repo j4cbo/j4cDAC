@@ -55,11 +55,12 @@ static void close_conn(struct tcp_pcb *pcb, uint16_t reason) {
  * value is returned; otherwise, the error is propagated up.
  */
 static int RV send_resp(struct tcp_pcb *pcb, char resp, char cmd, int len) {
-	struct dac_response response = {
-		.response = resp,
-		.command = cmd
-	};
+	struct dac_response response;
+	response.response = resp;
+	response.command = cmd;
 	fill_status(&response.dac_status);
+
+	outputf("sr %c %c", resp, cmd);
 
 	err_t err = tcp_write(pcb, &response, sizeof(response),
 			      TCP_WRITE_FLAG_COPY);
@@ -90,6 +91,8 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 
 	switch (ps_state) {
 	case MAIN:
+		outputf("rc: m %c", *data);
+
 		switch (*data) {
 		case 'p':
 			/* Prepare stream. */
@@ -133,12 +136,18 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 
 			struct data_command *h = (struct data_command *) data;
 
-			ps_state = DATA;
-			ps_pointsleft = h->npoints;
+			if (h->npoints) {
+				ps_state = DATA;
+				ps_pointsleft = h->npoints;
 
-			/* We'll send a response once we've read all the
-			 * data. */
-			return sizeof(struct data_command);
+				/* We'll send a response once we've read all
+				 * of the data. */
+				return sizeof(struct data_command);
+			} else {
+				/* 0-length data packets are legit. */
+				return send_resp(pcb, RESP_ACK, cmd,
+					sizeof(struct data_command));
+			}
 
 		case 's':
 			/* Stop */
@@ -152,6 +161,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		case 0:
 		case 0xFF:
 			/* Emergency-stop. */
+			outputf("estop!");
 			le_estop(ESTOP_PACKET);
 			return send_resp(pcb, RESP_ACK, cmd, 1);
 
@@ -176,6 +186,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		return -1;
 
 	case DATA:
+	//	outputf("rc: d exp %d w/ %d", ps_pointsleft, len);
 		ASSERT_NOT_EQUAL(ps_pointsleft, 0);
 
 		/* We can only write a complete point at a time. */
@@ -225,6 +236,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 
 	case DATA_ABORTING:
 		ASSERT_NOT_EQUAL(ps_pointsleft, 0);
+		outputf("rc: ad exp %d ", ps_pointsleft);
 
 		/* We can only consume a complete point at a time. */
 		if (len < sizeof(struct dac_point))
@@ -270,6 +282,7 @@ err_t process_packet(void *arg, struct tcp_pcb * pcb, struct pbuf * pbuf,
 		int fsar = 0;
 
 		if (ps_buffered) {
+			outputf("%d lo", ps_buffered);
 			/* There's some leftover data from the last pbuf that
 			 * we processed, so copy it in first. */
 			int more = PS_BUFFER_SIZE - ps_buffered;
@@ -323,6 +336,7 @@ err_t process_packet(void *arg, struct tcp_pcb * pcb, struct pbuf * pbuf,
 				/* There isn't enough. */
 				ASSERT(data_left < PS_BUFFER_SIZE);
 				memcpy(ps_buffer, data_ptr, data_left);
+				ps_buffered = data_left;
 				data_left = 0;
 			} else if (fsar < 0) {
 				break;
@@ -340,8 +354,8 @@ err_t process_packet(void *arg, struct tcp_pcb * pcb, struct pbuf * pbuf,
 	}
 
 	/* Tell lwIP we're done with this packet. */
-	tcp_recved(pcb, p->tot_len);
-	pbuf_free(p);
+	tcp_recved(pcb, pbuf->tot_len);
+	pbuf_free(pbuf);
 
 	/* We might have some output to send, too? */
 	err_t ret = tcp_output(pcb);

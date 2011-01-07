@@ -16,7 +16,7 @@
 // </h>
 */
 
-    .equ    Stack_Size, 0x00000100
+    .equ    Stack_Size, 0x00000400
     .section ".stack", "w"
     .align  3
     .globl  __cs3_stack_mem
@@ -35,17 +35,17 @@ __cs3_stack_mem:
 // </h>
 */
 
-    .equ    Heap_Size,  0x00007000
+    .equ    Heap_Size,  0x00000000
     
     .section ".heap", "w"
     .align  3
+    .if     Heap_Size
     .globl  __cs3_heap_start
     .globl  __cs3_heap_end
 __cs3_heap_start:
-    .if     Heap_Size
     .space  Heap_Size
-    .endif
 __cs3_heap_end:
+    .endif
 
 
 /* Vector Table */

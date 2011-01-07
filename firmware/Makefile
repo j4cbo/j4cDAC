@@ -20,7 +20,7 @@ SRCS += lib/dac.c lib/panic.c ildatest.c lib/lightengine.c
 LWIP = lwip-1.3.2/src
 CFLAGS += -Ilwip-1.3.2/src/include -Ilwip-1.3.2/src/include/ipv4
 SRCS += $(LWIP)/core/dhcp.c $(LWIP)/core/dns.c $(LWIP)/core/init.c \
-	$(LWIP)/core/memp.c $(LWIP)/core/netif.c \
+	$(LWIP)/core/mem.c $(LWIP)/core/memp.c $(LWIP)/core/netif.c \
         $(LWIP)/core/pbuf.c $(LWIP)/core/raw.c $(LWIP)/core/stats.c \
         $(LWIP)/core/sys.c $(LWIP)/core/tcp.c $(LWIP)/core/tcp_in.c \
         $(LWIP)/core/tcp_out.c $(LWIP)/core/udp.c $(LWIP)/core/ipv4/autoip.c \
