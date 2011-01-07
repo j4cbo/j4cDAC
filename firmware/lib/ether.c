@@ -672,7 +672,9 @@ void eth_tx_cleanup() {
 	int last = eth_tx_free_consume;
 
 	while (last != consume) {
-//		outputf("reclaiming pbuf %d: status 0x%08x", last, eth_tx_stat[last]);
+#ifdef ETHER_SPEW
+		outputf("reclaiming pbuf %d: status 0x%08x", last, eth_tx_stat[last]);
+#endif
 		pbuf_free(eth_tx_pbufs[last]);
 		eth_tx_pbufs[last] = 0;
 		last++;
@@ -685,7 +687,10 @@ void eth_tx_cleanup() {
 static int eth_capacity() {
 	int produce = LPC_EMAC->TxProduceIndex;
 	int consume = LPC_EMAC->TxConsumeIndex;
-//	outputf("MAC: capacity: prod %d, cons %d", produce, consume);
+
+#ifdef ETHER_SPEW
+	outputf("MAC: capacity: prod %d, cons %d", produce, consume);
+#endif
 
 	int capacity = (consume - produce) - 1;
 	if (capacity < 0)
@@ -753,7 +758,9 @@ void eth_poll() {
 
 	if (!packets_waiting) return;
 
-	outputf("poll: %d in buffer: c/ri/p %d/%d/%d", packets_waiting, consume, readpos, produce);
+#ifdef ETHER_SPEW
+	outputf("p: %d %d/%d/%d", packets_waiting, consume, readpos, produce);
+#endif
 
 	uint32_t status = eth_rx_stat[readpos].Info;
 	p = eth_rx_pbufs[readpos];
@@ -761,7 +768,9 @@ void eth_poll() {
 	int length = (status & EMAC_RINFO_SIZE) + 1;
 	pbuf_realloc(p, length);
 
-//	outputf("Rx %d: fl %08x, pbuf %08x, d %p/%d",  consume, status, p, p->payload, length);
+#ifdef ETHER_SPEW
+	outputf("Rx %d: fl %08x, pbuf %08x, d %p/%d",  consume, status, p, p->payload, length);
+#endif
 
 	readpos = (readpos + 1) % NUM_RX_BUF;
 
@@ -820,7 +829,7 @@ void eth_init() {
 	Emac_Config.pbEMAC_Addr = EMACAddr;
 
 	outputf("EMAC_Init");
-       while (EMAC_Init(&Emac_Config) == ERROR){
+	while (EMAC_Init(&Emac_Config) == ERROR){
                  // Delay for a while then continue initializing EMAC module
                  outputf("Error during initializing EMAC, restart after a while");
 		int delay;
@@ -860,8 +869,13 @@ void handle_packet(struct pbuf *p) {
 		}
 		break;
 
+	case 0x86dd:
+		/* Ignore IPv6. */
+		pbuf_free(p);
+		break;
+
 	default:
-		outputf("Unhandled packet type %04x input", ethhdr->type);
+		outputf("Unknown ethertype %04x", ethhdr->type);
 		pbuf_free(p);
 		break;
 	}

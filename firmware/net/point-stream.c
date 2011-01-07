@@ -282,7 +282,6 @@ err_t process_packet(void *arg, struct tcp_pcb * pcb, struct pbuf * pbuf,
 		int fsar = 0;
 
 		if (ps_buffered) {
-			outputf("%d lo", ps_buffered);
 			/* There's some leftover data from the last pbuf that
 			 * we processed, so copy it in first. */
 			int more = PS_BUFFER_SIZE - ps_buffered;

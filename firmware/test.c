@@ -72,11 +72,12 @@ struct periodic_event {
 	void (*f)(void);
 	int period;
 	const char *msg;
+	int start;
 } const events[] = {
-	{ tcp_tmr, 250, "TCP TICK" },
-	{ dhcp_coarse_tmr, 60000, "DHCP COARSE TICK" },
-	{ dhcp_fine_tmr, 500, "DHCP FINE TICK" },
-	{ broadcast_send, 1000, "BROADCAST" }
+	{ tcp_tmr, 250, "tcp", 100 },
+	{ dhcp_coarse_tmr, 60000, "dhcp c", 35 },
+	{ dhcp_fine_tmr, 500, "dhcp f", 25 },
+	{ broadcast_send, 1000, "broadcast", 10 }
 };
 
 int events_last[sizeof(events) / sizeof(events[0])];
@@ -173,6 +174,10 @@ int main(int argc, char **argv) {
 	int status = 0;
 	int ctr = 0;
 
+	for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
+		events_last[i] = events[i].start + time;
+	}
+
 	while (1) {
 #if 0
 		dac_point_t *ptr = 0;
@@ -228,7 +233,7 @@ int main(int argc, char **argv) {
 
 		for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
 			if (time > events_last[i] + events[i].period) {
-				outputf("=== %s ===", events[i].msg);
+				outputf("++ %s ++", events[i].msg);
 				events[i].f();
 				events_last[i] += events[i].period;
 			}
