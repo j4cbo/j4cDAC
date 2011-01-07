@@ -61,3 +61,6 @@ flash:
 
 size:
 	$(PREFIX)size -A j4cDAC.elf
+
+term:
+	../tools/miniterm/miniterm.py -b 230400 -p /dev/ttyUSB0
