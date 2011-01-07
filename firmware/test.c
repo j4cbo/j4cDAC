@@ -27,6 +27,8 @@
 #include <dac.h>
 #include <assert.h>
 #include <attrib.h>
+#include <broadcast.h>
+#include <point-stream.h>
 
 #include <lpc17xx_gpdma.h>
 #include <lpc17xx_timer.h>
@@ -74,7 +76,7 @@ struct periodic_event {
 	{ tcp_tmr, 250, "TCP TICK" },
 	{ dhcp_coarse_tmr, 60000, "DHCP COARSE TICK" },
 	{ dhcp_fine_tmr, 500, "DHCP FINE TICK" },
-	{ 0, 0, 0 }
+	{ broadcast_send, 1000, "BROADCAST" }
 };
 
 int events_last[sizeof(events) / sizeof(events[0])];
@@ -158,6 +160,12 @@ int main(int argc, char **argv) {
 
 	outputf("sd_init()");
 	sd_init();
+
+	outputf("broadcast_init()");
+	broadcast_init();
+
+	outputf("ps_init()");
+	ps_init();
 
 	outputf("Entering main loop...");
 
