@@ -11,7 +11,7 @@ SRCS += lib/core_cm3/core_cm3.c lib/lpc17xx/system_LPC17xx.c lib/lpc17xx/startup
 	drivers/source/lpc17xx_uart.c lib/serial.c test.c
 
 # Application
-SRCS += lib/dac.c drivers/source/lpc17xx_ssp.c lib/panic.c ildatest.c lib/lightengine.c
+SRCS += lib/dac.c lib/panic.c ildatest.c lib/lightengine.c
 
 # lwIP
 LWIP = lwip-1.3.2/src

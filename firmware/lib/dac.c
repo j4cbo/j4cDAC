@@ -152,16 +152,10 @@ void dac_init() {
 	PinCfg.Pinnum = 4;
 	PINSEL_ConfigPin(&PinCfg);
 
-	/* Turn on the SSP peripheral */
-	SSP_CFG_Type SSP_ConfigStruct;
-	SSP_ConfigStructInit(&SSP_ConfigStruct);
-	SSP_ConfigStruct.CPOL = SSP_CR0_CPOL_HI;
-	SSP_ConfigStruct.CPHA = 0;
-	SSP_ConfigStruct.ClockRate = 25000000;
-	SSP_ConfigStruct.Databit = SSP_DATABIT_16;
-	SSP_ConfigStruct.Mode = SSP_MASTER_MODE;
-	SSP_Init(LPC_SSP1, &SSP_ConfigStruct);
-	SSP_Cmd(LPC_SSP1, ENABLE);
+	/* Turn on the SSP peripheral. */
+	LPC_SSP1->CR0 = 0xF | (1 << 6);	/* 16-bit, CPOL = 1; no prescale */
+	LPC_SSP1->CR1 = (1 << 1); /* Enable */
+	LPC_SSP1->CPSR = 4; /* Divide by 4 -> 24 MHz SPI clock */
 
 	/* Set all the DAC channels to zero except for X/Y, which default
 	 * to 0x800 (center). */
