@@ -52,7 +52,6 @@
 
 #include "lwip/udp.h"
 #include "lwip/def.h"
-#include "lwip/memp.h"
 #include "lwip/inet.h"
 #include "lwip/inet_chksum.h"
 #include "lwip/ip_addr.h"
@@ -140,13 +139,13 @@ udp_input(struct pbuf *p, struct netif *inp)
   if (dest == DHCP_CLIENT_PORT) {
     /* all packets for DHCP_CLIENT_PORT not coming from DHCP_SERVER_PORT are dropped! */
     if (src == DHCP_SERVER_PORT) {
-      if ((inp->dhcp != NULL) && (inp->dhcp->pcb != NULL)) {
+      if (inp->dhcp != NULL) {
         /* accept the packe if 
            (- broadcast or directed to us) -> DHCP is link-layer-addressed, local ip is always ANY!
            - inp->dhcp->pcb->remote == ANY or iphdr->src */
-        if ((ip_addr_isany(&inp->dhcp->pcb->remote_ip) ||
-           ip_addr_cmp(&(inp->dhcp->pcb->remote_ip), &(iphdr->src)))) {
-          pcb = inp->dhcp->pcb;
+        if ((ip_addr_isany(&inp->dhcp->pcb.remote_ip) ||
+           ip_addr_cmp(&(inp->dhcp->pcb.remote_ip), &(iphdr->src)))) {
+          pcb = &inp->dhcp->pcb;
         }
       }
     }
@@ -790,7 +789,6 @@ udp_remove(struct udp_pcb *pcb)
         pcb2->next = pcb->next;
       }
     }
-  memp_free(MEMP_UDP_PCB, pcb);
 }
 
 /**
@@ -801,21 +799,14 @@ udp_remove(struct udp_pcb *pcb)
  *
  * @see udp_remove()
  */
-struct udp_pcb *
-udp_new(void)
+void udp_new(struct udp_pcb *pcb)
 {
-  struct udp_pcb *pcb;
-  pcb = memp_malloc(MEMP_UDP_PCB);
-  /* could allocate UDP PCB? */
-  if (pcb != NULL) {
-    /* UDP Lite: by initializing to all zeroes, chksum_len is set to 0
-     * which means checksum is generated over the whole datagram per default
-     * (recommended as default by RFC 3828). */
-    /* initialize PCB to all zeroes */
-    memset(pcb, 0, sizeof(struct udp_pcb));
-    pcb->ttl = UDP_TTL;
-  }
-  return pcb;
+  /* UDP Lite: by initializing to all zeroes, chksum_len is set to 0
+   * which means checksum is generated over the whole datagram per default
+   * (recommended as default by RFC 3828). */
+  /* initialize PCB to all zeroes */
+  memset(pcb, 0, sizeof(struct udp_pcb));
+  pcb->ttl = UDP_TTL;
 }
 
 #if UDP_DEBUG

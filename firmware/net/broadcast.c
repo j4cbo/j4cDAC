@@ -25,7 +25,7 @@
 
 #define BROADCAST_PORT	7654
 
-static struct udp_pcb * broadcast_pcb;
+static struct udp_pcb broadcast_pcb;
 
 /* fill_status
  *
@@ -49,13 +49,11 @@ void fill_status(struct dac_status *status) {
  * This must be called before the periodic DAC broadcasts begin.
  */
 void broadcast_init(void) {
-	broadcast_pcb = udp_new();
+	udp_new(&broadcast_pcb);
 
-	ASSERT_NOT_NULL(broadcast_pcb);
+	udp_bind(&broadcast_pcb, IP_ADDR_ANY, BROADCAST_PORT);
 
-	udp_bind(broadcast_pcb, IP_ADDR_ANY, BROADCAST_PORT);
-
-	udp_connect(broadcast_pcb, IP_ADDR_BROADCAST, BROADCAST_PORT);
+	udp_connect(&broadcast_pcb, IP_ADDR_BROADCAST, BROADCAST_PORT);
 
 }
 
@@ -88,6 +86,6 @@ void broadcast_send(void) {
 	pkt->hw_revision = 0;	// XXX TODO
 	pkt->sw_revision = 1;	// XXX TODO - integrate into build system
 
-	udp_send(broadcast_pcb, p);
+	udp_send(&broadcast_pcb, p);
 	pbuf_free(p);
 }

@@ -27,7 +27,7 @@ struct dhcp
   /** transaction identifier of last sent request */ 
   u32_t xid;
   /** our connection to the DHCP server */ 
-  struct udp_pcb *pcb;
+  struct udp_pcb pcb;
   /** incoming msg */
   struct dhcp_msg *msg_in;
   /** incoming msg options */
