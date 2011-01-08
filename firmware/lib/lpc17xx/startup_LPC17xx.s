@@ -144,8 +144,8 @@ NMI_Handler:
     .type   HardFault_Handler, %function
 HardFault_Handler:
     MOV     R0, SP
-    LDR     R0, =HardFault_Handler_C
-    BX      R0
+    LDR     R1, =HardFault_Handler_C
+    BX      R1
     .size   HardFault_Handler, . - HardFault_Handler
 
 
@@ -159,8 +159,8 @@ MemManage_Handler:
     .type   BusFault_Handler, %function
 BusFault_Handler:
     MOV     R0, SP
-    LDR     R0, =BusFault_Handler_C
-    BX      R0
+    LDR     R1, =BusFault_Handler_C
+    BX      R1
     .size   BusFault_Handler, . - BusFault_Handler
 
     .weak   UsageFault_Handler

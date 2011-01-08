@@ -37,7 +37,7 @@ volatile uint32_t time;
 volatile uint32_t halfsecond;
 
 FATFS fs;
-char filename_buf[512];
+char filename_buf[256];
 
 #define DEBUG_UART	((LPC_UART_TypeDef *)LPC_UART0)
 
@@ -57,7 +57,11 @@ void delay_ms(uint16_t length) {
 void HardFault_Handler_C(uint32_t * stack) ATTR_VISIBLE;
 void HardFault_Handler_C(uint32_t * stack) {
 	outputf("*** HARD FAULT ***");
-	outputf("pc: %p", stack[6]);
+	outputf("stack: %p", stack);
+	int i;
+	for (i = 0; i < 32; i++) {
+		outputf("stack[%d]: %p", i, stack[i]);
+	}
 	while (1);
 }
 
