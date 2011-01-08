@@ -37,7 +37,7 @@ SRCS += lib/ether.c drivers/source/mdio.c
 SRCS += lib/fatfs/ff.c lib/sdcard.c lib/fatfs/ccsbcs.c lib/fatfs/diskio.c
 CFLAGS += -Ilib/fatfs
 
-SRCS += net/point-stream.c net/broadcast.c
+SRCS += net/point-stream.c net/broadcast.c net/sink.c
 
 OBJS1 = $(SRCS:.c=.o)
 OBJS = $(OBJS1:.s=.o)

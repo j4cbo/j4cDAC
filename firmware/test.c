@@ -82,6 +82,8 @@ struct periodic_event {
 
 int events_last[sizeof(events) / sizeof(events[0])];
 
+void sink_init(void);
+
 void sd_init(void) {
 	int res = disk_initialize(0);
 	if (res) {
@@ -167,6 +169,9 @@ int main(int argc, char **argv) {
 
 	outputf("ps_init()");
 	ps_init();
+
+	outputf("sink_init()");
+	sink_init();
 
 	outputf("Entering main loop...");
 
