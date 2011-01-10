@@ -28,9 +28,9 @@
 #include <ether_private.h>
 #include <attrib.h>
 
-#define NUM_TX_DESC	10
+#define NUM_TX_DESC	6
 #define NUM_RX_BUF	12
-#define RX_BUF_SIZE	1536
+#define RX_BUF_SIZE	1528
 
 /* Transmit descriptors, receive descriptors, and receive buffers */
 static struct pbuf *eth_tx_pbufs[NUM_TX_DESC];
@@ -798,8 +798,11 @@ void eth_poll() {
 
 err_t eth_netif_init(struct netif *netif) { return ERR_OK; }
 
+struct dhcp dhcp_state;
+
 void eth_init() {
-	static struct ip_addr ipa = { 0x0a00000a } , netmask = { 0x00ffffff } , gw = { 0 };
+//	static struct ip_addr ipa = { 0x0a00000a } , netmask = { 0x00ffffff } , gw = { 0 };
+	static struct ip_addr ipa = { 0 } , netmask = { 0 } , gw = { 0 };
 
 	/* Set up pins */
 	PINSEL_CFG_Type PinCfg;
@@ -851,7 +854,7 @@ void eth_init() {
 	netif_add(&ether_netif, &ipa, &netmask, &gw, NULL, eth_netif_init, ethernet_input);
 	netif_set_default(&ether_netif);
 	netif_set_up(&ether_netif);
-	//dhcp_start(&ether_netif);
+	dhcp_start(&ether_netif, &dhcp_state);
 
 	outputf("eth_init done");
 }

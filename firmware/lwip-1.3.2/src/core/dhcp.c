@@ -69,6 +69,8 @@
  */
 
 #include "lwip/opt.h"
+#include <assert.h>
+#include <skub.h>
 
 #if LWIP_DHCP /* don't build if not configured for use in lwipopts.h */
 
@@ -580,13 +582,14 @@ dhcp_handle_ack(struct netif *netif)
  * - ERR_MEM - Out of memory
  */
 err_t
-dhcp_start(struct netif *netif)
+dhcp_start(struct netif *netif, struct dhcp *dhcp)
 {
-  struct dhcp *dhcp;
   err_t result = ERR_OK;
 
   LWIP_ERROR("netif != NULL", (netif != NULL), return ERR_ARG;);
-  dhcp = netif->dhcp;
+
+  ASSERT_NULL(netif->dhcp);
+
   LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("dhcp_start(netif=%p) %c%c%"U16_F"\n", (void*)netif, netif->name[0], netif->name[1], (u16_t)netif->num));
   /* Remove the flag that says this netif is handled by DHCP,
      it is set when we succeeded starting. */
@@ -598,26 +601,9 @@ dhcp_start(struct netif *netif)
     return ERR_MEM;
   }
 
-  /* no DHCP client attached yet? */
-  if (dhcp == NULL) {
-    LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE, ("dhcp_start(): starting new DHCP client\n"));
-    dhcp = mem_malloc(sizeof(struct dhcp));
-    if (dhcp == NULL) {
-      LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE, ("dhcp_start(): could not allocate dhcp\n"));
-      return ERR_MEM;
-    }
-    /* store this dhcp client in the netif */
-    netif->dhcp = dhcp;
-    LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE, ("dhcp_start(): allocated dhcp"));
-  /* already has DHCP client attached */
-  } else {
-    LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("dhcp_start(): restarting DHCP configuration\n"));
-    udp_remove(&dhcp->pcb);
-    LWIP_ASSERT("pbuf p_out wasn't freed", dhcp->p_out == NULL);
-    LWIP_ASSERT("reply wasn't freed", dhcp->msg_in == NULL &&
-      dhcp->options_in == NULL && dhcp->options_in_len == 0);
-  }
-    
+  /* store this dhcp client in the netif */
+  netif->dhcp = dhcp;
+
   /* clear data structure */
   memset(dhcp, 0, sizeof(struct dhcp));
   /* allocate UDP PCB */
@@ -791,7 +777,6 @@ dhcp_decline(struct netif *netif)
   return result;
 }
 #endif
-
 
 /**
  * Start the DHCP process, discover a DHCP server.
@@ -1192,7 +1177,6 @@ dhcp_stop(struct netif *netif)
     udp_remove(&dhcp->pcb);
     LWIP_ASSERT("reply wasn't freed", dhcp->msg_in == NULL &&
       dhcp->options_in == NULL && dhcp->options_in_len == 0);
-    mem_free((void *)dhcp);
     netif->dhcp = NULL;
   }
 }
@@ -1274,7 +1258,7 @@ dhcp_unfold_reply(struct dhcp *dhcp, struct pbuf *p)
   /* options present? */
   if (p->tot_len > (sizeof(struct dhcp_msg) - DHCP_OPTIONS_LEN)) {
     dhcp->options_in_len = p->tot_len - (sizeof(struct dhcp_msg) - DHCP_OPTIONS_LEN);
-    dhcp->options_in = mem_malloc(dhcp->options_in_len);
+    dhcp->options_in = skub_alloc_sz(dhcp->options_in_len);
     if (dhcp->options_in == NULL) {
       LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_SERIOUS,
         ("dhcp_unfold_reply(): could not allocate dhcp->options\n"));
@@ -1282,12 +1266,12 @@ dhcp_unfold_reply(struct dhcp *dhcp, struct pbuf *p)
       return ERR_MEM;
     }
   }
-  dhcp->msg_in = mem_malloc(sizeof(struct dhcp_msg) - DHCP_OPTIONS_LEN);
+  dhcp->msg_in = skub_alloc_sz(sizeof(struct dhcp_msg) - DHCP_OPTIONS_LEN);
   if (dhcp->msg_in == NULL) {
     LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_SERIOUS,
       ("dhcp_unfold_reply(): could not allocate dhcp->msg_in\n"));
     if (dhcp->options_in != NULL) {
-      mem_free(dhcp->options_in);
+      skub_free_sz(dhcp->options_in);
       dhcp->options_in = NULL;
       dhcp->options_in_len = 0;
     }
@@ -1318,11 +1302,11 @@ dhcp_unfold_reply(struct dhcp *dhcp, struct pbuf *p)
 static void dhcp_free_reply(struct dhcp *dhcp)
 {
   if (dhcp->msg_in != NULL) {
-    mem_free((void *)dhcp->msg_in);
+    skub_free_sz((void *)dhcp->msg_in);
     dhcp->msg_in = NULL;
   }
   if (dhcp->options_in) {
-    mem_free(dhcp->options_in);
+    skub_free_sz(dhcp->options_in);
     dhcp->options_in = NULL;
     dhcp->options_in_len = 0;
   }

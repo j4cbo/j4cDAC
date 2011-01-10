@@ -113,7 +113,7 @@ PACK_STRUCT_END
 #endif
 
 /** start DHCP configuration */
-err_t dhcp_start(struct netif *netif);
+err_t dhcp_start(struct netif *netif, struct dhcp *dhcp);
 /** enforce early lease renewal (not needed normally)*/
 err_t dhcp_renew(struct netif *netif);
 /** release the DHCP lease, usually called before dhcp_stop()*/

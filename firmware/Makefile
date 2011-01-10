@@ -19,15 +19,16 @@ SRCS += lib/dac.c lib/panic.c ildatest.c lib/lightengine.c
 # lwIP
 LWIP = lwip-1.3.2/src
 CFLAGS += -Ilwip-1.3.2/src/include -Ilwip-1.3.2/src/include/ipv4
-SRCS += $(LWIP)/core/dhcp.c $(LWIP)/core/dns.c $(LWIP)/core/init.c \
-	$(LWIP)/core/mem.c $(LWIP)/core/memp.c $(LWIP)/core/netif.c \
+SRCS += $(LWIP)/core/dns.c $(LWIP)/core/init.c $(LWIP)/core/netif.c \
         $(LWIP)/core/pbuf.c $(LWIP)/core/raw.c $(LWIP)/core/stats.c \
         $(LWIP)/core/sys.c $(LWIP)/core/tcp.c $(LWIP)/core/tcp_in.c \
         $(LWIP)/core/tcp_out.c $(LWIP)/core/udp.c $(LWIP)/core/ipv4/autoip.c \
 	$(LWIP)/core/ipv4/icmp.c $(LWIP)/core/ipv4/igmp.c $(LWIP)/core/ipv4/inet.c \
 	$(LWIP)/core/ipv4/inet_chksum.c $(LWIP)/core/ipv4/ip_addr.c \
         $(LWIP)/core/ipv4/ip.c $(LWIP)/core/ipv4/ip_frag.c \
-        $(LWIP)/netif/etharp.c
+        $(LWIP)/netif/etharp.c $(LWIP)/core/dhcp.c
+
+SRCS += lib/skub.c
 
 
 # Ethernet driver

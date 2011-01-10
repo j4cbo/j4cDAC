@@ -45,7 +45,7 @@
 #include "lwip/tcp.h"
 #include "lwip/def.h"
 #include "lwip/mem.h"
-#include "lwip/memp.h"
+#include <skub.h>
 #include "lwip/sys.h"
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
@@ -218,7 +218,7 @@ tcp_enqueue(struct tcp_pcb *pcb, void *arg, u16_t len,
     seglen = left > (pcb->mss - optlen) ? (pcb->mss - optlen) : left;
 
     /* Allocate memory for tcp_seg, and fill in fields. */
-    seg = memp_malloc(MEMP_TCP_SEG);
+    seg = skub_alloc(SKUB_TCP_SEG);
     if (seg == NULL) {
       LWIP_DEBUGF(TCP_OUTPUT_DEBUG | LWIP_DBG_LEVEL_SERIOUS, 
                   ("tcp_enqueue: could not allocate memory for tcp_seg\n"));
@@ -384,7 +384,7 @@ tcp_enqueue(struct tcp_pcb *pcb, void *arg, u16_t len,
       seg = useg;
       seglen = useg->len;
     }
-    memp_free(MEMP_TCP_SEG, queue);
+    skub_free(SKUB_TCP_SEG, queue);
   }
   else {
     /* empty list */

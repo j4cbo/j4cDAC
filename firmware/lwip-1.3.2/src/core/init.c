@@ -239,8 +239,8 @@ lwip_init(void)
   /* Modules initialization */
   stats_init();
   sys_init();
-  mem_init();
-  memp_init();
+  // mem_init();
+  // memp_init();
   pbuf_init();
   netif_init();
 #if LWIP_SOCKET

@@ -49,11 +49,6 @@ void fill_status(struct dac_status *status) {
  * This must be called before the periodic DAC broadcasts begin.
  */
 void broadcast_init(void) {
-	udp_new(&broadcast_pcb);
-
-	udp_bind(&broadcast_pcb, IP_ADDR_ANY, BROADCAST_PORT);
-
-	udp_connect(&broadcast_pcb, IP_ADDR_BROADCAST, BROADCAST_PORT);
 
 }
 
@@ -68,6 +63,12 @@ void broadcast_send(void) {
 	 * and changes, among other things, its total length. (??!) So we
 	 * allocatea fresh one each time.
 	 */
+
+	udp_new(&broadcast_pcb);
+
+	udp_bind(&broadcast_pcb, IP_ADDR_ANY, BROADCAST_PORT);
+
+	udp_connect(&broadcast_pcb, IP_ADDR_BROADCAST, BROADCAST_PORT);
 
 	struct pbuf * p = pbuf_alloc(PBUF_TRANSPORT, sizeof(struct
 		dac_broadcast), PBUF_RAM);
@@ -88,4 +89,6 @@ void broadcast_send(void) {
 
 	udp_send(&broadcast_pcb, p);
 	pbuf_free(p);
+
+	udp_remove(&broadcast_pcb);
 }

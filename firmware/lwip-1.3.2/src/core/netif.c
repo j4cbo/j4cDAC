@@ -559,7 +559,7 @@ netif_loop_output(struct netif *netif, struct pbuf *p,
   LWIP_UNUSED_ARG(ipaddr);
 
   /* Allocate a new pbuf */
-  r = pbuf_alloc(PBUF_LINK, p->tot_len, PBUF_RAM);
+  r = pbuf_alloc(PBUF_LINK, p->tot_len, PBUF_POOL);
   if (r == NULL) {
     return ERR_MEM;
   }

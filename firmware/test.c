@@ -23,12 +23,14 @@
 #include <lwip/init.h>
 #include <lwip/tcp.h>
 #include <lwip/dhcp.h>
+#include <ipv4/lwip/autoip.h>
 #include <string.h>
 #include <dac.h>
 #include <assert.h>
 #include <attrib.h>
 #include <broadcast.h>
 #include <point-stream.h>
+#include <skub.h>
 
 #include <lpc17xx_gpdma.h>
 #include <lpc17xx_timer.h>
@@ -81,6 +83,7 @@ struct periodic_event {
 	{ tcp_tmr, 250, "tcp", 100 },
 	{ dhcp_coarse_tmr, 60000, "dhcp c", 35 },
 	{ dhcp_fine_tmr, 500, "dhcp f", 25 },
+	{ autoip_tmr, AUTOIP_TMR_INTERVAL, "autoip", 10 },
 	{ broadcast_send, 1000, "broadcast", 10 }
 };
 
@@ -155,6 +158,9 @@ int main(int argc, char **argv) {
 	__enable_irq();
 
 	outputf("=== j4cDAC ===");
+
+	outputf("skub_init()");
+	skub_init();
 
 	outputf("dac_init()");
 	dac_init();
@@ -242,7 +248,9 @@ int main(int argc, char **argv) {
 
 		for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
 			if (time > events_last[i] + events[i].period) {
+/*
 				outputf("++ %s ++", events[i].msg);
+*/
 				events[i].f();
 				events_last[i] += events[i].period;
 			}
@@ -251,3 +259,4 @@ int main(int argc, char **argv) {
 		eth_poll();
 	}
 }
+

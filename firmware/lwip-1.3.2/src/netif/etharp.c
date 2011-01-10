@@ -54,6 +54,7 @@
 #include "lwip/dhcp.h"
 #include "lwip/autoip.h"
 #include "netif/etharp.h"
+#include <skub.h>
 
 #if PPPOE_SUPPORT
 #include "netif/ppp_oe.h"
@@ -98,7 +99,7 @@ struct etharp_entry {
 #endif
   struct ip_addr ipaddr;
   struct eth_addr ethaddr;
-  enum etharp_state state;
+  uint8_t state;
   u8_t ctime;
   struct netif *netif;
 };
@@ -150,7 +151,7 @@ free_etharp_q(struct etharp_q_entry *q)
     q = q->next;
     LWIP_ASSERT("r->p != NULL", (r->p != NULL));
     pbuf_free(r->p);
-    memp_free(MEMP_ARP_QUEUE, r);
+    skub_free(SKUB_ARP_QUEUE, r);
   }
 }
 #endif
@@ -519,7 +520,7 @@ update_arp_entry(struct netif *netif, struct ip_addr *ipaddr, struct eth_addr *e
     /* get the packet pointer */
     p = q->p;
     /* now queue entry can be freed */
-    memp_free(MEMP_ARP_QUEUE, q);
+    skub_free(SKUB_ARP_QUEUE, q);
     /* send the queued IP packet */
     etharp_send_ip(netif, p, (struct eth_addr*)(netif->hwaddr), ethaddr);
     /* free the queued IP packet */
@@ -767,7 +768,7 @@ etharp_arp_input(struct netif *netif, struct eth_addr *ethaddr, struct pbuf *p)
      * IP address also offered to us by the DHCP server. We do not
      * want to take a duplicate IP address on a single network.
      * @todo How should we handle redundant (fail-over) interfaces? */
-    dhcp_arp_reply(netif, &sipaddr);
+    //dhcp_arp_reply(netif, &sipaddr);
 #endif
     break;
   default:
@@ -985,7 +986,7 @@ etharp_query(struct netif *netif, struct ip_addr *ipaddr, struct pbuf *q)
         /* queue packet ... */
         struct etharp_q_entry *new_entry;
         /* allocate a new arp queue entry */
-        new_entry = memp_malloc(MEMP_ARP_QUEUE);
+        new_entry = skub_alloc(SKUB_ARP_QUEUE);
         if (new_entry != NULL) {
           new_entry->next = 0;
           new_entry->p = p;

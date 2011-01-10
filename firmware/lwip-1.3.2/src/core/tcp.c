@@ -46,11 +46,11 @@
 
 #include "lwip/def.h"
 #include "lwip/mem.h"
-#include "lwip/memp.h"
 #include "lwip/snmp.h"
 #include "lwip/tcp.h"
 #include "lwip/debug.h"
 #include "lwip/stats.h"
+#include <skub.h>
 
 #include <string.h>
 
@@ -144,19 +144,19 @@ tcp_close(struct tcp_pcb *pcb)
      * been freed, and so any remaining handles are bogus. */
     err = ERR_OK;
     TCP_RMV(&tcp_bound_pcbs, pcb);
-    memp_free(MEMP_TCP_PCB, pcb);
+    skub_free(SKUB_TCP_PCB, pcb);
     pcb = NULL;
     break;
   case LISTEN:
     err = ERR_OK;
     tcp_pcb_remove((struct tcp_pcb **)&tcp_listen_pcbs.pcbs, pcb);
-    memp_free(MEMP_TCP_PCB_LISTEN, pcb);
+    skub_free(SKUB_TCP_PCB_LISTEN, pcb);
     pcb = NULL;
     break;
   case SYN_SENT:
     err = ERR_OK;
     tcp_pcb_remove(&tcp_active_pcbs, pcb);
-    memp_free(MEMP_TCP_PCB, pcb);
+    skub_free(SKUB_TCP_PCB, pcb);
     pcb = NULL;
     snmp_inc_tcpattemptfails();
     break;
@@ -226,7 +226,7 @@ tcp_abandon(struct tcp_pcb *pcb, int reset)
      the PCB with a NULL argument, and send an RST to the remote end. */
   if (pcb->state == TIME_WAIT) {
     tcp_pcb_remove(&tcp_tw_pcbs, pcb);
-    memp_free(MEMP_TCP_PCB, pcb);
+    skub_free(SKUB_TCP_PCB, pcb);
   } else {
     seqno = pcb->snd_nxt;
     ackno = pcb->rcv_nxt;
@@ -250,7 +250,7 @@ tcp_abandon(struct tcp_pcb *pcb, int reset)
       tcp_segs_free(pcb->ooseq);
     }
 #endif /* TCP_QUEUE_OOSEQ */
-    memp_free(MEMP_TCP_PCB, pcb);
+    skub_free(SKUB_TCP_PCB, pcb);
     TCP_EVENT_ERR(errf, errf_arg, ERR_ABRT);
     if (reset) {
       LWIP_DEBUGF(TCP_RST_DEBUG, ("tcp_abandon: sending RST\n"));
@@ -374,7 +374,7 @@ tcp_listen_with_backlog(struct tcp_pcb *pcb, u8_t backlog)
   if (pcb->state == LISTEN) {
     return pcb;
   }
-  lpcb = memp_malloc(MEMP_TCP_PCB_LISTEN);
+  lpcb = skub_alloc(SKUB_TCP_PCB_LISTEN);
   if (lpcb == NULL) {
     return NULL;
   }
@@ -387,7 +387,7 @@ tcp_listen_with_backlog(struct tcp_pcb *pcb, u8_t backlog)
   lpcb->tos = pcb->tos;
   ip_addr_set(&lpcb->local_ip, &pcb->local_ip);
   TCP_RMV(&tcp_bound_pcbs, pcb);
-  memp_free(MEMP_TCP_PCB, pcb);
+  skub_free(SKUB_TCP_PCB, pcb);
 #if LWIP_CALLBACK_API
   lpcb->accept = tcp_accept_null;
 #endif /* LWIP_CALLBACK_API */
@@ -750,7 +750,7 @@ tcp_slowtmr(void)
       }
 
       pcb2 = pcb->next;
-      memp_free(MEMP_TCP_PCB, pcb);
+      skub_free(SKUB_TCP_PCB, pcb);
       pcb = pcb2;
     } else {
 
@@ -798,7 +798,7 @@ tcp_slowtmr(void)
         tcp_tw_pcbs = pcb->next;
       }
       pcb2 = pcb->next;
-      memp_free(MEMP_TCP_PCB, pcb);
+      skub_free(SKUB_TCP_PCB, pcb);
       pcb = pcb2;
     } else {
       prev = pcb;
@@ -876,7 +876,7 @@ tcp_seg_free(struct tcp_seg *seg)
       seg->p = NULL;
 #endif /* TCP_DEBUG */
     }
-    memp_free(MEMP_TCP_SEG, seg);
+    skub_free(SKUB_TCP_SEG, seg);
   }
   return count;
 }
@@ -906,7 +906,7 @@ tcp_seg_copy(struct tcp_seg *seg)
 {
   struct tcp_seg *cseg;
 
-  cseg = memp_malloc(MEMP_TCP_SEG);
+  cseg = skub_alloc(SKUB_TCP_SEG);
   if (cseg == NULL) {
     return NULL;
   }
@@ -1007,19 +1007,19 @@ tcp_alloc(u8_t prio)
   struct tcp_pcb *pcb;
   u32_t iss;
   
-  pcb = memp_malloc(MEMP_TCP_PCB);
+  pcb = skub_alloc(SKUB_TCP_PCB);
   if (pcb == NULL) {
     /* Try killing oldest connection in TIME-WAIT. */
     LWIP_DEBUGF(TCP_DEBUG, ("tcp_alloc: killing off oldest TIME-WAIT connection\n"));
     tcp_kill_timewait();
     /* Try to allocate a tcp_pcb again. */
-    pcb = memp_malloc(MEMP_TCP_PCB);
+    pcb = skub_alloc(SKUB_TCP_PCB);
     if (pcb == NULL) {
       /* Try killing active connections with lower priority than the new one. */
       LWIP_DEBUGF(TCP_DEBUG, ("tcp_alloc: killing connection with prio lower than %d\n", prio));
       tcp_kill_prio(prio);
       /* Try to allocate a tcp_pcb again. */
-      pcb = memp_malloc(MEMP_TCP_PCB);
+      pcb = skub_alloc(SKUB_TCP_PCB);
       if (pcb != NULL) {
         /* adjust err stats: memp_malloc failed twice before */
         MEMP_STATS_DEC(err, MEMP_TCP_PCB);
