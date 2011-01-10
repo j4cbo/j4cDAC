@@ -18,12 +18,4 @@
 
 import dac
 
-class NullPointStream(object):
-	def read(self, n):
-		return [(0, 0, 0, 0, 0)] * n
-
-#dac.find_dac()
-
-d = dac.DAC("169.254.13.29")
-
-d.play_stream(NullPointStream())
+dac.find_dac()
