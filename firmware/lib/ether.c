@@ -648,21 +648,11 @@ FlagStatus EMAC_CheckReceiveDataStatus(uint32_t ulRxStatType)
 	return (((eth_rx_stat[idx].Info) & ulRxStatType) ? SET : RESET);
 }
 
-#define EMAC_ADDR0              0x10
-#define EMAC_ADDR1              0x1F
-#define EMAC_ADDR2              0xE0
-#define EMAC_ADDR3              0x12
-#define EMAC_ADDR4              0x1D
-#define EMAC_ADDR5              0x0C
-
 #include "lpc17xx_pinsel.h"
 #include <serial.h>
 
 #include <lwip/init.h>
-#include <lwip/dhcp.h>
 #include <netif/etharp.h>
-
-static struct netif ether_netif;
 
 static const uint8_t ether_pins[] = { 0, 1, 4, 8, 9, 10, 14, 15 };
 
@@ -796,13 +786,7 @@ void eth_poll() {
 	eth_rx_read_index = readpos;
 }
 
-err_t eth_netif_init(struct netif *netif) { return ERR_OK; }
-
-struct dhcp dhcp_state;
-
-void eth_init() {
-//	static struct ip_addr ipa = { 0x0a00000a } , netmask = { 0x00ffffff } , gw = { 0 };
-	static struct ip_addr ipa = { 0 } , netmask = { 0 } , gw = { 0 };
+void eth_hardware_init(uint8_t *macaddr) {
 
 	/* Set up pins */
 	PINSEL_CFG_Type PinCfg;
@@ -821,15 +805,10 @@ void eth_init() {
 
 	LPC_GPIO2->FIODIR |= MDC;
 
-	/* XXX I should have put a serial EEPROM on the board for MAC
-	 * address storage. Oops. */
-	uint8_t EMACAddr[] = { EMAC_ADDR0, EMAC_ADDR1, EMAC_ADDR2,
-	                       EMAC_ADDR3, EMAC_ADDR4, EMAC_ADDR5};
-
 	/* Set up Ethernet in autosense mode */
 	EMAC_CFG_Type Emac_Config;
 	Emac_Config.Mode = EMAC_MODE_AUTO;
-	Emac_Config.pbEMAC_Addr = EMACAddr;
+	Emac_Config.pbEMAC_Addr = macaddr;
 
 	outputf("EMAC_Init");
 	while (EMAC_Init(&Emac_Config) == ERROR){
@@ -838,58 +817,4 @@ void eth_init() {
 		int delay;
                  for (delay = 0x100000; delay; delay--);
          }
-
-	/* Set up basic fields in ether_netif */
-	ether_netif.output = etharp_output;
-	ether_netif.linkoutput = eth_transmit;
-	ether_netif.name[0] = 'e';
-	ether_netif.name[1] = 'n';
-	ether_netif.hwaddr_len = ETHARP_HWADDR_LEN;
-	ether_netif.flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_LINK_UP;
-	ether_netif.mtu = 1500;
-	memcpy(ether_netif.hwaddr, EMACAddr, 6);
-
-	outputf("netif_add");
-	/* Hand it over to lwIP */
-	netif_add(&ether_netif, &ipa, &netmask, &gw, NULL, eth_netif_init, ethernet_input);
-	netif_set_default(&ether_netif);
-	netif_set_up(&ether_netif);
-	dhcp_start(&ether_netif, &dhcp_state);
-
-	outputf("eth_init done");
-}
-
-void handle_packet(struct pbuf *p) {
-
-	struct eth_hdr *ethhdr = p->payload;
-
-	switch (htons(ethhdr->type)) {
-	case ETHTYPE_IP:
-	case ETHTYPE_ARP:
-		if (ether_netif.input(p, &ether_netif) != ERR_OK) {
-			outputf(NETIF_DEBUG, ("netdev_input: IP input error\n"));
-			pbuf_free(p);
-		}
-		break;
-
-	case 0x86dd:
-		/* Ignore IPv6. */
-		pbuf_free(p);
-		break;
-
-	default:
-		outputf("Unknown ethertype %04x", ethhdr->type);
-		pbuf_free(p);
-		break;
-	}
-}
-
-/* This is very hacky. */
-void eth_get_mac(uint8_t *mac) {
-	mac[0] = EMAC_ADDR0;
-	mac[1] = EMAC_ADDR1;
-	mac[2] = EMAC_ADDR2;
-	mac[3] = EMAC_ADDR3;
-	mac[4] = EMAC_ADDR4;
-	mac[5] = EMAC_ADDR5;
 }

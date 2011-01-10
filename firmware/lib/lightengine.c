@@ -16,6 +16,7 @@
  */
 
 #include <lightengine.h>
+#include <serial.h>
 #include <dac.h>
 
 enum le_state le_state;
@@ -35,6 +36,8 @@ void le_estop(uint16_t condition) {
 	le_flags |= condition;
 	le_state = LIGHTENGINE_ESTOP;
 	dac_stop();
+
+	outputf("*** ESTOP 0x%x ***", le_flags);
 }
 
 void le_estop_clear(uint16_t condition) {

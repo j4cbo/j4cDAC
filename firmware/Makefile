@@ -1,7 +1,7 @@
 PREFIX = arm-none-eabi-
 
 CFLAGS = -Iinc -Ilib/core_cm3 -Ilib/lpc17xx -Idrivers/include -fno-common -mcpu=cortex-m3 -mthumb -Os -g
-CFLAGS += -Wall
+CFLAGS += -Wall -Ilib/lpcusb
 LDFLAGS = -Tlib/lpc17xx/lpc1758.lds -mcpu=cortex-m3 -mthumb -fwhole-program
 
 # Cortex-M3 support code
@@ -32,11 +32,15 @@ SRCS += lib/skub.c
 
 
 # Ethernet driver
-SRCS += lib/ether.c drivers/source/mdio.c
+SRCS += lib/ether.c lib/network.c drivers/source/mdio.c
 
 # FAT
 SRCS += lib/fatfs/ff.c lib/sdcard.c lib/fatfs/ccsbcs.c lib/fatfs/diskio.c
 CFLAGS += -Ilib/fatfs
+
+# LPCUSB
+SRCS += lib/lpcusb/usbhw_lpc.c lib/lpcusb/usbinit.c lib/lpcusb/usbstdreq.c \
+	lib/lpcusb/usbcontrol.c lib/lpcusb/usbtest.c
 
 SRCS += net/point-stream.c net/broadcast.c net/sink.c
 

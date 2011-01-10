@@ -60,8 +60,6 @@ static int RV send_resp(struct tcp_pcb *pcb, char resp, char cmd, int len) {
 	response.command = cmd;
 	fill_status(&response.dac_status);
 
-	outputf("sr %c %c", resp, cmd);
-
 	err_t err = tcp_write(pcb, &response, sizeof(response),
 			      TCP_WRITE_FLAG_COPY);
 
@@ -91,8 +89,6 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 
 	switch (ps_state) {
 	case MAIN:
-		outputf("rc: m %c", *data);
-
 		switch (*data) {
 		case 'p':
 			/* Prepare stream. */

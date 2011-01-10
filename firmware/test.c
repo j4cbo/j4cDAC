@@ -31,6 +31,7 @@
 #include <broadcast.h>
 #include <point-stream.h>
 #include <skub.h>
+#include <usbapi.h>
 
 #include <lpc17xx_gpdma.h>
 #include <lpc17xx_timer.h>
@@ -153,6 +154,8 @@ int main(int argc, char **argv) {
 
 	/* LEDs */
 	LPC_GPIO0->FIODIR |= (1 << 0);
+	LPC_GPIO1->FIODIR |= (1 << 28);
+	LPC_GPIO1->FIOSET = (1 << 28);
 	LPC_GPIO1->FIODIR |= (1 << 29);
 
 	__enable_irq();
@@ -182,6 +185,12 @@ int main(int argc, char **argv) {
 
 	outputf("sink_init()");
 	sink_init();
+
+	outputf("USBInit()");
+	USBInit();
+
+	outputf("usbtest_init()");
+	usbtest_init();
 
 	outputf("Entering main loop...");
 
@@ -245,6 +254,9 @@ int main(int argc, char **argv) {
 			LPC_GPIO1->FIOPIN = (1 << 29);
 			status = 1;
 		}
+
+		LPC_GPIO1->FIOCLR = (1 << 28);
+		LPC_GPIO1->FIOSET = (1 << 28);
 
 		for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
 			if (time > events_last[i] + events[i].period) {
