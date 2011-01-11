@@ -73,7 +73,7 @@ class BroadcastPacket(object):
 		self.mac = st[:6]
 		self.hw_rev, self.sw_rev, self.buffer_capacity, \
 		self.max_point_rate = struct.unpack("<HHHI", st[6:16])
-		self.status = Status(st[16:])
+		self.status = Status(st[16:35])
 
 	def dump(self, prefix = " - "):
 		"""Dump to a string."""
@@ -109,7 +109,7 @@ class DAC(object):
 		cmdR = data[1]
 		status = Status(data[2:])
 
-		status.dump()
+#		status.dump()
 
 		if cmdR != cmd:
 			raise ProtocolError("expected resp for %r, got %r"
@@ -186,11 +186,15 @@ class DAC(object):
 			cap = 1799 - self.last_status.fullness
 			points = stream.read(cap)
 
-			print "Writing %d points" % (cap, )
+			if cap < 100:
+				time.sleep(0.005)
+				cap += 150
+
+#			print "Writing %d points" % (cap, )
 			t0 = time.time()
 			self.write(points)
 			t1 = time.time()
-			print "Took %f" % (t1 - t0, )
+#			print "Took %f" % (t1 - t0, )
 
 			if not started:
 				self.begin(0, 30000)
