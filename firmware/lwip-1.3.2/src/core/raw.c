@@ -43,7 +43,6 @@
 #if LWIP_RAW /* don't build if not configured for use in lwipopts.h */
 
 #include "lwip/def.h"
-#include "lwip/memp.h"
 #include "lwip/inet.h"
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
@@ -318,7 +317,6 @@ raw_remove(struct raw_pcb *pcb)
       }
     }
   }
-  memp_free(MEMP_RAW_PCB, pcb);
 }
 
 /**
@@ -331,23 +329,15 @@ raw_remove(struct raw_pcb *pcb)
  *
  * @see raw_remove()
  */
-struct raw_pcb *
-raw_new(u8_t proto) {
-  struct raw_pcb *pcb;
-
+void raw_new(struct raw_pcb *pcb, u8_t proto) {
   LWIP_DEBUGF(RAW_DEBUG | LWIP_DBG_TRACE, ("raw_new\n"));
 
-  pcb = memp_malloc(MEMP_RAW_PCB);
-  /* could allocate RAW PCB? */
-  if (pcb != NULL) {
-    /* initialize PCB to all zeroes */
-    memset(pcb, 0, sizeof(struct raw_pcb));
-    pcb->protocol = proto;
-    pcb->ttl = RAW_TTL;
-    pcb->next = raw_pcbs;
-    raw_pcbs = pcb;
-  }
-  return pcb;
+  /* initialize PCB to all zeroes */
+  memset(pcb, 0, sizeof(struct raw_pcb));
+  pcb->protocol = proto;
+  pcb->ttl = RAW_TTL;
+  pcb->next = raw_pcbs;
+  raw_pcbs = pcb;
 }
 
 #endif /* LWIP_RAW */

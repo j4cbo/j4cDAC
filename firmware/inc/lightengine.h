@@ -32,6 +32,7 @@ enum le_state {
 #define ESTOP_INPUT_CUR		(1<<2)
 #define ESTOP_OVERTEMP		(1<<3)
 #define ESTOP_OVERTEMP_CUR	(1<<4)
+#define ESTOP_LINKLOST		(1<<5)
 
 #define ESTOP_CLEAR_ALL		(ESTOP_PACKET | ESTOP_INPUT | ESTOP_OVERTEMP)
 

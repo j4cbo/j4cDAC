@@ -56,6 +56,7 @@
 #include "lwip/stats.h"
 #include "lwip/snmp.h"
 #include "arch/perf.h"
+#include <skub.h>
 
 /* These variables are global to all functions involved in the input
    processing of TCP segments. They are set by the tcp_input()
@@ -300,12 +301,12 @@ tcp_input(struct pbuf *p, struct netif *inp)
            deallocate the PCB. */
         TCP_EVENT_ERR(pcb->errf, pcb->callback_arg, ERR_RST);
         tcp_pcb_remove(&tcp_active_pcbs, pcb);
-        memp_free(MEMP_TCP_PCB, pcb);
+        skub_free(SKUB_TCP_PCB, pcb);
       } else if (recv_flags & TF_CLOSED) {
         /* The connection has been closed and we will deallocate the
            PCB. */
         tcp_pcb_remove(&tcp_active_pcbs, pcb);
-        memp_free(MEMP_TCP_PCB, pcb);
+        skub_free(SKUB_TCP_PCB, pcb);
       } else {
         err = ERR_OK;
         /* If the application has registered a "sent" function to be

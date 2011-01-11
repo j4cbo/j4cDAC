@@ -23,12 +23,15 @@
 #include <lwip/init.h>
 #include <lwip/tcp.h>
 #include <lwip/dhcp.h>
+#include <ipv4/lwip/autoip.h>
 #include <string.h>
 #include <dac.h>
 #include <assert.h>
 #include <attrib.h>
 #include <broadcast.h>
 #include <point-stream.h>
+#include <skub.h>
+#include <usbapi.h>
 
 #include <lpc17xx_gpdma.h>
 #include <lpc17xx_timer.h>
@@ -37,7 +40,7 @@ volatile uint32_t time;
 volatile uint32_t halfsecond;
 
 FATFS fs;
-char filename_buf[512];
+char filename_buf[256];
 
 #define DEBUG_UART	((LPC_UART_TypeDef *)LPC_UART0)
 
@@ -57,7 +60,11 @@ void delay_ms(uint16_t length) {
 void HardFault_Handler_C(uint32_t * stack) ATTR_VISIBLE;
 void HardFault_Handler_C(uint32_t * stack) {
 	outputf("*** HARD FAULT ***");
-	outputf("pc: %p", stack[6]);
+	outputf("stack: %p", stack);
+	int i;
+	for (i = 0; i < 32; i++) {
+		outputf("stack[%d]: %p", i, stack[i]);
+	}
 	while (1);
 }
 
@@ -72,14 +79,18 @@ struct periodic_event {
 	void (*f)(void);
 	int period;
 	const char *msg;
+	int start;
 } const events[] = {
-	{ tcp_tmr, 250, "TCP TICK" },
-	{ dhcp_coarse_tmr, 60000, "DHCP COARSE TICK" },
-	{ dhcp_fine_tmr, 500, "DHCP FINE TICK" },
-	{ broadcast_send, 1000, "BROADCAST" }
+	{ tcp_tmr, 250, "tcp", 100 },
+	{ dhcp_coarse_tmr, 60000, "dhcp c", 35 },
+	{ dhcp_fine_tmr, 500, "dhcp f", 25 },
+	{ autoip_tmr, AUTOIP_TMR_INTERVAL, "autoip", 10 },
+	{ broadcast_send, 1000, "broadcast", 10 }
 };
 
 int events_last[sizeof(events) / sizeof(events[0])];
+
+void sink_init(void);
 
 void sd_init(void) {
 	int res = disk_initialize(0);
@@ -143,11 +154,16 @@ int main(int argc, char **argv) {
 
 	/* LEDs */
 	LPC_GPIO0->FIODIR |= (1 << 0);
+	LPC_GPIO1->FIODIR |= (1 << 28);
+	LPC_GPIO1->FIOSET = (1 << 28);
 	LPC_GPIO1->FIODIR |= (1 << 29);
 
 	__enable_irq();
 
 	outputf("=== j4cDAC ===");
+
+	outputf("skub_init()");
+	skub_init();
 
 	outputf("dac_init()");
 	dac_init();
@@ -167,11 +183,24 @@ int main(int argc, char **argv) {
 	outputf("ps_init()");
 	ps_init();
 
+	outputf("sink_init()");
+	sink_init();
+
+	outputf("USBInit()");
+	USBInit();
+
+	outputf("usbtest_init()");
+	usbtest_init();
+
 	outputf("Entering main loop...");
 
 	ASSERT_EQUAL(dac_prepare(), 0);
 	int status = 0;
 	int ctr = 0;
+
+	for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
+		events_last[i] = events[i].start + time;
+	}
 
 	while (1) {
 #if 0
@@ -226,9 +255,14 @@ int main(int argc, char **argv) {
 			status = 1;
 		}
 
+		LPC_GPIO1->FIOCLR = (1 << 28);
+		LPC_GPIO1->FIOSET = (1 << 28);
+
 		for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
 			if (time > events_last[i] + events[i].period) {
-				outputf("=== %s ===", events[i].msg);
+/*
+				outputf("++ %s ++", events[i].msg);
+*/
 				events[i].f();
 				events_last[i] += events[i].period;
 			}
@@ -237,3 +271,4 @@ int main(int argc, char **argv) {
 		eth_poll();
 	}
 }
+

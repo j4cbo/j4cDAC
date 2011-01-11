@@ -47,6 +47,7 @@
 #include "lwip/snmp.h"
 #include "lwip/stats.h"
 #include "lwip/icmp.h"
+#include <skub.h>
 
 #include <string.h>
 
@@ -263,11 +264,11 @@ ip_reass_enqueue_new_datagram(struct ip_hdr *fraghdr, int clen)
 {
   struct ip_reassdata* ipr;
   /* No matching previous fragment found, allocate a new reassdata struct */
-  ipr = memp_malloc(MEMP_REASSDATA);
+  ipr = skub_alloc(SKUB_REASSDATA);
   if (ipr == NULL) {
 #if IP_REASS_FREE_OLDEST
     if (ip_reass_remove_oldest_datagram(fraghdr, clen) >= clen) {
-      ipr = memp_malloc(MEMP_REASSDATA);
+      ipr = skub_alloc(SKUB_REASSDATA);
     }
     if (ipr == NULL)
 #endif /* IP_REASS_FREE_OLDEST */
@@ -308,7 +309,7 @@ ip_reass_dequeue_datagram(struct ip_reassdata *ipr, struct ip_reassdata *prev)
   }
 
   /* now we can free the ip_reass struct */
-  memp_free(MEMP_REASSDATA, ipr);
+  skub_free(SKUB_REASSDATA, ipr);
 }
 
 /**

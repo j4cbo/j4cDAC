@@ -73,7 +73,7 @@ uint32_t EMAC_GetReceiveDataSize(void);
 FlagStatus EMAC_GetWoLStatus(uint32_t ulWoLMode);
 
 err_t eth_transmit(struct netif * _info, struct pbuf * p);
-void eth_init(void);
+void eth_hardware_init(uint8_t *macaddr);
 void eth_poll(void);
 void eth_get_mac(uint8_t *mac);
 

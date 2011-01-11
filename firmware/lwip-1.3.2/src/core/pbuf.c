@@ -67,6 +67,7 @@
 #include "lwip/def.h"
 #include "lwip/mem.h"
 #include "lwip/memp.h"
+#include <skub.h>
 #include "lwip/pbuf.h"
 #include "lwip/sys.h"
 #include "arch/perf.h"
@@ -211,7 +212,7 @@ pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
   switch (type) {
   case PBUF_POOL:
     /* allocate head of pbuf chain into p */
-    p = memp_malloc(MEMP_PBUF_POOL);
+    p = skub_alloc(SKUB_PBUF_POOL);
     LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE, ("pbuf_alloc: allocated pbuf %p\n", (void *)p));
     if (p == NULL) {
       PBUF_POOL_IS_EMPTY();
@@ -227,7 +228,7 @@ pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
     /* the total length of the pbuf chain is the requested size */
     p->tot_len = length;
     /* set the length of the first pbuf in the chain */
-    p->len = LWIP_MIN(length, PBUF_POOL_BUFSIZE_ALIGNED - LWIP_MEM_ALIGN_SIZE(offset));
+    p->len = LWIP_MIN(length, 1536);
     LWIP_ASSERT("check p->payload + p->len does not overflow pbuf",
                 ((u8_t*)p->payload + p->len <=
                  (u8_t*)p + SIZEOF_STRUCT_PBUF + PBUF_POOL_BUFSIZE_ALIGNED));
@@ -244,7 +245,7 @@ pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
     rem_len = length - p->len;
     /* any remaining pbufs to be allocated? */
     while (rem_len > 0) {
-      q = memp_malloc(MEMP_PBUF_POOL);
+      q = skub_alloc(SKUB_PBUF_POOL);
       if (q == NULL) {
         PBUF_POOL_IS_EMPTY();
         /* free chain so far allocated */
@@ -280,7 +281,7 @@ pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
     break;
   case PBUF_RAM:
     /* If pbuf is to be allocated in RAM, allocate memory for it. */
-    p = (struct pbuf*)mem_malloc(LWIP_MEM_ALIGN_SIZE(SIZEOF_STRUCT_PBUF + offset) + LWIP_MEM_ALIGN_SIZE(length));
+    p = (struct pbuf*)skub_alloc_sz(LWIP_MEM_ALIGN_SIZE(SIZEOF_STRUCT_PBUF + offset) + LWIP_MEM_ALIGN_SIZE(length));
     if (p == NULL) {
       return NULL;
     }
@@ -298,7 +299,7 @@ pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
   /* pbuf references existing (externally allocated) RAM payload? */
   case PBUF_REF:
     /* only allocate memory for the pbuf structure */
-    p = memp_malloc(MEMP_PBUF);
+    p = skub_alloc(SKUB_PBUF);
     if (p == NULL) {
       LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_LEVEL_SERIOUS,
                   ("pbuf_alloc: Could not allocate MEMP_PBUF for PBUF_%s.\n",
@@ -383,7 +384,7 @@ pbuf_realloc(struct pbuf *p, u16_t new_len)
   /* (other types merely adjust their length fields */
   if ((q->type == PBUF_RAM) && (rem_len != q->len)) {
     /* reallocate and adjust the length of the pbuf that will be split */
-    q = mem_realloc(q, (u8_t *)q->payload - (u8_t *)q + rem_len);
+    // XXX q = mem_realloc(q, (u8_t *)q->payload - (u8_t *)q + rem_len);
     LWIP_ASSERT("mem_realloc give q == NULL", q != NULL);
   }
   /* adjust length fields for new last pbuf */
@@ -572,13 +573,13 @@ pbuf_free(struct pbuf *p)
       type = p->type;
       /* is this a pbuf from the pool? */
       if (type == PBUF_POOL) {
-        memp_free(MEMP_PBUF_POOL, p);
+        skub_free(SKUB_PBUF_POOL, p);
       /* is this a ROM or RAM referencing pbuf? */
       } else if (type == PBUF_ROM || type == PBUF_REF) {
-        memp_free(MEMP_PBUF, p);
+        skub_free(SKUB_PBUF, p);
       /* type == PBUF_RAM */
       } else {
-        mem_free(p);
+        skub_free_sz(p);
       }
       count++;
       /* proceed to next pbuf */

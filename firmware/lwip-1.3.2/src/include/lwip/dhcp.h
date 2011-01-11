@@ -27,7 +27,7 @@ struct dhcp
   /** transaction identifier of last sent request */ 
   u32_t xid;
   /** our connection to the DHCP server */ 
-  struct udp_pcb *pcb;
+  struct udp_pcb pcb;
   /** incoming msg */
   struct dhcp_msg *msg_in;
   /** incoming msg options */
@@ -113,7 +113,7 @@ PACK_STRUCT_END
 #endif
 
 /** start DHCP configuration */
-err_t dhcp_start(struct netif *netif);
+err_t dhcp_start(struct netif *netif, struct dhcp *dhcp);
 /** enforce early lease renewal (not needed normally)*/
 err_t dhcp_renew(struct netif *netif);
 /** release the DHCP lease, usually called before dhcp_stop()*/

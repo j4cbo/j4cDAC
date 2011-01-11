@@ -75,6 +75,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <skub.h>
 
 /* 169.254.0.0 */
 #define AUTOIP_NET         0xA9FE0000
@@ -280,7 +281,7 @@ autoip_start(struct netif *netif)
     /* no AutoIP client attached yet? */
     LWIP_DEBUGF(AUTOIP_DEBUG | LWIP_DBG_TRACE,
       ("autoip_start(): starting new AUTOIP client\n"));
-    autoip = mem_malloc(sizeof(struct autoip));
+    autoip = skub_alloc(SKUB_AUTOIP);
     if(autoip == NULL) {
       LWIP_DEBUGF(AUTOIP_DEBUG | LWIP_DBG_TRACE,
         ("autoip_start(): could not allocate autoip\n"));

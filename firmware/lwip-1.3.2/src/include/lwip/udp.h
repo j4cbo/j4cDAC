@@ -113,7 +113,7 @@ extern struct udp_pcb *udp_pcbs;
 
 /* The following functions is the application layer interface to the
    UDP code. */
-struct udp_pcb * udp_new        (void);
+void             udp_new        (struct udp_pcb *pcb);
 void             udp_remove     (struct udp_pcb *pcb);
 err_t            udp_bind       (struct udp_pcb *pcb, struct ip_addr *ipaddr,
                  u16_t port);

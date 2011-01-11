@@ -6,6 +6,7 @@
 #define LWIP_DEBUG	1
 /*
 #define DHCP_DEBUG	LWIP_DBG_ON | LWIP_DBG_TRACE
+#define AUTOIP_DEBUG	LWIP_DBG_ON | LWIP_DBG_TRACE
 #define TCP_DEBUG	LWIP_DBG_ON | LWIP_DBG_TRACE
 #define TCP_INPUT_DEBUG	LWIP_DBG_ON | LWIP_DBG_TRACE
 #define MEMP_DEBUG	LWIP_DBG_ON | LWIP_DBG_TRACE
@@ -14,18 +15,16 @@
 
 */
 
-/* Use LWIP's pool allocator. */
-#include <stdlib.h>
-#define MEMP_NUM_PBUF   32
-#define PBUF_POOL_SIZE  16
-#define PBUF_POOL_BUFSIZE 1536
-
+#define ARP_TABLE_SIZE	8
 
 /* What do we enable? */
 #define LWIP_SOCKET	0
 #define LWIP_NETCONN	0
 #define LWIP_SNMP	0
+#define LWIP_AUTOIP	1
+#define LWIP_DHCP_AUTOIP_COOP	1
 #define LWIP_DHCP	1
+#define LWIP_DHCP_AUTOIP_COOP_TRIES     1
 
 /* For big ones... */
 #define MEMCPY(dst, src, len) memcpy(dst, src, len)
@@ -34,9 +33,8 @@
  * this doesn't disable *reassembly*, just fragmenting outgoing stuff. */
 #define IP_FRAG 0
 
-/* Lots of tricks from http://lists.gnu.org/archive/html/lwip-users/2006-11/msg00007.html */
 #define TCP_MSS         1460
-#define TCP_WND		16000
+#define TCP_WND		10000
 #define TCP_SND_BUF     (2 * TCP_MSS)
 #define TCP_SND_QUEUELEN 8
 
