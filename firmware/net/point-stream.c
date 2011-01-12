@@ -26,22 +26,18 @@ static int ps_pointsleft;
  */
 #define PS_BUFFER_SIZE		18
 
-static uint8_t ps_buffer[18];
+static uint8_t ps_buffer[PS_BUFFER_SIZE];
 static int ps_buffered;
-
-#define LE_READY 0
 
 /* close_conn
  *
  * Close the current connection, and record why.
  */
 static void close_conn(struct tcp_pcb *pcb, uint16_t reason) {
-	outputf("close_conn: bailing");
 	tcp_arg(pcb, NULL);
 	tcp_sent(pcb, NULL);
 	tcp_recv(pcb, NULL);
 	tcp_close(pcb);
-	outputf("close_conn: done");
 }
 
 /* send_resp
@@ -105,7 +101,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 				return 0;
 
 			struct begin_command *bc = (struct begin_command *)data;
-//			set_low_water_mark(bc->low_water_mark);
+// XXX			set_low_water_mark(bc->low_water_mark);
 
 			dac_start(bc->point_rate);
 
@@ -118,8 +114,8 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 				return 0;
 
 //			struct begin_command *uc = (struct begin_command *)data;
-//			dac_set_point_rate(uc->point_rate);
-//			set_low_water_mark(uc->low_water_mark);
+// XXX			dac_set_point_rate(uc->point_rate);
+// XXX			set_low_water_mark(uc->low_water_mark);
 
 			return send_resp(pcb, RESP_ACK, cmd, 
 					 sizeof(struct begin_command));
@@ -157,7 +153,6 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		case 0:
 		case 0xFF:
 			/* Emergency-stop. */
-			outputf("estop!");
 			le_estop(ESTOP_PACKET);
 			return send_resp(pcb, RESP_ACK, cmd, 1);
 
@@ -182,7 +177,6 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		return -1;
 
 	case DATA:
-	//	outputf("rc: d exp %d w/ %d", ps_pointsleft, len);
 		ASSERT_NOT_EQUAL(ps_pointsleft, 0);
 
 		/* We can only write a complete point at a time. */
@@ -232,7 +226,6 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 
 	case DATA_ABORTING:
 		ASSERT_NOT_EQUAL(ps_pointsleft, 0);
-		outputf("rc: ad exp %d ", ps_pointsleft);
 
 		/* We can only consume a complete point at a time. */
 		if (len < sizeof(struct dac_point))
@@ -267,7 +260,6 @@ err_t process_packet(void *arg, struct tcp_pcb * pcb, struct pbuf * pbuf,
 	struct pbuf * p = pbuf;
 
 	if (p == NULL) {
-		outputf("ps: connection closed");
 		close_conn(pcb, CONNCLOSED_USER);
 		return ERR_OK;
 	}
