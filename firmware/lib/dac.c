@@ -271,7 +271,7 @@ void PWM1_IRQHandler(void) {
 
 	consume++;
 
-	if (consume > DAC_BUFFER_POINTS)
+	if (consume >= DAC_BUFFER_POINTS)
 		consume = 0;
 
 	dac_consume = consume;
