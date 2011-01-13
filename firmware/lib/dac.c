@@ -256,8 +256,10 @@ void PWM1_IRQHandler(void) {
 		return;
 	}
 
-	LPC_SSP1->DR = ((dac_buffer[consume].x >> 4) & 0xFFF) | 0x6000;
-	LPC_SSP1->DR = ((dac_buffer[consume].y >> 4) & 0xFFF) | 0x7000;
+	#define MASK_XY(v)	((((v) >> 4) + 0x800) & 0xFFF)
+
+	LPC_SSP1->DR = MASK_XY(dac_buffer[consume].x) | 0x6000;
+	LPC_SSP1->DR = MASK_XY(dac_buffer[consume].y) | 0x7000;
 	LPC_SSP1->DR = (dac_buffer[consume].i >> 4) | 0x5000;
 	LPC_SSP1->DR = (dac_buffer[consume].r >> 4) | 0x4000;
 	LPC_SSP1->DR = (dac_buffer[consume].g >> 4) | 0x3000;
@@ -269,7 +271,7 @@ void PWM1_IRQHandler(void) {
 
 	consume++;
 
-	if (consume > DAC_BUFFER_POINTS)
+	if (consume >= DAC_BUFFER_POINTS)
 		consume = 0;
 
 	dac_consume = consume;

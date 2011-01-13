@@ -82,6 +82,7 @@ void eth_init() {
 
 	/* Enable LPC1758 interrupt */
 	LPC_GPIOINT->IO0IntEnF |= (1 << 8);
+	NVIC_SetPriority(EINT3_IRQn, 1);
 	NVIC_EnableIRQ(EINT3_IRQn);
 
 	/* Hand it over to lwIP */
