@@ -71,8 +71,6 @@ static const struct skub_pool_info skub_pools_var[] = {
 #undef SKUB_POOL_VAR
 };
 
-#define ARRAY_NELEMS(arr)	(sizeof(arr) / sizeof(arr[0]))
-
 /* Bit-band macros, from ARM */
 #define BITBAND_SRAM_REF	0x20000000
 #define BITBAND_SRAM_BASE	0x22000000
