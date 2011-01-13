@@ -96,7 +96,13 @@ void handle_packet(struct pbuf *p) {
 
 	struct eth_hdr *ethhdr = p->payload;
 
-	switch (htons(ethhdr->type)) {
+	if (ntohs(ethhdr->type) < 1500) {
+		/* Ignore non-ethertype packets. */
+		pbuf_free(p);
+		return;
+	}
+
+	switch (ntohs(ethhdr->type)) {
 	case ETHTYPE_IP:
 	case ETHTYPE_ARP:
 		if (ether_netif.input(p, &ether_netif) != ERR_OK) {
@@ -111,7 +117,7 @@ void handle_packet(struct pbuf *p) {
 		break;
 
 	default:
-		outputf("Unknown ethertype %04x", ethhdr->type);
+		outputf("ethertype %04x", ntohs(ethhdr->type));
 		pbuf_free(p);
 		break;
 	}
