@@ -34,12 +34,12 @@ static struct udp_pcb broadcast_pcb;
 void fill_status(struct dac_status *status) {
 	status->light_engine_state = le_get_state();
 	status->playback_state = dac_get_state();
+	status->playback_flags = dac_flags;
 	status->light_engine_flags = le_get_flags();
 	status->buffer_fullness = dac_fullness();
 	status->point_rate = dac_current_pps;
 	status->point_count = dac_count;
 
-	status->playback_flags = 0;	// XXX TODO
 	status->source = 0;	// XXX TODO
 	status->source_flags = 0;	// XXX TODO
 }

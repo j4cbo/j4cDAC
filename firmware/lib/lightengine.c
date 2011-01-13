@@ -35,7 +35,7 @@ uint16_t le_get_flags(void) {
 void le_estop(uint16_t condition) {
 	le_flags |= condition;
 	le_state = LIGHTENGINE_ESTOP;
-	dac_stop();
+	dac_stop(DAC_FLAG_STOP_ESTOP);
 
 	outputf("*** ESTOP 0x%x ***", le_flags);
 }

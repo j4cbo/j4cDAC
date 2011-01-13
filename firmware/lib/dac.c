@@ -40,7 +40,13 @@ static int dac_produce;
 static volatile int dac_consume;
 int dac_current_pps;
 int dac_count;
+int dac_flags = 0;
+int dac_shutter_req = 0;
 enum dac_state dac_state = DAC_IDLE;
+
+/* Shutter pin config. */
+#define DAC_SHUTTER_PIN		6
+#define DAC_SHUTTER_EN_PIN	7
 
 /* dac_start()
  *
@@ -185,6 +191,12 @@ void dac_init() {
 	NVIC_SetPriority(PWM1_IRQn, 0);
 	NVIC_EnableIRQ(PWM1_IRQn);
 
+	/* Set up the shutter output. */
+	LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_PIN);
+	LPC_GPIO2->FIODIR |= (1 << DAC_SHUTTER_PIN);
+	LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_EN_PIN);
+	LPC_GPIO2->FIODIR |= (1 << DAC_SHUTTER_EN_PIN);
+
 	dac_state = DAC_IDLE;
 	dac_count = 0;
 	dac_current_pps = 0;
@@ -204,7 +216,9 @@ int dac_prepare(void) {
 
 	dac_produce = 0;
 	dac_consume = 0;
+	dac_flags &= ~DAC_FLAG_STOP_ALL;
 	dac_state = DAC_PREPARED;
+	dac_shutter_req = 0;
 
 	return 0;
 }
@@ -216,9 +230,16 @@ int dac_prepare(void) {
  * This is triggered internally when the DAC has a buffer underrun, and may
  * also be called externally at any time.
  */ 
-void dac_stop(void) {
-	/* First things first: cause the PWM system to stop immediately. */
+void dac_stop(int flags) {
+	/* First things first: shut down the PWM timer. This prevents us
+	 * from being interrupted by a PWM interrupt, which could cause
+	 * the DAC outputs to be left on. */
 	LPC_PWM1->TCR = PWM_TCR_COUNTER_RESET;
+
+	/* Close the shutter. */
+	dac_shutter_req = 0;
+	dac_flags &= ~DAC_FLAG_SHUTTER;
+	LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_PIN);
 
 	/* Clear out all the DAC channels. */
 	int i;
@@ -236,6 +257,7 @@ void dac_stop(void) {
 	dac_state = DAC_IDLE;
 	dac_count = 0;
 	dac_current_pps = 0;
+	dac_flags |= flags;
 }
 
 void PWM1_IRQHandler(void) {
@@ -252,7 +274,7 @@ void PWM1_IRQHandler(void) {
 
 	/* Are we out of buffer space? If so, shut the lasers down. */
 	if (consume == dac_produce) {
-		dac_stop();
+		dac_stop(DAC_FLAG_STOP_UNDERFLOW);
 		return;
 	}
 
@@ -266,6 +288,14 @@ void PWM1_IRQHandler(void) {
 	LPC_SSP1->DR = (dac_buffer[consume].b >> 4) | 0x2000;
 	LPC_SSP1->DR = (dac_buffer[consume].u1 >> 4) | 0x1000;
 	LPC_SSP1->DR = (dac_buffer[consume].u2 >> 4);
+
+	if (dac_shutter_req) {
+		LPC_GPIO2->FIOSET = (1 << DAC_SHUTTER_PIN);
+		dac_flags |= DAC_FLAG_SHUTTER;
+	} else {
+		LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_PIN);
+		dac_flags &= ~DAC_FLAG_SHUTTER;
+	}
 
 	dac_count++;
 
@@ -290,4 +320,17 @@ int dac_fullness(void) {
 	if (fullness < 0)
 		fullness += DAC_BUFFER_POINTS;
 	return fullness;
+}
+
+/* shutter_set
+ *
+ * Set the state of the shutter - nonzero for open, zero for closed.
+ *
+ * This does not perform the set immediately, since it would then race
+ * against the DAC interrupt (setting the shutter open after a DAC stop
+ * condition, causing the shutter to be open when it should not be).
+ * Instead, it sets a flag asking the DAC interrupt to update the shutter.
+ */
+void shutter_set(int state) {
+	dac_shutter_req = state;
 }
