@@ -39,19 +39,18 @@
 #include <lpc17xx_timer.h>
 
 volatile uint32_t time;
-volatile uint32_t halfsecond;
+volatile uint32_t mtime;
 
 FATFS fs;
 char filename_buf[256];
 
 #define DEBUG_UART	((LPC_UART_TypeDef *)LPC_UART0)
 
-extern const unsigned char ildatest_bts[7164];
+extern void tp_trianglewave_run(void);
 
 void SysTick_Handler(void) {
-	time++;
-	if ((time % 500) == 0)
-		halfsecond = 1;
+	mtime++;
+	if (mtime % 10 == 0) time++;
 }
 
 void delay_ms(uint16_t length) {
@@ -151,7 +150,7 @@ int main(int argc, char **argv) {
 
 	int i;
 
-	SysTick_Config(SystemCoreClock / 1000);
+	SysTick_Config(SystemCoreClock / 10000);
 	serial_init();
 
 	/* LEDs */
@@ -204,54 +203,21 @@ int main(int argc, char **argv) {
 
 	ASSERT_EQUAL(dac_prepare(), 0);
 	int status = 0;
-	int ctr = 0;
 
 	for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
 		events_last[i] = events[i].start + time;
 	}
 
 	while (1) {
-#if 0
-		dac_point_t *ptr = 0;
-		int len = dac_request(&ptr);
-		if (len < 0) {
-			outputf("*** UNDERFLOW ***");
-			dac_prepare();
-		}
-
-		if (len >= 0 && len < 10 && dac_get_state() != DAC_PLAYING) {
-			dac_start(30000);
-		}
-		 if (len > 0) {
-
-			int i;
-			for (i = 0; i < len;) {
-				const unsigned char *w = &ildatest_bts[ctr];
-				uint16_t x = ((w[3] << 8) & 0xF000) | (w[4] << 4);
-				uint16_t y = ((w[3] << 12) & 0xF000) | (w[5] << 4);
-				ptr[i].x = x;
-				ptr[i].y = y;
-				ptr[i].r = w[0] << 4;
-				ptr[i].g = w[1] << 4;
-				ptr[i].b = w[2] << 4;
-				ptr[i].i = 0;
-				ptr[i].u1 = 0;
-				ptr[i].u2 = 0;
-
-				i++;
-				ctr += 6;
-
-				if (ctr >= 7164)
-					ctr = 0;
-			}
-			dac_advance(len);
-		}
-#endif
+		tp_trianglewave_run();
 
 		if (!(LPC_GPIO1->FIOPIN & (1 << 26))) {
 			outputf("Blocking...");
 			while (!(LPC_GPIO1->FIOPIN & (1 << 26)));
 		}
+
+
+		LPC_GPIO1->FIOCLR = (1 << 28);
 
 		if (status) {
 			LPC_GPIO0->FIOPIN = 1;
@@ -263,14 +229,10 @@ int main(int argc, char **argv) {
 			status = 1;
 		}
 
-		LPC_GPIO1->FIOCLR = (1 << 28);
 		LPC_GPIO1->FIOSET = (1 << 28);
 
 		for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
 			if (time > events_last[i] + events[i].period) {
-/*
-				outputf("++ %s ++", events[i].msg);
-*/
 				events[i].f();
 				events_last[i] += events[i].period;
 			}
