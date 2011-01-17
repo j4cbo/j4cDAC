@@ -147,6 +147,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 				return send_resp(pcb, RESP_NAK_INVALID, cmd,
 						 1);
 			} else {
+				dac_stop(0);
 				return send_resp(pcb, RESP_ACK, cmd, 1);
 			}
 

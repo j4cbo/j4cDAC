@@ -1,4 +1,4 @@
-/* j4cDAC useful GCC attributes
+/* j4cDAC useful GCC attributes and macros
  *
  * Copyright 2010 Jacob Potter
  *
@@ -36,5 +36,11 @@
  * Put this object in the AHB SRAM block, rather than the main SRAM.
  */
 #define AHB0 __attribute__((section(".ahb_sram_0")))
+
+/* ARRAY_NELEMS(arr)
+ *
+ * Return the number of elements in an array.
+ */
+#define ARRAY_NELEMS(arr)	(sizeof(arr) / sizeof(arr[0]))
 
 #endif

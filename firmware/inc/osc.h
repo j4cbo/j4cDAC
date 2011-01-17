@@ -1,4 +1,4 @@
-/* j4cDAC light engine state machine
+/* j4cDAC OSC interface
  *
  * Copyright 2011 Jacob Potter
  *
@@ -15,33 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <lightengine.h>
-#include <serial.h>
-#include <dac.h>
+#ifndef OSC_H
+#define OSC_H
 
-enum le_state le_state;
-uint16_t le_flags;
+#include <stdint.h>
 
-/* This is basically a stub at the moment, until thermal control is added. */
+void osc_init(void);
 
-enum le_state le_get_state(void) {
-	return le_state;
-}
+void osc_send_int(const char *path, uint32_t value);
+void osc_send_string(const char *path, const char *value);
 
-uint16_t le_get_flags(void) {
-	return le_state;
-}
-
-void le_estop(uint16_t condition) {
-	le_flags |= condition;
-	le_state = LIGHTENGINE_ESTOP;
-	dac_stop(DAC_FLAG_STOP_ESTOP);
-
-	outputf("*** ESTOP 0x%x ***", le_flags);
-}
-
-void le_estop_clear(uint16_t condition) {
-	le_flags &= ~condition;
-	if (!le_flags)
-		le_state = LIGHTENGINE_READY;
-}
+#endif

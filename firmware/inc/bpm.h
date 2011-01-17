@@ -1,4 +1,4 @@
-/* j4cDAC light engine state machine
+/* j4cDAC tap-for-bpm master oscillator
  *
  * Copyright 2011 Jacob Potter
  *
@@ -15,33 +15,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <lightengine.h>
-#include <serial.h>
-#include <dac.h>
+#ifndef BPM_H
+#define BPM_H
 
-enum le_state le_state;
-uint16_t le_flags;
+void bpm_init(void);
+void bpm_tap(void);
 
-/* This is basically a stub at the moment, until thermal control is added. */
-
-enum le_state le_get_state(void) {
-	return le_state;
-}
-
-uint16_t le_get_flags(void) {
-	return le_state;
-}
-
-void le_estop(uint16_t condition) {
-	le_flags |= condition;
-	le_state = LIGHTENGINE_ESTOP;
-	dac_stop(DAC_FLAG_STOP_ESTOP);
-
-	outputf("*** ESTOP 0x%x ***", le_flags);
-}
-
-void le_estop_clear(uint16_t condition) {
-	le_flags &= ~condition;
-	if (!le_flags)
-		le_state = LIGHTENGINE_READY;
-}
+#endif
