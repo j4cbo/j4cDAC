@@ -59,6 +59,7 @@
 volatile static int bpm_work;
 
 static int bpm_freq;
+static unsigned int bpm_consecutive_taps;
 
 volatile static int bpm_last_tap;
 
@@ -75,9 +76,11 @@ void bpm_init(void) {
 	/* Set up the timer */
 	BPM_TIMER->TCR = TnTCR_Counter_Enable |  TnTCR_Counter_Reset;
 
-	/* Prescale: divide by 24 to give us a 4 MHz clock. This lets us
-	 * count as low as 2 bpm while still having excessive precision. */
-	BPM_TIMER->PR = 23;
+	/* Prescale: remember that the timers are slaved off of cclk/4 (see
+	 * dac.c). Divide further by 12 to give us a 2 MHz clock. This lets
+	 * us count as low as a few bpm while still having excessive
+	 * precision. */
+	BPM_TIMER->PR = 11;
 
 	/* Interrupt and reset on match 0. */
 	BPM_TIMER->MCR = 3;
@@ -150,6 +153,7 @@ void bpm_tap(void) {
 		BPM_TIMER->MR0 = tap_delta;
 		BPM_TIMER->TC = 0;
 		bpm_state = BPM_RUNNING;
+		bpm_consecutive_taps = 0;
 		break;
 
 	case BPM_RUNNING:
@@ -159,11 +163,18 @@ void bpm_tap(void) {
 		 * this tap normally. */
 		if (tap_delta > ((WINDOW + 1) * bpm_freq / WINDOW)) {
 			tap_delta -= bpm_freq;
+			bpm_consecutive_taps = 0;
 		}
 
 		/* Did this tap come in at a "reasonable time"? */
 		if (tap_delta > ((WINDOW - 1) * bpm_freq / WINDOW)) {
-			bpm_freq = (bpm_freq * 9) / 10 + (tap_delta / 10);
+			if (bpm_consecutive_taps > 5) {
+				bpm_freq = (bpm_freq * 19) / 20 + (tap_delta / 20);
+			} else {
+				bpm_freq = (bpm_freq * 9) / 10 + (tap_delta / 10);
+			}
+
+			bpm_consecutive_taps++;
 		} else {
 			/* It didn't. Resync. */
 			bpm_state = BPM_RESTART;
@@ -175,6 +186,7 @@ void bpm_tap(void) {
 	case BPM_RESTART:
 		bpm_freq = tap_delta;
 		bpm_state = BPM_RUNNING;
+		bpm_consecutive_taps = 0;
 		break;
 	}
 
@@ -195,7 +207,7 @@ void bpm_check() {
 
 	char buf[20];
 
-	sprintf(buf, "%lu bpm", 60000000 / BPM_TIMER->MR0);
+	sprintf(buf, "%u", 120000000 / bpm_freq);
 
 	osc_send_int("/1/led1", bpm_led_state);
 	osc_send_string("/1/label1", buf);
