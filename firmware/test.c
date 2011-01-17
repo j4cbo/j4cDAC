@@ -25,6 +25,8 @@
 #include <lwip/dhcp.h>
 #include <ipv4/lwip/autoip.h>
 #include <string.h>
+#include <bpm.h>
+#include <osc.h>
 #include <dac.h>
 #include <assert.h>
 #include <attrib.h>
@@ -192,6 +194,12 @@ int main(int argc, char **argv) {
 	outputf("usbtest_init()");
 	usbtest_init();
 
+	outputf("bpm_init()");
+	bpm_init();
+
+	outputf("osc_init()");
+	osc_init();
+
 	outputf("Entering main loop...");
 
 	ASSERT_EQUAL(dac_prepare(), 0);
@@ -269,6 +277,8 @@ int main(int argc, char **argv) {
 		}
 
 		eth_poll();
+
+		bpm_check();
 	}
 }
 

@@ -30,7 +30,6 @@ SRCS += $(LWIP)/core/dns.c $(LWIP)/core/init.c $(LWIP)/core/netif.c \
 
 SRCS += lib/skub.c
 
-
 # Ethernet driver
 SRCS += lib/ether.c lib/network.c drivers/source/mdio.c
 
@@ -42,7 +41,7 @@ CFLAGS += -Ilib/fatfs
 SRCS += lib/lpcusb/usbhw_lpc.c lib/lpcusb/usbinit.c lib/lpcusb/usbstdreq.c \
 	lib/lpcusb/usbcontrol.c lib/lpcusb/usbtest.c
 
-SRCS += net/point-stream.c net/broadcast.c net/sink.c
+SRCS += net/point-stream.c net/broadcast.c net/sink.c net/osc.c net/bpm.c
 
 OBJS1 = $(SRCS:.c=.o)
 OBJS = $(OBJS1:.s=.o)
