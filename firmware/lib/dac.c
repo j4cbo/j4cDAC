@@ -34,26 +34,32 @@
  * 60k.
  */
 static dac_point_t dac_buffer[DAC_BUFFER_POINTS] AHB0;
-
-/* Internal state. */
 static int dac_produce;
 static volatile int dac_consume;
+
+/* Buffer for point rate changes.
+ */
+static uint32_t dac_rate_buffer[DAC_RATE_BUFFER_SIZE];
+static int dac_rate_produce;
+static volatile int dac_rate_consume;
+
+/* Internal state. */
 int dac_current_pps;
 int dac_count;
 int dac_flags = 0;
-int dac_shutter_req = 0;
+
+uint8_t dac_shutter_req = 0;
 enum dac_state dac_state = DAC_IDLE;
 
 /* Shutter pin config. */
 #define DAC_SHUTTER_PIN		6
 #define DAC_SHUTTER_EN_PIN	7
 
-/* dac_start()
+/* dac_set_rate()
  *
- * Unsuspend the timers controlling the DAC, and start it playing at a
- * specified point rate.
+ * Set the DAC point rate to a new value.
  */
-int dac_start(int points_per_second) {
+int dac_set_rate(int points_per_second) {
 	if (dac_state != DAC_PREPARED)
 		return -1;
 
@@ -65,12 +71,53 @@ int dac_start(int points_per_second) {
 	 * MHz, one cycle is 42ns. */
 	LPC_PWM1->MR5 = ticks_per_point - 1;
 
+	return 0;
+}
+
+/* dac_start()
+ *
+ * Unsuspend the timers controlling the DAC, and start it playing at a
+ * specified point rate.
+ */
+int dac_start(int points_per_second) {
+	if (dac_state != DAC_PREPARED)
+		return -1;
+
+	dac_set_rate(points_per_second);
+
 	outputf("dac: starting");
 
 	LPC_PWM1->TCR = PWM_TCR_COUNTER_ENABLE | PWM_TCR_PWM_ENABLE;
 
 	dac_state = DAC_PLAYING;
 	dac_current_pps = points_per_second;
+
+	return 0;
+}
+
+/* dac_rate_queue
+ *
+ * Queue up a point rate change.
+ */
+int dac_rate_queue(int points_per_second) {
+	if (dac_state == DAC_IDLE)
+		return -1;
+
+	int produce = dac_rate_produce;
+
+	int fullness = produce - dac_rate_consume;
+	if (fullness < 0)
+		fullness += DAC_RATE_BUFFER_SIZE;
+
+	/* The buffer can only ever become one word short of full -
+	 * produce = consume means empty.
+	 */
+	if (fullness >= DAC_RATE_BUFFER_SIZE - 1)
+		return -1;
+
+	dac_rate_buffer[produce] = points_per_second;
+
+	dac_rate_produce = (produce + 1) % DAC_BUFFER_POINTS;
 
 	return 0;
 }
@@ -295,6 +342,17 @@ void PWM1_IRQHandler(void) {
 	} else {
 		LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_PIN);
 		dac_flags &= ~DAC_FLAG_SHUTTER;
+	}
+
+	/* Change the point rate? */
+	if (dac_buffer[consume].control & DAC_CTRL_RATE_CHANGE) {
+		int rate_consume = dac_rate_consume;
+		if (rate_consume != dac_rate_produce) {
+			dac_set_rate(dac_rate_buffer[rate_consume]);
+			rate_consume++;
+			if (rate_consume >= DAC_RATE_BUFFER_SIZE)
+				rate_consume = 0;
+		}
 	}
 
 	dac_count++;
