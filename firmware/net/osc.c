@@ -56,7 +56,7 @@ void handle_push1(const char *path, int v) {
 	bpm_tap();
 }
 
-struct osc_handler osc_handlers[] = {
+static const struct osc_handler osc_handlers[] = {
 	{ "/accxyz", 3, { .f3 = handle_acc }, { 1000000, 1000000, 1000000 } },
 	{ "/1/push1", 1, { .f1 = handle_push1 }, { 1 } },
 	{ "/1/push1/z", -1, { .dummy = NULL } },

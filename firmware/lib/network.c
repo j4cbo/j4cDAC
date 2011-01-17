@@ -58,7 +58,7 @@ err_t eth_netif_init(struct netif *netif) {
 }
 
 void eth_init() {
-	static struct ip_addr ipa = { 0 } , netmask = { 0 } , gw = { 0 };
+	struct ip_addr ipa = { 0 } , netmask = { 0 } , gw = { 0 };
 
 	/* Set up basic fields in ether_netif */
 	ether_netif.output = etharp_output;
