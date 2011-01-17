@@ -33,6 +33,13 @@
  * this doesn't disable *reassembly*, just fragmenting outgoing stuff. */
 #define IP_FRAG 0
 
+/* Memory for listening TCP sockets.
+ *
+ * We will likely only use TCP for two protocols - the DAC point streaming
+ * and HTTP. Everything else (OSC, ArtNet, status broadcasts...) is UDP.
+ */
+#define MEMP_NUM_TCP_PCB_LISTEN	2
+
 #define TCP_MSS         1460
 #define TCP_WND		10000
 #define TCP_SND_BUF     (2 * TCP_MSS)
