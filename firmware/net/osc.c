@@ -215,7 +215,7 @@ void osc_send_int(const char *path, uint32_t value) {
 		buf[bytes_used++] = '\0';
 	}
 
-	/* Add the12 type tag */
+	/* Add the type tag */
 	buf[bytes_used++] = ',';
 	buf[bytes_used++] = 'i';
 
@@ -252,7 +252,7 @@ void osc_send_string(const char *path, const char *value) {
 		buf[bytes_used++] = '\0';
 	}
 
-	/* Add the12 type tag */
+	/* Add the type tag */
 	buf[bytes_used++] = ',';
 	buf[bytes_used++] = 's';
 
