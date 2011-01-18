@@ -35,10 +35,10 @@
 
 /* Memory for listening TCP sockets.
  *
- * We will likely only use TCP for two protocols - the DAC point streaming
+ * We will likely only use TCP for three protocols - sink, DAC streaming,
  * and HTTP. Everything else (OSC, ArtNet, status broadcasts...) is UDP.
  */
-#define MEMP_NUM_TCP_PCB_LISTEN	2
+#define MEMP_NUM_TCP_PCB_LISTEN	3
 
 #define TCP_MSS         1460
 #define TCP_WND		10000
