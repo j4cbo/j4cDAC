@@ -44,14 +44,6 @@ void fill_status(struct dac_status *status) {
 	status->source_flags = 0;	// XXX TODO
 }
 
-/* broadcast_init
- *
- * This must be called before the periodic DAC broadcasts begin.
- */
-void broadcast_init(void) {
-
-}
-
 /* broadcast_send
  *
  * Fire off a broadcast packet with information about this DAC.

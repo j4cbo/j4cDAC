@@ -1,6 +1,6 @@
-/* j4cDAC test code
+/* j4cDAC
  *
- * Copyright 2010 Jacob Potter
+ * Copyright 2010, 2011 Jacob Potter
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,8 +16,6 @@
  */
 
 #include <LPC17xx.h>
-#include <diskio.h>
-#include <ff.h>
 #include <serial.h>
 #include "ether.h"
 #include <lwip/init.h>
@@ -25,26 +23,16 @@
 #include <lwip/dhcp.h>
 #include <ipv4/lwip/autoip.h>
 #include <string.h>
-#include <bpm.h>
-#include <osc.h>
-#include <dac.h>
+#include <broadcast.h>
 #include <assert.h>
 #include <attrib.h>
-#include <broadcast.h>
-#include <point-stream.h>
 #include <skub.h>
-#include <usbapi.h>
+#include <tables.h>
 
-#include <lpc17xx_gpdma.h>
 #include <lpc17xx_timer.h>
 
 volatile uint32_t time;
 volatile uint32_t mtime;
-
-FATFS fs;
-char filename_buf[256];
-
-#define DEBUG_UART	((LPC_UART_TypeDef *)LPC_UART0)
 
 extern void tp_trianglewave_run(void);
 
@@ -73,59 +61,8 @@ struct periodic_event {
 
 int events_last[sizeof(events) / sizeof(events[0])];
 
-void sink_init(void);
-
-void sd_init(void) {
-	int res = disk_initialize(0);
-	if (res) {
-		outputf("SD initialization failed: %d", res);
-		return;
-	}
-
-	/* This code sucks. It comes from the fatfs example code. */
-	memset(&fs, 0, sizeof(fs));
-	res = f_mount(0, &fs);
-	if (res) {
-		outputf("f_mount() failed: %d", res);
-		return;
-	}
-
-	DIR dir;
-	res = f_opendir(&dir, "");
-	if (res)
-		return;
-
-	FILINFO finfo;
-	int num_subdirs = 0, num_files = 0, total_size = 0;
-
-	while (1) {
-		finfo.lfname = filename_buf;
-		finfo.lfsize = sizeof(filename_buf);
-		res = f_readdir(&dir, &finfo);
-		if ((res != FR_OK) || !finfo.fname[0])
-			break;
-
-		if (finfo.fattrib & AM_DIR) {
-			num_subdirs++;
-		} else {
-			num_files++;
-			total_size += finfo.fsize;
-		}
-
-		outputf("%c%c%c%c%c %u/%02u/%02u %02u:%02u %9lu  %s  %s",
-			(finfo.fattrib & AM_DIR) ? 'D' : '-',
-			(finfo.fattrib & AM_RDO) ? 'R' : '-',
-			(finfo.fattrib & AM_HID) ? 'H' : '-',
-			(finfo.fattrib & AM_SYS) ? 'S' : '-',
-			(finfo.fattrib & AM_ARC) ? 'A' : '-',
-			(finfo.fdate >> 9) + 1980, (finfo.fdate >> 5) & 15,
-			finfo.fdate & 31, (finfo.ftime >> 11),
-			(finfo.ftime >> 5) & 63, finfo.fsize,
-			&(finfo.fname[0]), filename_buf);
-	}
-	outputf("%4u File(s),%10lu bytes total\n%4u Dir(s)",
-		num_files, total_size, num_subdirs);
-}
+TABLE(protocol);
+TABLE(hardware);
 
 int main(int argc, char **argv) {
 	time = 0;
@@ -148,42 +85,28 @@ int main(int argc, char **argv) {
 	outputf("skub_init()");
 	skub_init();
 
-	outputf("dac_init()");
-	dac_init();
-
 	outputf("lwip_init()");
 	lwip_init();
 
-	outputf("eth_init()");
-	eth_init();
+	outputf("== hardware ==");
 
-	outputf("sd_init()");
-	sd_init();
+	for (i = 0; i < TABLE_LENGTH(hardware); i++) {
+		outputf("%s()", hardware_table[i].name);
+		hardware_table[i].f();
+	}
 
-	outputf("broadcast_init()");
-	broadcast_init();
+	outputf("== protocol ==");
 
-	outputf("ps_init()");
-	ps_init();
-
-	outputf("sink_init()");
-	sink_init();
-
-	outputf("USBInit()");
-	USBInit();
+	for (i = 0; i < TABLE_LENGTH(protocol); i++) {
+		outputf("%s()", protocol_table[i].name);
+		protocol_table[i].f();
+	}
 
 	outputf("usbtest_init()");
 	usbtest_init();
 
-	outputf("bpm_init()");
-	bpm_init();
-
-	outputf("osc_init()");
-	osc_init();
-
 	outputf("Entering main loop...");
 
-	ASSERT_EQUAL(dac_prepare(), 0);
 	int status = 0;
 
 	for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
@@ -225,4 +148,3 @@ int main(int argc, char **argv) {
 		bpm_check();
 	}
 }
-

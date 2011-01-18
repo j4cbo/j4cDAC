@@ -45,6 +45,7 @@
 #include <serial.h>
 #include <osc.h>
 #include <stdio.h>
+#include <tables.h>
 
 #define BPM_TIMER	LPC_TIM0
 #define BPM_IRQHandler	TIMER0_IRQHandler
@@ -90,6 +91,8 @@ void bpm_init(void) {
 	NVIC_EnableIRQ(BPM_TIMER_IRQn);
 
 }
+
+INITIALIZER(hardware, bpm_init)
 
 void BPM_IRQHandler(void) {
 	/* Assert that the right thing caused this IRQ */

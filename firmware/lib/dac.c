@@ -27,6 +27,7 @@
 #include <assert.h>
 #include <attrib.h>
 #include <lightengine.h>
+#include <tables.h>
 
 /* Each point is 18 bytes. We buffer 1800 points = 32400 bytes.
  *
@@ -392,3 +393,5 @@ int dac_fullness(void) {
 void shutter_set(int state) {
 	dac_shutter_req = state;
 }
+
+INITIALIZER(hardware, dac_init);

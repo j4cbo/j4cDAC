@@ -18,6 +18,7 @@
 
 #include <lwip/pbuf.h>
 #include <lwip/tcp.h>
+#include <tables.h>
 
 static err_t sink_recv(void *arg, struct tcp_pcb * pcb, struct pbuf * pbuf,
 		       err_t err) {
@@ -53,3 +54,5 @@ void sink_init(void) {
 	pcb = tcp_listen(pcb);
 	tcp_accept(pcb, sink_accept);
 }
+
+INITIALIZER(protocol, sink_init);

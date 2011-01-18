@@ -66,6 +66,10 @@ SECTIONS
 
     *(.rodata .rodata.* .gnu.linkonce.r.*)
 
+    _table_start = .;
+    *(SORT(.table.*));
+    _table_end = .;
+
     *(.ARM.extab* .gnu.linkonce.armextab.*)
     *(.gcc_except_table)
     *(.eh_frame_hdr)

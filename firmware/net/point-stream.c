@@ -6,6 +6,7 @@
 #include <string.h>
 #include <assert.h>
 #include <point-stream.h>
+#include <tables.h>
 
 #define RV __attribute__((warn_unused_result))
 
@@ -399,3 +400,5 @@ void ps_init(void) {
 	pcb = tcp_listen(pcb);
 	tcp_accept(pcb, ps_accept);
 }
+
+INITIALIZER(protocol, ps_init)

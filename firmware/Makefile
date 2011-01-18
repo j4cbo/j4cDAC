@@ -34,7 +34,8 @@ SRCS += lib/skub.c
 SRCS += lib/ether.c lib/network.c drivers/source/mdio.c
 
 # FAT
-SRCS += lib/fatfs/ff.c lib/sdcard.c lib/fatfs/ccsbcs.c lib/fatfs/diskio.c
+SRCS += lib/fatfs/ff.c lib/sdcard.c lib/fatfs/ccsbcs.c lib/fatfs/diskio.c \
+	lib/fatfs/fatfs.c
 CFLAGS += -Ilib/fatfs
 
 # LPCUSB

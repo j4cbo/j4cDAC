@@ -22,6 +22,7 @@
 #include <attrib.h>
 #include <assert.h>
 #include <bpm.h>
+#include <tables.h>
 
 static struct ip_addr *osc_last_source;
 
@@ -267,3 +268,5 @@ void osc_send_string(const char *path, const char *value) {
 	udp_sendto(&osc_pcb, p, osc_last_source, 60001);
 	pbuf_free(p);
 }
+
+INITIALIZER(protocol, osc_init)
