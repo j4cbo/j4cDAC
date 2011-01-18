@@ -170,11 +170,10 @@ int dac_request(dac_point_t ** addrp) {
  * than dac_request allowed, but it should not write *more*.
  */
 void dac_advance(int count) {
-	ASSERT(dac_state == DAC_PREPARED || dac_state == DAC_PLAYING);
-
-	int new_produce = (dac_produce + count) % DAC_BUFFER_POINTS;
-
-	dac_produce = new_produce;
+	if (dac_state == DAC_PREPARED || dac_state == DAC_PLAYING) {
+		int new_produce = (dac_produce + count) % DAC_BUFFER_POINTS;
+		dac_produce = new_produce;
+	}
 }
 
 /* dac_init
