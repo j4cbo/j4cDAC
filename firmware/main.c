@@ -58,24 +58,6 @@ void delay_ms(uint16_t length) {
 	while (time < end);
 }
 
-void HardFault_Handler_C(uint32_t * stack) ATTR_VISIBLE;
-void HardFault_Handler_C(uint32_t * stack) {
-	outputf("*** HARD FAULT ***");
-	outputf("stack: %p", stack);
-	int i;
-	for (i = 0; i < 32; i++) {
-		outputf("stack[%d]: %p", i, stack[i]);
-	}
-	while (1);
-}
-
-void BusFault_Handler_C(uint32_t * stack) ATTR_VISIBLE;
-void BusFault_Handler_C(uint32_t * stack) {
-	outputf("*** BUS FAULT ***");
-	outputf("pc: %p", stack[6]);
-	while (1);
-}
-
 struct periodic_event {
 	void (*f)(void);
 	int period;
@@ -209,7 +191,7 @@ int main(int argc, char **argv) {
 	}
 
 	while (1) {
-		tp_trianglewave_run();
+//		tp_trianglewave_run();
 
 		if (!(LPC_GPIO1->FIOPIN & (1 << 26))) {
 			outputf("Blocking...");

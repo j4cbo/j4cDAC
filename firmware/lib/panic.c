@@ -21,6 +21,8 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <serial.h>
+#include <attrib.h>
 
 #define DEBUG_UART      ((LPC_UART_TypeDef *)LPC_UART0)
 
@@ -44,5 +46,23 @@ void panic(const char *fmt, ...) {
 		  BLOCKING);
 	UART_Send(DEBUG_UART, (uint8_t *) buffer, n + 2, BLOCKING);
 
+	while (1);
+}
+
+void HardFault_Handler_C(uint32_t * stack) ATTR_VISIBLE;
+void HardFault_Handler_C(uint32_t * stack) {
+	outputf("*** HARD FAULT ***");
+	outputf("stack: %p", stack);
+	int i;
+	for (i = 0; i < 32; i++) {
+		outputf("stack[%d]: %p", i, stack[i]);
+	}
+	while (1);
+}
+
+void BusFault_Handler_C(uint32_t * stack) ATTR_VISIBLE;
+void BusFault_Handler_C(uint32_t * stack) {
+	outputf("*** BUS FAULT ***");
+	outputf("pc: %p", stack[6]);
 	while (1);
 }
