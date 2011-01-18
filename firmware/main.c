@@ -29,8 +29,6 @@
 #include <skub.h>
 #include <tables.h>
 
-#include <lpc17xx_timer.h>
-
 volatile uint32_t time;
 volatile uint32_t mtime;
 
@@ -78,8 +76,6 @@ int main(int argc, char **argv) {
 	LPC_GPIO1->FIOSET = (1 << 28);
 	LPC_GPIO1->FIODIR |= (1 << 29);
 
-	__enable_irq();
-
 	outputf("=== j4cDAC ===");
 
 	outputf("skub_init()");
@@ -102,10 +98,9 @@ int main(int argc, char **argv) {
 		protocol_table[i].f();
 	}
 
-	outputf("usbtest_init()");
-	usbtest_init();
-
 	outputf("Entering main loop...");
+
+	__enable_irq();
 
 	int status = 0;
 
