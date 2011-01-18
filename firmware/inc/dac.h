@@ -61,6 +61,8 @@ void dac_advance(int count);
 void dac_stop(int flags);
 enum dac_state dac_get_state(void);
 int dac_fullness(void);
+int dac_set_rate(int points_per_second);
+int dac_rate_queue(int points_per_second);
 
 extern int dac_current_pps;
 extern int dac_count;
