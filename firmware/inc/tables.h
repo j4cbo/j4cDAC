@@ -63,9 +63,6 @@ typedef struct {
 #define INITIALIZER(table, f) const initializer_t f##_ptr \
 	__attribute__((section(".table." #table ".1"))) = { f, #f };
 
-#define INIT_HW
-#define INIT_NET
-
 #define TABLE(name) \
 	const initializer_t name##_table[0] __attribute__((section(".table." #name )));		\
 	const initializer_t name##_table_end[0] __attribute__((section(".table." #name ".END")));

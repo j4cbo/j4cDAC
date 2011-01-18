@@ -130,3 +130,4 @@ void eth_get_mac(uint8_t *mac) {
 }
 
 INITIALIZER(hardware, eth_init)
+INITIALIZER(poll, eth_poll)

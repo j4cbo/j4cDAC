@@ -198,7 +198,7 @@ void bpm_tap(void) {
 
 static int bpm_led_state = 0;
 
-void bpm_check() {
+void bpm_check(void) {
 	if (!bpm_work) return;
 	bpm_work = 0;
 
@@ -215,3 +215,5 @@ void bpm_check() {
 	osc_send_int("/1/led1", bpm_led_state);
 	osc_send_string("/1/label1", buf);
 }
+
+INITIALIZER(poll, bpm_check)

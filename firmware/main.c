@@ -39,11 +39,6 @@ void SysTick_Handler(void) {
 	if (mtime % 10 == 0) time++;
 }
 
-void delay_ms(uint16_t length) {
-	uint32_t end = time + length;
-	while (time < end);
-}
-
 struct periodic_event {
 	void (*f)(void);
 	int period;
@@ -61,6 +56,7 @@ int events_last[sizeof(events) / sizeof(events[0])];
 
 TABLE(protocol);
 TABLE(hardware);
+TABLE(poll);
 
 int main(int argc, char **argv) {
 	time = 0;
@@ -131,6 +127,7 @@ int main(int argc, char **argv) {
 
 		LPC_GPIO1->FIOSET = (1 << 28);
 
+		/* Check for periodic events */
 		for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
 			if (time > events_last[i] + events[i].period) {
 				events[i].f();
@@ -138,8 +135,9 @@ int main(int argc, char **argv) {
 			}
 		}
 
-		eth_poll();
-
-		bpm_check();
+		/* Check the stuff we check on each loop iteration. */
+		for (i = 0; i < TABLE_LENGTH(poll); i++) {
+			poll_table[i].f();
+		}
 	}
 }
