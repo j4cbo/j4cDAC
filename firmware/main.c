@@ -28,9 +28,13 @@
 #include <attrib.h>
 #include <skub.h>
 #include <tables.h>
+#include <playback.h>
+#include <dac.h>
 
 volatile uint32_t time;
 volatile uint32_t mtime;
+
+enum playback_source playback_src;
 
 extern void tp_trianglewave_run(void);
 
@@ -57,6 +61,44 @@ int events_last[sizeof(events) / sizeof(events[0])];
 TABLE(protocol);
 TABLE(hardware);
 TABLE(poll);
+
+void playback_refill() {
+	dac_point_t *ptr = 0;
+	int i;
+
+	int dlen = dac_request(&ptr);
+
+	/* Have we underflowed? */
+	if (dlen < 0) {
+		outputf("*U*");
+		dac_prepare();
+		return;
+	}
+
+	/* If the buffer is nearly full, start it up */
+	if (dlen < 10 && dac_get_state() != DAC_PLAYING) {
+		dac_start(30000);
+	}
+
+	/* If we don't have any more room... */
+	if (dlen == 0)
+		return;
+
+	switch (playback_src) {
+	case SRC_ILDAPLAYER:
+		i = ilda_read_points(dlen, ptr);
+		if (i <= 0) {
+			outputf("%d", i);
+			ilda_reset_file();
+		} else {
+			dac_advance(i);
+		}
+
+		break;
+	default:
+		panic("bad playback source");
+	}
+}
 
 int main(int argc, char **argv) {
 	time = 0;
@@ -94,6 +136,9 @@ int main(int argc, char **argv) {
 		protocol_table[i].f();
 	}
 
+	outputf("ilda player");
+	ilda_open("", 1000);
+
 	outputf("Entering main loop...");
 
 	__enable_irq();
@@ -105,7 +150,10 @@ int main(int argc, char **argv) {
 	}
 
 	while (1) {
-//		tp_trianglewave_run();
+		/* If we're playing from something other than the network,
+		 * refill the point buffer. */
+		if (playback_src != SRC_NETWORK)
+			playback_refill();
 
 		if (!(LPC_GPIO1->FIOPIN & (1 << 26))) {
 			outputf("Blocking...");
@@ -113,7 +161,7 @@ int main(int argc, char **argv) {
 		}
 
 
-		LPC_GPIO1->FIOCLR = (1 << 28);
+//		LPC_GPIO1->FIOCLR = (1 << 28);
 
 		if (status) {
 			LPC_GPIO0->FIOPIN = 1;
@@ -125,7 +173,7 @@ int main(int argc, char **argv) {
 			status = 1;
 		}
 
-		LPC_GPIO1->FIOSET = (1 << 28);
+//		LPC_GPIO1->FIOSET = (1 << 28);
 
 		/* Check for periodic events */
 		for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
