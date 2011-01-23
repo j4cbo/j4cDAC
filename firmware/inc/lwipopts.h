@@ -53,5 +53,7 @@
 #define U32_F "u"
 #define S32_F "d"
 #define X32_F "x"
+#define MEM_STATS 0
+#define MEMP_STATS 0
 
 #endif
