@@ -1,7 +1,7 @@
 PREFIX = arm-none-eabi-
 
 CFLAGS = -Iinc -Ilib/core_cm3 -Ilib/lpc17xx -Idrivers/include -fno-common -mcpu=cortex-m3 -mthumb -Os -g
-CFLAGS += -Wall -Ilib/lpcusb
+CFLAGS += -Wall -Ilib/lpcusb -fdata-sections
 LDFLAGS = -Tlib/lpc17xx/lpc1758.lds -mcpu=cortex-m3 -mthumb -fwhole-program
 
 # Cortex-M3 support code

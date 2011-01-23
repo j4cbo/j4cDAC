@@ -25,7 +25,7 @@
 #define SKUB_POOL_FIXED(name, typ, num) \
 	static typ skub_pool_##name[num];
 #define SKUB_POOL_VAR(sz, count) \
-	static uint8_t skub_pool_##sz[sz * count];
+	static uint8_t skub_pool_##sz[sz * count] __attribute__ ((aligned (4)));
 #include <skub-zones.h>
 #undef SKUB_POOL_FIXED
 #undef SKUB_POOL_VAR

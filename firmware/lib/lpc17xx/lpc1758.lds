@@ -148,7 +148,7 @@ SECTIONS
   .bss :
   {
     *(.shbss)
-    *(.bss .bss.* .gnu.linkonce.b.*)
+    *(.bss SORT_BY_ALIGNMENT(.bss.*) .gnu.linkonce.b.*)
     *(COMMON)
     *(.ram.b)
     . = ALIGN (8);
