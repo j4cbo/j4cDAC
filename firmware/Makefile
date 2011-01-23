@@ -28,7 +28,7 @@ SRCS += $(LWIP)/core/dns.c $(LWIP)/core/init.c $(LWIP)/core/netif.c \
         $(LWIP)/core/ipv4/ip.c $(LWIP)/core/ipv4/ip_frag.c \
         $(LWIP)/netif/etharp.c $(LWIP)/core/dhcp.c
 
-SRCS += lib/skub.c
+SRCS += lib/skub.c ild-player.c
 
 # Ethernet driver
 SRCS += lib/ether.c lib/network.c drivers/source/mdio.c
