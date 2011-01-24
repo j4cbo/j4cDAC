@@ -60,9 +60,7 @@ void handle_push1(const char *path, int v) {
 static const struct osc_handler osc_handlers[] = {
 	{ "/accxyz", 3, { .f3 = handle_acc }, { 1000000, 1000000, 1000000 } },
 	{ "/1/push1", 1, { .f1 = handle_push1 }, { 1 } },
-	{ "/1/push1/z", -1, { .dummy = NULL } },
-	{ "/1/fader1", 1, { .f1 = handle_fader }, { 1000000 } },
-	{ "/1/fader1/z", -1, { .dummy = NULL } },
+	{ "/1/fader1", 1, { .f1 = handle_fader }, { 1000000 } }
 };
 
 void osc_parse_packet(char *data, int length) {
@@ -175,7 +173,8 @@ void osc_parse_packet(char *data, int length) {
 		}
 	}
 
-	if (!nmatched) {
+	if (!nmatched && address_len >= 2 && address[address_len - 1] != 'z' \
+	    && address[address_len - 2] != '/') {
 		outputf("unk: %s", address);
 	}
 }
