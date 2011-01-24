@@ -130,7 +130,10 @@ void BPM_IRQHandler(void) {
 	bpm_work = 1;
 }
 
-void bpm_tap(void) {
+static void bpm_tap(const char *path, int v) {
+	if (!v)
+		return;
+
 	int last_tap = bpm_last_tap;
 	int counter = BPM_TIMER->TC;
 	int tap_delta = counter - last_tap;
@@ -195,6 +198,10 @@ void bpm_tap(void) {
 
 	bpm_last_tap = counter;
 }
+
+TABLE_ITEMS(osc_handler, bpm_osc_handler,
+	{ "/bpm/tap", 1, { .f1 = bpm_tap }, { 1 } }
+)
 
 static int bpm_led_state = 0;
 

@@ -58,9 +58,9 @@ struct periodic_event {
 
 int events_last[sizeof(events) / sizeof(events[0])];
 
-TABLE(protocol);
-TABLE(hardware);
-TABLE(poll);
+TABLE(initializer_t, protocol);
+TABLE(initializer_t, hardware);
+TABLE(initializer_t, poll);
 
 void playback_refill() {
 	dac_point_t *ptr = 0;

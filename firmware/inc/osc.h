@@ -20,6 +20,19 @@
 
 #include <stdint.h>
 
+typedef struct osc_handler {
+	const char *address;
+	int nargs;
+	union {
+		void (*f0) (const char *);
+		void (*f1) (const char *, int);
+		void (*f2) (const char *, int, int);
+		void (*f3) (const char *, int, int, int);
+		void *dummy;
+	};
+	int scalefactor[3];
+} osc_handler;
+
 void osc_init(void);
 
 void osc_send_int(const char *path, uint32_t value);
