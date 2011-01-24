@@ -141,6 +141,11 @@ void * skub_alloc_sz(int size) {
 	int i;
 	void * ret = NULL;
 
+	if (size > skub_pools_var[ARRAY_NELEMS(skub_pools_var) - 1].sz) {
+		outputf("alloc %d: too big for any pool");
+		return NULL;
+	}
+
 	for (i = 0; i < ARRAY_NELEMS(skub_pools_var); i++) {
 		if (skub_pools_var[i].sz < size)
 			continue;
