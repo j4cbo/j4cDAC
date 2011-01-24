@@ -60,6 +60,9 @@ typedef struct {
 	const char * name;
 } initializer_t;
 
+#define TABLE_ITEMS(typ, sym, ...) const typ sym[] \
+	__attribute__((section(".table." #typ ".1"))) = { __VA_ARGS__ };
+
 #define INITIALIZER(table, f) const initializer_t f##_ptr \
 	__attribute__((section(".table." #table ".1"))) = { f, #f };
 
