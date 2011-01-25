@@ -290,20 +290,25 @@ void dac_stop(int flags) {
 
 	/* Clear out all the DAC channels. */
 	int i;
-	for (i = 2; i < 8; i++) {
+	for (i = 0; i < 6; i++) {
 		LPC_SSP1->DR = (i << 12);
 	}
 
 	/* Write an immediate LDAC command */
-	LPC_SSP1->DR = 0x9002;
+	LPC_SSP1->DR = 0xA000;
 
 	/* Wait for not-full */
+	while (!(LPC_SSP1->SR & SSP_SR_TNF));
+
+	/* Center the galvos */
+	LPC_SSP1->DR = 0x6800;
+	LPC_SSP1->DR = 0x7800;
+	LPC_SSP1->DR = 0xA001;
 	while (!(LPC_SSP1->SR & SSP_SR_TNF));
 
 	/* Now, reset state */
 	dac_state = DAC_IDLE;
 	dac_count = 0;
-	dac_current_pps = 0;
 	dac_flags |= flags;
 }
 
