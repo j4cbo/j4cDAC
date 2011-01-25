@@ -219,8 +219,8 @@ void bpm_check(void) {
 
 	sprintf(buf, "%u", 120000000 / bpm_freq);
 
-	osc_send_int("/1/led1", bpm_led_state);
-	osc_send_string("/1/label1", buf);
+	osc_send_int("/bpm/flash", bpm_led_state);
+	osc_send_string("/bpm/readout", buf);
 }
 
 INITIALIZER(poll, bpm_check)
