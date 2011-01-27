@@ -106,7 +106,8 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 				return send_resp(pcb, RESP_NAK_INVL, cmd, 1);
 
 // XXX			set_low_water_mark(bc->low_water_mark);
-			dac_start(bc->point_rate);
+			dac_set_rate(bc->point_rate);
+			dac_start();
 
 			return send_resp(pcb, RESP_ACK, cmd,
 					 sizeof(struct begin_command));

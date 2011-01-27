@@ -26,15 +26,18 @@
 #include <broadcast.h>
 #include <assert.h>
 #include <attrib.h>
+#include <lightengine.h>
 #include <skub.h>
 #include <tables.h>
 #include <playback.h>
 #include <dac.h>
+#include <ilda-player.h>
 
 volatile uint32_t time;
 volatile uint32_t mtime;
 
 enum playback_source playback_src;
+int playback_source_flags;
 
 extern void tp_trianglewave_run(void);
 
@@ -70,26 +73,47 @@ void playback_refill() {
 
 	/* Have we underflowed? */
 	if (dlen < 0) {
+		if (le_get_state() != LIGHTENGINE_READY)
+			return;
+
 		outputf("*U*");
 		dac_prepare();
 		return;
 	}
 
-	/* If the buffer is nearly full, start it up */
-	if (dlen < 10 && dac_get_state() != DAC_PLAYING) {
-		dac_start(30000);
-	}
-
 	/* If we don't have any more room... */
-	if (dlen == 0)
+	if (dlen == 0) {
+		if (dac_get_state() == DAC_PREPARED)
+			dac_start();
 		return;
+	}
 
 	switch (playback_src) {
 	case SRC_ILDAPLAYER:
+		if (!(playback_source_flags & ILDA_PLAYER_PLAYING))
+			break;
+
+		outputf("%d", dlen);
+
 		i = ilda_read_points(dlen, ptr);
-		if (i <= 0) {
-			outputf("%d", i);
+
+		if (i < 0) {
+			outputf("err: %d", i);
+			playback_source_flags &= ~ILDA_PLAYER_PLAYING;
+		} else if (i == 0) {
 			ilda_reset_file();
+
+			if (playback_source_flags & ILDA_PLAYER_REPEAT) {
+				outputf("rep");
+			} else {
+				outputf("done");
+
+				/* If the whole file didn't fit in the
+				 * buffer, we may have to start it now. */
+				dlen = 0;
+
+				playback_source_flags &= ~ILDA_PLAYER_PLAYING;
+			}
 		} else {
 			dac_advance(i);
 		}
@@ -98,6 +122,10 @@ void playback_refill() {
 	default:
 		panic("bad playback source");
 	}
+
+	/* If the buffer is nearly full, start it up */
+	if (dlen < 100 && dac_get_state() == DAC_PREPARED)
+		dac_start();
 }
 
 int main(int argc, char **argv) {
@@ -137,9 +165,14 @@ int main(int argc, char **argv) {
 	}
 
 	outputf("ilda player");
-	ilda_open("", 1000);
+	ilda_open("ildatest.ild");
 
 	outputf("Entering main loop...");
+
+/*
+	playback_src = SRC_ILDAPLAYER;
+	playback_source_flags = ILDA_PLAYER_PLAYING | ILDA_PLAYER_REPEAT;
+*/
 
 	__enable_irq();
 
@@ -148,6 +181,9 @@ int main(int argc, char **argv) {
 	for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
 		events_last[i] = events[i].start + time;
 	}
+
+	dac_set_rate(12000);
+	ilda_set_fps_limit(30);
 
 	while (1) {
 		/* If we're playing from something other than the network,

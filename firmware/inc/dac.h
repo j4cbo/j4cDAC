@@ -55,7 +55,7 @@ enum dac_state {
 void dac_init(void);
 
 int dac_prepare(void);
-int dac_start(int points_per_second);
+int dac_start(void);
 int dac_request(dac_point_t **addrp);
 void dac_advance(int count);
 void dac_stop(int flags);

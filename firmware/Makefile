@@ -38,11 +38,15 @@ SRCS += lib/fatfs/ff.c lib/sdcard.c lib/fatfs/ccsbcs.c lib/fatfs/diskio.c \
 	lib/fatfs/fatfs.c
 CFLAGS += -Ilib/fatfs
 
+# HTTP
+SRCS += net/http/httpd.c net/http/fs.c
+
 # LPCUSB
 SRCS += lib/lpcusb/usbhw_lpc.c lib/lpcusb/usbinit.c lib/lpcusb/usbstdreq.c \
 	lib/lpcusb/usbcontrol.c lib/lpcusb/usbtest.c
 
-SRCS += net/point-stream.c net/broadcast.c net/sink.c net/osc.c net/bpm.c
+SRCS += net/point-stream.c net/broadcast.c net/sink.c net/osc.c net/bpm.c \
+	net/ilda-osc.c
 
 OBJS1 = $(SRCS:.c=.o)
 OBJS = $(OBJS1:.s=.o)
@@ -71,6 +75,7 @@ flash:
 
 size:
 	$(PREFIX)size -A j4cDAC.elf
+	$(PREFIX)nm -anS --size-sort -t d j4cDAC.elf | grep ^2 | tail -20
 
 term:
 	../tools/miniterm/miniterm.py -b 230400 -p /dev/ttyUSB0

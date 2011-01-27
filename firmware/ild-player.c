@@ -25,9 +25,7 @@ char ilda_sf_buffer[6 * SMALL_FRAME_THRESHOLD];
 #include <string.h>
 #include <assert.h>
 #include <dac.h>
-
-/* Error flags */
-#define FILE_DONE	-2
+#include <ilda-player.h>
 
 static FIL ilda_file;
 
@@ -48,6 +46,8 @@ static int ilda_points_per_frame;
 static uint8_t const *ilda_palette_ptr;
 static int ilda_palette_size;
 
+int ilda_current_fps;
+
 static const uint8_t ilda_palette_64[];
 static const uint8_t ilda_palette_256[];
 
@@ -59,22 +59,27 @@ void ilda_reset_file(void) {
 	ilda_state = -1;
 	ilda_offset = 0;
 	ilda_palette_ptr = ilda_palette_64;
+	ilda_palette_size = 64;
 	f_lseek(&ilda_file, 0);
+}
+
+void ilda_set_fps_limit(int max_fps) {
+	ilda_current_fps = max_fps;
+	ilda_points_per_frame = dac_current_pps / max_fps;
 }
 
 /* ilda_play_init
  *
  * Prepare the ILDA player to play a given file.
  */
-int ilda_open(const char * fname, int points_per_frame) {
-	FRESULT res = f_open(&ilda_file, "0:ildatest.ild", FA_READ);
+int ilda_open(const char * fname) {
+	FRESULT res = f_open(&ilda_file, fname, FA_READ);
 	if (res) {
 		outputf("ild_play: no file!");
 		return -1;
 	}
 
 	ilda_reset_file();
-	ilda_points_per_frame = points_per_frame;
 
 	return 0;
 }
@@ -148,7 +153,7 @@ void ilda_palette_point(dac_point_t *p, int color) {
 		p->i = 0;
 	} else {
 		/* Palette index */
-		color |= 0xFF;
+		color &= 0xFF;
 		if (color >= ilda_palette_size)
 			color = ilda_palette_size - 1;
 
@@ -185,12 +190,13 @@ void ilda_tc_point(dac_point_t *p, int r, int g, int b, int flags) {
 		p->i = max;
 	}
 }
+
 /* ilda_read_points
  *
  * Produce up to max_points of output to be sent to the DAC.
  *
- * Returns FILE_DONE if the end of the file has been reached, -1 if some
- * other error occurs, 0 if there are points left.
+ * Returns 0 if the end of the file has been reached, -1 if an
+ * error occurs, or the number of bytes actually written otherwise.
  */
 int ilda_read_points(int max_points, dac_point_t *p) {
 	uint8_t buf[10];
@@ -200,7 +206,7 @@ int ilda_read_points(int max_points, dac_point_t *p) {
 		/* We're currently betwee frames, so read the header. */
 		int ret = ilda_read(buf, 8);
 		if (ret == 0)
-			return FILE_DONE;
+			return 0;
 		else if (ret != 8)
 			return -1;
 
@@ -222,7 +228,7 @@ int ilda_read_points(int max_points, dac_point_t *p) {
 
 			/* Zero-length means end of file */
 			if (ilda_points_left == 0)
-				return FILE_DONE;
+				return 0;
 
 			/* Save off the beginning of this frame, in case we
 			 * need to repeat it. */
