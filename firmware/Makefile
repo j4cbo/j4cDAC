@@ -39,7 +39,7 @@ SRCS += lib/fatfs/ff.c lib/sdcard.c lib/fatfs/ccsbcs.c lib/fatfs/diskio.c \
 CFLAGS += -Ilib/fatfs
 
 # HTTP
-SRCS += net/http/httpd.c net/http/fs.c
+# SRCS += net/http/httpd.c net/http/fs.c
 
 # LPCUSB
 SRCS += lib/lpcusb/usbhw_lpc.c lib/lpcusb/usbinit.c lib/lpcusb/usbstdreq.c \
