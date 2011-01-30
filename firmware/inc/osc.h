@@ -36,6 +36,7 @@ typedef struct osc_handler {
 void osc_init(void);
 
 void osc_send_int(const char *path, uint32_t value);
+void osc_send_int2(const char *path, uint32_t v1, uint32_t v2);
 void osc_send_string(const char *path, const char *value);
 
 #endif

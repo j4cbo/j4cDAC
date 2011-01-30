@@ -212,6 +212,45 @@ void osc_send_int(const char *path, uint32_t value) {
 	pbuf_free(p);
 }
 
+void osc_send_int2(const char *path, uint32_t v1, uint32_t v2) {
+	int plen = strlen(path);
+	int size_needed = plen - (plen % 4) + 16;
+
+	struct pbuf * p = pbuf_alloc(PBUF_TRANSPORT, size_needed, PBUF_RAM);
+
+	if (!p) {
+		outputf("osc_send_int: oom");
+		return;
+	}
+
+	char *buf = p->payload;
+
+	strcpy(buf, path);
+	int bytes_used = plen + 1;
+
+	/* Pad nulls to a multiple of 4 bytes */
+	while (bytes_used % 4) {
+		buf[bytes_used++] = '\0';
+	}
+
+	/* Add the type tag */
+	buf[bytes_used++] = ',';
+	buf[bytes_used++] = 'i';
+	buf[bytes_used++] = 'i';
+
+	while (bytes_used % 4) {
+		buf[bytes_used++] = '\0';
+	}
+
+	*(uint32_t *)&buf[bytes_used] = htonl(v1);
+	bytes_used += 4;
+	*(uint32_t *)&buf[bytes_used] = htonl(v2);
+	bytes_used += 4;
+
+	udp_sendto(&osc_pcb, p, osc_last_source, 60001);
+	pbuf_free(p);
+}
+
 void osc_send_string(const char *path, const char *value) {
 	int plen = strlen(path);
 	int vlen = strlen(value);

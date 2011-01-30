@@ -46,7 +46,7 @@ SRCS += lib/lpcusb/usbhw_lpc.c lib/lpcusb/usbinit.c lib/lpcusb/usbstdreq.c \
 	lib/lpcusb/usbcontrol.c lib/lpcusb/usbtest.c
 
 SRCS += net/point-stream.c net/broadcast.c net/sink.c net/osc.c net/bpm.c \
-	net/ilda-osc.c
+	net/ilda-osc.c net/correction-osc.c lib/transform.c
 
 OBJS1 = $(SRCS:.c=.o)
 OBJS = $(OBJS1:.s=.o)

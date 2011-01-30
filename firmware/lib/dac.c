@@ -1,4 +1,4 @@
-/* j4cDAC DMA/DAC driver
+/* j4cDAC DAC driver
  *
  * Copyright 2010 Jacob Potter
  *
@@ -16,6 +16,7 @@
  */
 
 #include <serial.h>
+#include <string.h>
 #include <lpc17xx_pinsel.h>
 #include <lpc17xx_gpdma.h>
 #include <lpc17xx_ssp.h>
@@ -26,6 +27,7 @@
 #include <dac.h>
 #include <assert.h>
 #include <attrib.h>
+#include <transform.h>
 #include <lightengine.h>
 #include <tables.h>
 
@@ -43,6 +45,16 @@ static volatile int dac_consume;
 static uint32_t dac_rate_buffer[DAC_RATE_BUFFER_SIZE];
 static int dac_rate_produce;
 static volatile int dac_rate_consume;
+
+/* Color channel delay lines.
+ */
+#define DAC_MAX_COLOR_DELAY	20
+struct delay_line {
+	uint16_t buffer[DAC_MAX_COLOR_DELAY];
+	uint8_t index;
+	uint8_t points;
+};
+static struct delay_line red_delay, green_delay, blue_delay;
 
 /* Internal state. */
 int dac_current_pps;
@@ -250,6 +262,14 @@ void dac_init() {
 	dac_state = DAC_IDLE;
 	dac_count = 0;
 	dac_current_pps = 0;
+
+	memset(red_delay.buffer, 0, sizeof(red_delay.buffer));
+	memset(green_delay.buffer, 0, sizeof(green_delay.buffer));
+	memset(blue_delay.buffer, 0, sizeof(blue_delay.buffer));
+
+	red_delay.points = 2;
+	green_delay.points = 2;
+	blue_delay.points = 2;
 }
 
 /* dac_configure
@@ -315,6 +335,29 @@ void dac_stop(int flags) {
 	dac_state = DAC_IDLE;
 	dac_count = 0;
 	dac_flags |= flags;
+
+	memset(red_delay.buffer, 0, sizeof(red_delay.buffer));
+	memset(green_delay.buffer, 0, sizeof(green_delay.buffer));
+	memset(blue_delay.buffer, 0, sizeof(blue_delay.buffer));
+}
+
+/* Delay the red, green, and blue lines if needed
+ */
+static void delay_line_write(struct delay_line *dl, uint16_t in) {
+	int points = dl->points;
+
+	if (points) {
+		int index = dl->index;
+
+		if (index > points)
+			index = 0;
+
+		LPC_SSP1->DR = dl->buffer[index];
+		dl->buffer[index] = in;
+		dl->index = index + 1;
+	} else {
+		LPC_SSP1->DR = in;
+	}
 }
 
 void PWM1_IRQHandler(void) {
@@ -337,12 +380,17 @@ void PWM1_IRQHandler(void) {
 
 	#define MASK_XY(v)	((((v) >> 4) + 0x800) & 0xFFF)
 
-	LPC_SSP1->DR = MASK_XY(dac_buffer[consume].x) | 0x6000;
-	LPC_SSP1->DR = MASK_XY(dac_buffer[consume].y) | 0x7000;
+	int32_t x = translate_x(dac_buffer[consume].x, dac_buffer[consume].y);
+	int32_t y = translate_y(dac_buffer[consume].x, dac_buffer[consume].y);
+
+	LPC_SSP1->DR = MASK_XY(x) | 0x6000;
+	LPC_SSP1->DR = MASK_XY(y) | 0x7000;
+
+	delay_line_write(&red_delay, (dac_buffer[consume].r >> 4) | 0x4000);
+	delay_line_write(&green_delay, (dac_buffer[consume].g >> 4) | 0x3000);
+	delay_line_write(&blue_delay, (dac_buffer[consume].b >> 4) | 0x2000);
+
 	LPC_SSP1->DR = (dac_buffer[consume].i >> 4) | 0x5000;
-	LPC_SSP1->DR = (dac_buffer[consume].r >> 4) | 0x4000;
-	LPC_SSP1->DR = (dac_buffer[consume].g >> 4) | 0x3000;
-	LPC_SSP1->DR = (dac_buffer[consume].b >> 4) | 0x2000;
 	LPC_SSP1->DR = (dac_buffer[consume].u1 >> 4) | 0x1000;
 	LPC_SSP1->DR = (dac_buffer[consume].u2 >> 4);
 
