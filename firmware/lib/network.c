@@ -54,10 +54,6 @@ void EINT3_IRQHandler(void) {
 	}
 }
 
-err_t eth_netif_init(struct netif *netif) {
-	return ERR_OK;
-}
-
 void eth_init() {
 	struct ip_addr ipa = { 0 } , netmask = { 0 } , gw = { 0 };
 
@@ -87,7 +83,7 @@ void eth_init() {
 	NVIC_EnableIRQ(EINT3_IRQn);
 
 	/* Hand it over to lwIP */
-	netif_add(&ether_netif, &ipa, &netmask, &gw, NULL, eth_netif_init, ethernet_input);
+	netif_add(&ether_netif, &ipa, &netmask, &gw, NULL, ethernet_input);
 	netif_set_default(&ether_netif);
 	netif_set_up(&ether_netif);
 	dhcp_start(&ether_netif, &dhcp_state);

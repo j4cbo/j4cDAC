@@ -82,7 +82,6 @@ struct netif *netif_default;
  * @param netmask network mask for the new netif
  * @param gw default gateway IP address for the new netif
  * @param state opaque data passed to the new netif
- * @param init callback function that initializes the interface
  * @param input callback function that is called to pass
  * ingress packets up in the protocol layer stack.
  *
@@ -92,7 +91,6 @@ struct netif *
 netif_add(struct netif *netif, struct ip_addr *ipaddr, struct ip_addr *netmask,
   struct ip_addr *gw,
   void *state,
-  err_t (* init)(struct netif *netif),
   err_t (* input)(struct pbuf *p, struct netif *netif))
 {
   static u8_t netifnum = 0;
@@ -136,11 +134,6 @@ netif_add(struct netif *netif, struct ip_addr *ipaddr, struct ip_addr *netmask,
 #endif /* ENABLE_LOOPBACK && LWIP_LOOPBACK_MAX_PBUFS */
 
   netif_set_addr(netif, ipaddr, netmask, gw);
-
-  /* call user specified initialization function for netif */
-  if (init(netif) != ERR_OK) {
-    return NULL;
-  }
 
   /* add this netif to the list */
   netif->next = netif_list;

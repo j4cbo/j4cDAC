@@ -207,7 +207,6 @@ extern struct netif *netif_default;
 struct netif *netif_add(struct netif *netif, struct ip_addr *ipaddr, struct ip_addr *netmask,
       struct ip_addr *gw,
       void *state,
-      err_t (* init)(struct netif *netif),
       err_t (* input)(struct pbuf *p, struct netif *netif));
 
 void
