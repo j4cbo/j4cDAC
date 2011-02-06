@@ -48,6 +48,7 @@
 #include <stdio.h>
 #include <serial.h>
 #include <string.h>
+#include <tables.h>
 
 #include "usbapi.h"
 #include "usbdebug.h"
@@ -399,8 +400,6 @@ unsigned long CPUcpsie(void)
 
 void usbtest_init(void)
 {
-	int c;
-	
 	/* Just to prevent compiler warnings about the unused parameter. */
 #if 0
 	xRxedChars = xQueueCreate( usbBUFFER_LEN, sizeof( char ) );
@@ -445,6 +444,8 @@ void usbtest_init(void)
 	USBHwConnect(TRUE);
 
 #if 0
+	int c;
+	
 	// echo any character received (do USB stuff in interrupt)
 	for( ;; )
 	{
@@ -459,3 +460,4 @@ void usbtest_init(void)
 #endif
 }
 
+INITIALIZER(protocol, usbtest_init)

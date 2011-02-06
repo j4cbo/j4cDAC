@@ -33,6 +33,7 @@
 
 #include "usbdebug.h"
 #include "usbapi.h"
+#include <tables.h>
 
 
 /** data storage area for standard requests */
@@ -55,10 +56,8 @@ static void HandleUsbReset(unsigned char bDevStatus)
 /**
 	Initialises the USB hardware and sets up the USB stack by
 	installing default callbacks.
-	
-	@return TRUE if initialisation was successful
  */
-int USBInit(void)
+void usb_init(void)
 {
 	// init hardware
 	USBHwInit();
@@ -76,7 +75,6 @@ int USBInit(void)
 	
 	// register standard request handler
 	USBRegisterRequestHandler(REQTYPE_TYPE_STANDARD, USBHandleStandardRequest, abStdReqData);
-
-	return TRUE;
 }
 
+INITIALIZER(hardware, usb_init)

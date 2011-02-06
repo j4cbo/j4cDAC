@@ -1,4 +1,4 @@
-/* j4cDAC tap-for-bpm master oscillator
+/* j4cDAC playback sources
  *
  * Copyright 2011 Jacob Potter
  *
@@ -15,10 +15,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef BPM_H
-#define BPM_H
+#ifndef PLAYBACK_H
+#define PLAYBACK_H
 
-void bpm_init(void);
-void bpm_tap(void);
+enum playback_source {
+	SRC_NETWORK = 0,
+	SRC_ILDAPLAYER = 1,
+	SRC_SYNTH = 2
+};
+
+extern enum playback_source playback_src;
+extern int playback_source_flags;
+
+#define ILDA_PLAYER_PLAYING	0x01
+#define ILDA_PLAYER_REPEAT	0x02
 
 #endif

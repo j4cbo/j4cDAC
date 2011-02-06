@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-typedef struct { uint8_t x[1536]; } u1536;
+typedef struct { uint8_t x[1536]; } __attribute__ ((aligned (4))) u1536;
 
 /* Include skub-zones.h once, so any headers it needs are brought in */
 #define SKUB_POOL_FIXED(name, typ, num)

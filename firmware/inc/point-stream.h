@@ -29,6 +29,11 @@ struct begin_command {
 	uint32_t point_rate;
 } __attribute__ ((packed));
 
+struct queue_command {
+	uint8_t command;	/* 'q' (0x74) */
+	uint32_t point_rate;
+} __attribute__ ((packed));
+
 struct data_command {
 	uint8_t command;	/* 'd' (0x64) */
 	uint16_t npoints;
@@ -48,7 +53,7 @@ struct dac_response {
 
 #define RESP_ACK		'a'
 #define RESP_NAK_FULL		'F'
-#define RESP_NAK_INVALID	'I'
+#define RESP_NAK_INVL		'I'
 #define RESP_NAK_ESTOP		'!'
 
 void ps_init(void);

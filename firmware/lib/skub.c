@@ -25,7 +25,7 @@
 #define SKUB_POOL_FIXED(name, typ, num) \
 	static typ skub_pool_##name[num];
 #define SKUB_POOL_VAR(sz, count) \
-	static uint8_t skub_pool_##sz[sz * count];
+	static uint8_t skub_pool_##sz[sz * count] __attribute__ ((aligned (4)));
 #include <skub-zones.h>
 #undef SKUB_POOL_FIXED
 #undef SKUB_POOL_VAR
@@ -140,6 +140,11 @@ void * skub_alloc_sz(int size) {
 	/* Find a free block */
 	int i;
 	void * ret = NULL;
+
+	if (size > skub_pools_var[ARRAY_NELEMS(skub_pools_var) - 1].sz) {
+		outputf("alloc %d: too big for any pool");
+		return NULL;
+	}
 
 	for (i = 0; i < ARRAY_NELEMS(skub_pools_var); i++) {
 		if (skub_pools_var[i].sz < size)

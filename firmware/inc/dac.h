@@ -30,6 +30,8 @@ typedef struct dac_point {
 	uint16_t u2;
 } dac_point_t;
 
+#define DAC_CTRL_RATE_CHANGE	0x8000
+
 enum dac_state {
 	DAC_IDLE = 0,
 	DAC_PREPARED = 1,
@@ -44,6 +46,8 @@ enum dac_state {
 
 #define DAC_BUFFER_POINTS	1800
 
+#define DAC_RATE_BUFFER_SIZE	16
+
 /* This is the maximum point rate that we advertise in our periodic
  * broadcast packet. 100kpps ought to be enough for anyone. */
 #define DAC_MAX_POINT_RATE	100000
@@ -51,12 +55,14 @@ enum dac_state {
 void dac_init(void);
 
 int dac_prepare(void);
-int dac_start(int points_per_second);
+int dac_start(void);
 int dac_request(dac_point_t **addrp);
 void dac_advance(int count);
 void dac_stop(int flags);
 enum dac_state dac_get_state(void);
 int dac_fullness(void);
+int dac_set_rate(int points_per_second);
+int dac_rate_queue(int points_per_second);
 
 extern int dac_current_pps;
 extern int dac_count;

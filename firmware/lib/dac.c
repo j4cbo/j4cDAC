@@ -27,6 +27,7 @@
 #include <assert.h>
 #include <attrib.h>
 #include <lightengine.h>
+#include <tables.h>
 
 /* Each point is 18 bytes. We buffer 1800 points = 32400 bytes.
  *
@@ -34,29 +35,32 @@
  * 60k.
  */
 static dac_point_t dac_buffer[DAC_BUFFER_POINTS] AHB0;
-
-/* Internal state. */
 static int dac_produce;
 static volatile int dac_consume;
+
+/* Buffer for point rate changes.
+ */
+static uint32_t dac_rate_buffer[DAC_RATE_BUFFER_SIZE];
+static int dac_rate_produce;
+static volatile int dac_rate_consume;
+
+/* Internal state. */
 int dac_current_pps;
 int dac_count;
 int dac_flags = 0;
-int dac_shutter_req = 0;
+
+uint8_t dac_shutter_req = 0;
 enum dac_state dac_state = DAC_IDLE;
 
 /* Shutter pin config. */
 #define DAC_SHUTTER_PIN		6
 #define DAC_SHUTTER_EN_PIN	7
 
-/* dac_start()
+/* dac_set_rate()
  *
- * Unsuspend the timers controlling the DAC, and start it playing at a
- * specified point rate.
+ * Set the DAC point rate to a new value.
  */
-int dac_start(int points_per_second) {
-	if (dac_state != DAC_PREPARED)
-		return -1;
-
+int dac_set_rate(int points_per_second) {
 	/* The PWM peripheral is set in dac_init() to use CCLK/4. */
 	int ticks_per_point = (SystemCoreClock / 4) / points_per_second;
 	LPC_PWM1->MR0 = ticks_per_point;
@@ -65,12 +69,58 @@ int dac_start(int points_per_second) {
 	 * MHz, one cycle is 42ns. */
 	LPC_PWM1->MR5 = ticks_per_point - 1;
 
+	/* Enable this rate to take effect when the timer next overflows. */
+	LPC_PWM1->LER = (1<<0) | (1<<5);
+
+	dac_current_pps = points_per_second;
+
+	return 0;
+}
+
+/* dac_start()
+ *
+ * Unsuspend the timers controlling the DAC, and start it playing at a
+ * specified point rate.
+ */
+int dac_start(void) {
+	if (dac_state != DAC_PREPARED)
+		return -1;
+
+	if (!dac_current_pps)
+		return -1;
+
 	outputf("dac: starting");
 
 	LPC_PWM1->TCR = PWM_TCR_COUNTER_ENABLE | PWM_TCR_PWM_ENABLE;
 
 	dac_state = DAC_PLAYING;
-	dac_current_pps = points_per_second;
+
+	return 0;
+}
+
+/* dac_rate_queue
+ *
+ * Queue up a point rate change.
+ */
+int dac_rate_queue(int points_per_second) {
+	if (dac_state == DAC_IDLE)
+		return -1;
+
+	int produce = dac_rate_produce;
+
+	int fullness = produce - dac_rate_consume;
+	if (fullness < 0)
+		fullness += DAC_RATE_BUFFER_SIZE;
+
+	/* The buffer can only ever become one word short of full -
+	 * produce = consume means empty.
+	 */
+	if (fullness >= DAC_RATE_BUFFER_SIZE - 1)
+		return -1;
+
+	dac_rate_buffer[produce] = points_per_second;
+
+	dac_rate_produce = (produce + 1) % DAC_BUFFER_POINTS;
 
 	return 0;
 }
@@ -122,11 +172,10 @@ int dac_request(dac_point_t ** addrp) {
  * than dac_request allowed, but it should not write *more*.
  */
 void dac_advance(int count) {
-	ASSERT(dac_state == DAC_PREPARED || dac_state == DAC_PLAYING);
-
-	int new_produce = (dac_produce + count) % DAC_BUFFER_POINTS;
-
-	dac_produce = new_produce;
+	if (dac_state == DAC_PREPARED || dac_state == DAC_PLAYING) {
+		int new_produce = (dac_produce + count) % DAC_BUFFER_POINTS;
+		dac_produce = new_produce;
+	}
 }
 
 /* dac_init
@@ -153,10 +202,11 @@ void dac_init() {
 	PINSEL_ConfigPin(&PinCfg);
 
 	/* ... and LDAC on the PWM peripheral */
-	PinCfg.Funcnum = 1;
-	PinCfg.Portnum = 2;
-	PinCfg.Pinnum = 4;
-	PINSEL_ConfigPin(&PinCfg);
+	LPC_PINCON->PINSEL4 |= (1 << 8);
+
+	/* Get the pin set up to produce a low LDAC puslse */
+	LPC_GPIO2->FIODIR |= (1 << 4);
+	LPC_GPIO2->FIOCLR = (1 << 4);
 
 	/* Turn on the SSP peripheral. */
 	LPC_SSP1->CR0 = 0xF | (1 << 6);	/* 16-bit, CPOL = 1; no prescale */
@@ -241,22 +291,29 @@ void dac_stop(int flags) {
 	dac_flags &= ~DAC_FLAG_SHUTTER;
 	LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_PIN);
 
+	/* Set LDAC to update immediately */
+	LPC_PINCON->PINSEL4 &= ~(3 << 8);
+
 	/* Clear out all the DAC channels. */
 	int i;
-	for (i = 2; i < 8; i++) {
-		LPC_SSP1->DR = (i << 12);
+	for (i = 0; i < 8; i++) {
+		while (!(LPC_SSP1->SR & SSP_SR_TFE));
+
+		/* Color channels get 0, but X and Y we write as 0x800, to
+		 * produce 0v out. */
+		LPC_SSP1->DR = (i << 12) | (i > 5 ? 0x800 : 0);
 	}
 
-	/* Write an immediate LDAC command */
-	LPC_SSP1->DR = 0x9002;
+	while (!(LPC_SSP1->SR & SSP_SR_TFE));
+	LPC_SSP1->DR = 0xA002;
+	while (!(LPC_SSP1->SR & SSP_SR_TFE));
 
-	/* Wait for not-full */
-	while (!(LPC_SSP1->SR & SSP_SR_TNF));
+	/* Give LDAC back to the PWM hardware */
+	LPC_PINCON->PINSEL4 |= (1 << 8);
 
 	/* Now, reset state */
 	dac_state = DAC_IDLE;
 	dac_count = 0;
-	dac_current_pps = 0;
 	dac_flags |= flags;
 }
 
@@ -297,6 +354,17 @@ void PWM1_IRQHandler(void) {
 		dac_flags &= ~DAC_FLAG_SHUTTER;
 	}
 
+	/* Change the point rate? */
+	if (dac_buffer[consume].control & DAC_CTRL_RATE_CHANGE) {
+		int rate_consume = dac_rate_consume;
+		if (rate_consume != dac_rate_produce) {
+			dac_set_rate(dac_rate_buffer[rate_consume]);
+			rate_consume++;
+			if (rate_consume >= DAC_RATE_BUFFER_SIZE)
+				rate_consume = 0;
+		}
+	}
+
 	dac_count++;
 
 	consume++;
@@ -334,3 +402,5 @@ int dac_fullness(void) {
 void shutter_set(int state) {
 	dac_shutter_req = state;
 }
+
+INITIALIZER(hardware, dac_init);

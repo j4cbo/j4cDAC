@@ -27,6 +27,7 @@
 #include <string.h>
 #include <mdio.h>
 #include <dp83848.h>
+#include <tables.h>
 
 static struct netif ether_netif;
 static struct dhcp dhcp_state;
@@ -58,7 +59,7 @@ err_t eth_netif_init(struct netif *netif) {
 }
 
 void eth_init() {
-	static struct ip_addr ipa = { 0 } , netmask = { 0 } , gw = { 0 };
+	struct ip_addr ipa = { 0 } , netmask = { 0 } , gw = { 0 };
 
 	/* Set up basic fields in ether_netif */
 	ether_netif.output = etharp_output;
@@ -127,3 +128,6 @@ void handle_packet(struct pbuf *p) {
 void eth_get_mac(uint8_t *mac) {
 	memcpy(mac, ether_netif.hwaddr, 6);
 }
+
+INITIALIZER(hardware, eth_init)
+INITIALIZER(poll, eth_poll)

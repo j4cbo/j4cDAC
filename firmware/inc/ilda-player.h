@@ -1,4 +1,4 @@
-/* j4cDAC OSC interface
+/* j4cDAC ILDA player
  *
  * Copyright 2011 Jacob Potter
  *
@@ -15,27 +15,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef OSC_H
-#define OSC_H
+#ifndef ILD_PLAYER_H
+#define ILD_PLAYER_H
 
-#include <stdint.h>
+int ilda_open(const char * fname);
+int ilda_read_points(int max_points, dac_point_t *p);
+void ilda_reset_file(void);
 
-typedef struct osc_handler {
-	const char *address;
-	int nargs;
-	union {
-		void (*f0) (const char *);
-		void (*f1) (const char *, int);
-		void (*f2) (const char *, int, int);
-		void (*f3) (const char *, int, int, int);
-		void *dummy;
-	};
-	int scalefactor[3];
-} osc_handler;
+void ilda_set_fps_limit(int max_fps);
 
-void osc_init(void);
-
-void osc_send_int(const char *path, uint32_t value);
-void osc_send_string(const char *path, const char *value);
+extern int ilda_current_fps;
 
 #endif

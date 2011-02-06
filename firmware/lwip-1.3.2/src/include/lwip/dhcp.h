@@ -28,12 +28,6 @@ struct dhcp
   u32_t xid;
   /** our connection to the DHCP server */ 
   struct udp_pcb pcb;
-  /** incoming msg */
-  struct dhcp_msg *msg_in;
-  /** incoming msg options */
-  void *options_in; 
-  /** ingoing msg options length */
-  u16_t options_in_len;
   /** current DHCP state machine state */
   u8_t state;
   /** retries of current request */

@@ -66,6 +66,10 @@ SECTIONS
 
     *(.rodata .rodata.* .gnu.linkonce.r.*)
 
+    _table_start = .;
+    *(SORT(.table.*));
+    _table_end = .;
+
     *(.ARM.extab* .gnu.linkonce.armextab.*)
     *(.gcc_except_table)
     *(.eh_frame_hdr)
@@ -144,7 +148,7 @@ SECTIONS
   .bss :
   {
     *(.shbss)
-    *(.bss .bss.* .gnu.linkonce.b.*)
+    *(.bss SORT_BY_ALIGNMENT(.bss.*) .gnu.linkonce.b.*)
     *(COMMON)
     *(.ram.b)
     . = ALIGN (8);

@@ -6,6 +6,7 @@
 #include <string.h>
 #include <assert.h>
 #include <point-stream.h>
+#include <tables.h>
 
 #define RV __attribute__((warn_unused_result))
 
@@ -89,8 +90,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		case 'p':
 			/* Prepare stream. */
 			if (dac_prepare() < 0) {
-				return send_resp(pcb, RESP_NAK_INVALID, cmd,
-						 1);
+				return send_resp(pcb, RESP_NAK_INVL, cmd, 1);
 			} else {
 				return send_resp(pcb, RESP_ACK, cmd, 1);
 			}
@@ -101,9 +101,13 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 				return 0;
 
 			struct begin_command *bc = (struct begin_command *)data;
-// XXX			set_low_water_mark(bc->low_water_mark);
 
-			dac_start(bc->point_rate);
+			if (bc->point_rate > DAC_MAX_POINT_RATE)
+				return send_resp(pcb, RESP_NAK_INVL, cmd, 1);
+
+// XXX			set_low_water_mark(bc->low_water_mark);
+			dac_set_rate(bc->point_rate);
+			dac_start();
 
 			return send_resp(pcb, RESP_ACK, cmd,
 					 sizeof(struct begin_command));
@@ -113,12 +117,30 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 			if (len < sizeof(struct begin_command))
 				return 0;
 
-//			struct begin_command *uc = (struct begin_command *)data;
-// XXX			dac_set_point_rate(uc->point_rate);
+			struct begin_command *uc = (struct begin_command *)data;
+
+			if (uc->point_rate > DAC_MAX_POINT_RATE)
+				return send_resp(pcb, RESP_NAK_INVL, cmd, 1);
+
+			dac_set_rate(uc->point_rate);
 // XXX			set_low_water_mark(uc->low_water_mark);
 
 			return send_resp(pcb, RESP_ACK, cmd, 
 					 sizeof(struct begin_command));
+
+		case 'q':
+			if (len < sizeof(struct queue_command))
+				return 0;
+
+			struct queue_command *qc = (struct queue_command *)data;
+
+			if (qc->point_rate > DAC_MAX_POINT_RATE)
+				return send_resp(pcb, RESP_NAK_INVL, cmd, 1);
+
+			dac_rate_queue(qc->point_rate);
+
+			return send_resp(pcb, RESP_ACK, cmd, 
+					 sizeof(struct queue_command));
 
 		case 'd':
 			/* Data: switch into the DATA state to start reading
@@ -144,8 +166,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		case 's':
 			/* Stop */
 			if (dac_get_state() == DAC_IDLE) {
-				return send_resp(pcb, RESP_NAK_INVALID, cmd,
-						 1);
+				return send_resp(pcb, RESP_NAK_INVL, cmd, 1);
 			} else {
 				dac_stop(0);
 				return send_resp(pcb, RESP_ACK, cmd, 1);
@@ -242,7 +263,7 @@ handle_aborted_data:
 
 		if (!ps_pointsleft) {
 			ps_state = MAIN;
-			return send_resp(pcb, RESP_NAK_INVALID, 'd',
+			return send_resp(pcb, RESP_NAK_INVL, 'd',
 					 npoints * sizeof(struct dac_point));
 		} else {
 			return (npoints * sizeof(struct dac_point));
@@ -380,3 +401,5 @@ void ps_init(void) {
 	pcb = tcp_listen(pcb);
 	tcp_accept(pcb, ps_accept);
 }
+
+INITIALIZER(protocol, ps_init)

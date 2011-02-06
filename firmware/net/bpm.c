@@ -45,6 +45,7 @@
 #include <serial.h>
 #include <osc.h>
 #include <stdio.h>
+#include <tables.h>
 
 #define BPM_TIMER	LPC_TIM0
 #define BPM_IRQHandler	TIMER0_IRQHandler
@@ -91,6 +92,8 @@ void bpm_init(void) {
 
 }
 
+INITIALIZER(hardware, bpm_init)
+
 void BPM_IRQHandler(void) {
 	/* Assert that the right thing caused this IRQ */
 	if (BPM_TIMER->IR & 1) {
@@ -127,7 +130,10 @@ void BPM_IRQHandler(void) {
 	bpm_work = 1;
 }
 
-void bpm_tap(void) {
+static void bpm_tap(const char *path, int v) {
+	if (!v)
+		return;
+
 	int last_tap = bpm_last_tap;
 	int counter = BPM_TIMER->TC;
 	int tap_delta = counter - last_tap;
@@ -193,9 +199,13 @@ void bpm_tap(void) {
 	bpm_last_tap = counter;
 }
 
+TABLE_ITEMS(osc_handler, bpm_osc_handler,
+	{ "/bpm/tap", 1, { .f1 = bpm_tap }, { 1 } }
+)
+
 static int bpm_led_state = 0;
 
-void bpm_check() {
+void bpm_check(void) {
 	if (!bpm_work) return;
 	bpm_work = 0;
 
@@ -209,6 +219,8 @@ void bpm_check() {
 
 	sprintf(buf, "%u", 120000000 / bpm_freq);
 
-	osc_send_int("/1/led1", bpm_led_state);
-	osc_send_string("/1/label1", buf);
+	osc_send_int("/bpm/flash", bpm_led_state);
+	osc_send_string("/bpm/readout", buf);
 }
+
+INITIALIZER(poll, bpm_check)

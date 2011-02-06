@@ -22,6 +22,7 @@
 #include <lwip/pbuf.h>
 #include <assert.h>
 #include <ether.h>
+#include <playback.h>
 
 #define BROADCAST_PORT	7654
 
@@ -37,19 +38,17 @@ void fill_status(struct dac_status *status) {
 	status->playback_flags = dac_flags;
 	status->light_engine_flags = le_get_flags();
 	status->buffer_fullness = dac_fullness();
-	status->point_rate = dac_current_pps;
+
+	/* Only report a point rate if currently playing */
+	if (status->playback_state == DAC_PLAYING)
+		status->point_rate = dac_current_pps;
+	else
+		status->point_rate = 0;
+
 	status->point_count = dac_count;
 
-	status->source = 0;	// XXX TODO
+	status->source = playback_src;
 	status->source_flags = 0;	// XXX TODO
-}
-
-/* broadcast_init
- *
- * This must be called before the periodic DAC broadcasts begin.
- */
-void broadcast_init(void) {
-
 }
 
 /* broadcast_send

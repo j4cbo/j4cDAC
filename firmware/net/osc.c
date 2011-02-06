@@ -21,26 +21,14 @@
 #include <lwip/pbuf.h>
 #include <attrib.h>
 #include <assert.h>
-#include <bpm.h>
+#include <osc.h>
+#include <tables.h>
 
 static struct ip_addr *osc_last_source;
 
 union float_int {
 	float f;
 	uint32_t i;
-};
-
-struct osc_handler {
-	const char *address;
-	int nargs;
-	union {
-		void (*f0) (const char *);
-		void (*f1) (const char *, int);
-		void (*f2) (const char *, int, int);
-		void (*f3) (const char *, int, int, int);
-		void *dummy;
-	};
-	int scalefactor[3];
 };
 
 void handle_acc(const char *path, int x, int y, int z) {
@@ -50,19 +38,12 @@ void handle_fader(const char *path, int v) {
 	outputf("%d", v);
 }
 
-void handle_push1(const char *path, int v) {
-	if (!v) return;
+TABLE(osc_handler, osc_handler)
 
-	bpm_tap();
-}
-
-struct osc_handler osc_handlers[] = {
+TABLE_ITEMS(osc_handler, default_handlers,
 	{ "/accxyz", 3, { .f3 = handle_acc }, { 1000000, 1000000, 1000000 } },
-	{ "/1/push1", 1, { .f1 = handle_push1 }, { 1 } },
-	{ "/1/push1/z", -1, { .dummy = NULL } },
-	{ "/1/fader1", 1, { .f1 = handle_fader }, { 1000000 } },
-	{ "/1/fader1/z", -1, { .dummy = NULL } },
-};
+	{ "/1/fader1", 1, { .f1 = handle_fader }, { 1000000 } }
+)
 
 void osc_parse_packet(char *data, int length) {
 
@@ -106,8 +87,8 @@ void osc_parse_packet(char *data, int length) {
 
 	int i;
 	int nmatched = 0;
-	for (i = 0; i < ARRAY_NELEMS(osc_handlers); i++) {
-		const struct osc_handler *h = &osc_handlers[i];
+	for (i = 0; i < TABLE_LENGTH(osc_handler); i++) {
+		const struct osc_handler *h = &osc_handler_table[i];
 
 		if (strcmp(h->address, address))
 			continue;
@@ -174,7 +155,8 @@ void osc_parse_packet(char *data, int length) {
 		}
 	}
 
-	if (!nmatched) {
+	if (!nmatched && address_len >= 2 && address[address_len - 1] != 'z' \
+	    && address[address_len - 2] != '/') {
 		outputf("unk: %s", address);
 	}
 }
@@ -267,3 +249,5 @@ void osc_send_string(const char *path, const char *value) {
 	udp_sendto(&osc_pcb, p, osc_last_source, 60001);
 	pbuf_free(p);
 }
+
+INITIALIZER(protocol, osc_init)
