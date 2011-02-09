@@ -28,10 +28,6 @@ struct dhcp
   u32_t xid;
   /** our connection to the DHCP server */ 
   struct udp_pcb pcb;
-  /** current DHCP state machine state */
-  u8_t state;
-  /** retries of current request */
-  u8_t tries;
 
   struct pbuf *p_out; /* pbuf of outcoming msg */
   struct dhcp_msg *msg_out; /* outgoing msg */
@@ -51,6 +47,12 @@ struct dhcp
   u32_t offered_t0_lease; /* lease period (in seconds) */
   u32_t offered_t1_renew; /* recommended renew time (usually 50% of lease period) */
   u32_t offered_t2_rebind; /* recommended rebind time (usually 66% of lease period)  */
+
+  /** current DHCP state machine state */
+  u8_t state;
+  /** retries of current request */
+  u8_t tries;
+
 #if LWIP_DHCP_AUTOIP_COOP
   u8_t autoip_coop_state;
 #endif

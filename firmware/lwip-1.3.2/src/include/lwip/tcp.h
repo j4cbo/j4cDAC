@@ -281,11 +281,11 @@ enum tcp_state {
  */
 #define TCP_PCB_COMMON(type) \
   type *next; /* for the linked list */ \
-  enum tcp_state state; /* TCP state */ \
-  u8_t prio; \
   void *callback_arg; \
   /* ports are in host byte order */ \
   u16_t local_port; \
+  u8_t prio; \
+  enum tcp_state state; /* TCP state */ \
   /* the accept callback for listen- and normal pcbs, if LWIP_CALLBACK_API */ \
   DEF_ACCEPT_CALLBACK
 
@@ -296,18 +296,6 @@ struct tcp_pcb {
   IP_PCB;
 /** protocol specific PCB members */
   TCP_PCB_COMMON(struct tcp_pcb);
-
-  /* ports are in host byte order */
-  u16_t remote_port;
-  
-  u8_t flags;
-#define TF_ACK_DELAY   ((u8_t)0x01U)   /* Delayed ACK. */
-#define TF_ACK_NOW     ((u8_t)0x02U)   /* Immediate ACK. */
-#define TF_INFR        ((u8_t)0x04U)   /* In fast recovery. */
-#define TF_TIMESTAMP   ((u8_t)0x08U)   /* Timestamp option enabled */
-#define TF_FIN         ((u8_t)0x20U)   /* Connection was closed locally (FIN segment enqueued). */
-#define TF_NODELAY     ((u8_t)0x40U)   /* Disable Nagle algorithm */
-#define TF_NAGLEMEMERR ((u8_t)0x80U)   /* nagle enabled, memerr, try to output to prevent delayed ACK to happen */
 
   /* the rest of the fields are in host byte order
      as we have to do some math with them */
@@ -323,7 +311,10 @@ struct tcp_pcb {
   
   /* Retransmission timer. */
   s16_t rtime;
-  
+
+  /* host byte order */
+  u16_t remote_port;
+
   u16_t mss;   /* maximum segment size */
   
   /* RTT (round trip time) estimation variables */
@@ -334,9 +325,17 @@ struct tcp_pcb {
   s16_t rto;    /* retransmission time-out */
   u8_t nrtx;    /* number of retransmissions */
 
+  u8_t flags;
+#define TF_ACK_DELAY   ((u8_t)0x01U)   /* Delayed ACK. */
+#define TF_ACK_NOW     ((u8_t)0x02U)   /* Immediate ACK. */
+#define TF_INFR        ((u8_t)0x04U)   /* In fast recovery. */
+#define TF_TIMESTAMP   ((u8_t)0x08U)   /* Timestamp option enabled */
+#define TF_FIN         ((u8_t)0x20U)   /* Connection was closed locally (FIN segment enqueued). */
+#define TF_NODELAY     ((u8_t)0x40U)   /* Disable Nagle algorithm */
+#define TF_NAGLEMEMERR ((u8_t)0x80U)   /* nagle enabled, memerr, try to output to prevent delayed ACK to happen */
+
   /* fast retransmit/recovery */
   u32_t lastack; /* Highest acknowledged seqno. */
-  u8_t dupacks;
   
   /* congestion avoidance/control variables */
   u16_t cwnd;  
@@ -345,12 +344,11 @@ struct tcp_pcb {
   /* sender variables */
   u32_t snd_nxt;   /* next new seqno to be sent */
   u16_t snd_wnd;   /* sender window */
+  u16_t acked;
   u32_t snd_wl1, snd_wl2; /* Sequence and acknowledgement numbers of last
                              window update. */
   u32_t snd_lbb;       /* Sequence number of next byte to be buffered. */
 
-  u16_t acked;
-  
   u16_t snd_buf;   /* Available buffer space for sending (in bytes). */
 #define TCP_SNDQUEUELEN_OVERFLOW (0xffff-3)
   u16_t snd_queuelen; /* Available buffer space for sending (in tcp_segs). */
@@ -428,6 +426,8 @@ struct tcp_pcb {
   /* Persist timer back-off */
   u8_t persist_backoff;
 
+  u8_t dupacks;
+  
   /* KEEPALIVE counter */
   u8_t keep_cnt_sent;
 };

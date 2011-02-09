@@ -75,7 +75,6 @@ struct udp_pcb {
 
   struct udp_pcb *next;
 
-  u8_t flags;
   /* ports are in host byte order */
   u16_t local_port, remote_port;
 
@@ -107,6 +106,8 @@ struct udp_pcb {
     struct ip_addr *addr, u16_t port);
   /* user-supplied argument for the recv callback */
   void *recv_arg;  
+
+  u8_t flags;
 };
 /* udp_pcbs export for exernal reference (e.g. SNMP agent) */
 extern struct udp_pcb *udp_pcbs;
