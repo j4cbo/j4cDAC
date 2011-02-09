@@ -22,11 +22,17 @@
 #ifndef __DOPRNT_H_INCLUDED__
 #define __DOPRNT_H_INCLUDED__
 
+#define SPRINTF_UNLIMITED -1
+struct sprintf_state {
+	char *buf;
+	signed int len;
+	signed int max;
+};
+
 void _doprnt(
 	register	const char *fmt,
 	va_list		args,
 	int		radix,		/* default radix - for '%r' */
- 	void		(*putc)(),	/* character output */
-	char		*putc_arg);	/* argument for putc */
+ 	struct sprintf_state *state);	/* state */
 
 #endif /* __DOPRNT_H_INCLUDED__ */

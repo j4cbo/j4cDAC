@@ -150,11 +150,25 @@ typedef int boolean_t;
 static char digs[] = "0123456789abcdef";
 
 static void
-printnum(u, base, putc, putc_arg)
+savechar(struct sprintf_state *state, int c)
+{
+        
+        if (state->max != SPRINTF_UNLIMITED)
+        {
+                if (state->len == state->max)
+                        return;
+        }               
+        
+        state->len++;
+        *state->buf = c;
+        state->buf++; 
+}       
+
+static void
+printnum(u, base, state)
 	register unsigned long	u;	/* number to print */
 	register int		base;
-	void			(*putc)();
-	char			*putc_arg;
+        struct sprintf_state *state;
 {
 	char	buf[MAXBUF];	/* build number here */
 	register char *	p = &buf[MAXBUF-1];
@@ -165,17 +179,16 @@ printnum(u, base, putc, putc_arg)
 	} while (u != 0);
 
 	while (++p != &buf[MAXBUF])
-	    (*putc)(putc_arg, *p);
+	    savechar(state, *p);
 }
 
 boolean_t	_doprnt_truncates = FALSE;
 
-void _doprnt(fmt, args, radix, putc, putc_arg)
+void _doprnt(fmt, args, radix, state)
 	register	const char *fmt;
 	va_list		args;
 	int		radix;		/* default radix - for '%r' */
- 	void		(*putc)();	/* character output */
-	char		*putc_arg;	/* argument for putc */
+        struct sprintf_state *state;
 {
 	int		length;
 	int		prec;
@@ -192,7 +205,7 @@ void _doprnt(fmt, args, radix, putc, putc_arg)
 
 	while (*fmt != '\0') {
 	    if (*fmt != '%') {
-		(*putc)(putc_arg, *fmt++);
+		savechar(state, *fmt++);
 		continue;
 	    }
 
@@ -278,7 +291,7 @@ void _doprnt(fmt, args, radix, putc, putc_arg)
 		    u = va_arg(args, unsigned long);
 		    p = va_arg(args, char *);
 		    base = *p++;
-		    printnum(u, base, putc, putc_arg);
+		    printnum(u, base, state);
 
 		    if (u == 0)
 			break;
@@ -292,26 +305,26 @@ void _doprnt(fmt, args, radix, putc, putc_arg)
 			     */
 			    register int j;
 			    if (any)
-				(*putc)(putc_arg, ',');
+				savechar(state, ',');
 			    else {
-				(*putc)(putc_arg, '<');
+				savechar(state, '<');
 				any = TRUE;
 			    }
 			    j = *p++;
 			    for (; (c = *p) > 32; p++)
-				(*putc)(putc_arg, c);
+				savechar(state, c);
 			    printnum((unsigned)( (u>>(j-1)) & ((2<<(i-j))-1)),
-					base, putc, putc_arg);
+					base, savechar, state);
 			}
 			else if (u & (1<<(i-1))) {
 			    if (any)
-				(*putc)(putc_arg, ',');
+				savechar(state, ',');
 			    else {
-				(*putc)(putc_arg, '<');
+				savechar(state, '<');
 				any = TRUE;
 			    }
 			    for (; (c = *p) > 32; p++)
-				(*putc)(putc_arg, c);
+				savechar(state, c);
 			}
 			else {
 			    for (; *p > 32; p++)
@@ -319,13 +332,13 @@ void _doprnt(fmt, args, radix, putc, putc_arg)
 			}
 		    }
 		    if (any)
-			(*putc)(putc_arg, '>');
+			savechar(state, '>');
 		    break;
 		}
 
 		case 'c':
 		    c = va_arg(args, int);
-		    (*putc)(putc_arg, c);
+		    savechar(state, c);
 		    break;
 
 		case 's':
@@ -351,7 +364,7 @@ void _doprnt(fmt, args, radix, putc, putc_arg)
 			p = p2;
 
 			while (n < length) {
-			    (*putc)(putc_arg, ' ');
+			    savechar(state, ' ');
 			    n++;
 			}
 		    }
@@ -362,12 +375,12 @@ void _doprnt(fmt, args, radix, putc, putc_arg)
 			if (++n > prec)
 			    break;
 
-			(*putc)(putc_arg, *p++);
+			savechar(state, *p++);
 		    }
 
 		    if (n < length && ladjust) {
 			while (n < length) {
-			    (*putc)(putc_arg, ' ');
+			    savechar(state, ' ');
 			    n++;
 			}
 		    }
@@ -402,8 +415,8 @@ void _doprnt(fmt, args, radix, putc, putc_arg)
 		     * because we want 0 to have a 0x in front, and we want
 		     * eight digits after the 0x -- not just 6.
 		     */
-		    (*putc)(putc_arg, '0');
-		    (*putc)(putc_arg, 'x');
+		    savechar(state, '0');
+		    savechar(state, 'x');
 		case 'x':
  		    truncate = _doprnt_truncates;
 		case 'X':
@@ -480,24 +493,24 @@ void _doprnt(fmt, args, radix, putc, putc_arg)
 		    if (padc == ' ' && !ladjust) {
 			/* blank padding goes before prefix */
 			while (--length >= 0)
-			    (*putc)(putc_arg, ' ');
+			    savechar(state, ' ');
 		    }
 		    if (sign_char)
-			(*putc)(putc_arg, sign_char);
+			savechar(state, sign_char);
 		    if (prefix)
 			while (*prefix)
-			    (*putc)(putc_arg, *prefix++);
+			    savechar(state, *prefix++);
 		    if (padc == '0') {
 			/* zero padding goes after sign and prefix */
 			while (--length >= 0)
-			    (*putc)(putc_arg, '0');
+			    savechar(state, '0');
 		    }
 		    while (++p != &buf[MAXBUF])
-			(*putc)(putc_arg, *p);
+			savechar(state, *p);
 
 		    if (ladjust) {
 			while (--length >= 0)
-			    (*putc)(putc_arg, ' ');
+			    savechar(state, ' ');
 		    }
 		    break;
 		}
@@ -507,7 +520,7 @@ void _doprnt(fmt, args, radix, putc, putc_arg)
 		    break;
 
 		default:
-		    (*putc)(putc_arg, *fmt);
+		    savechar(state, *fmt);
 	    }
 	fmt++;
 	}
