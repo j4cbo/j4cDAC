@@ -56,4 +56,6 @@
 #define MEM_STATS 0
 #define MEMP_STATS 0
 
+#define LWIP_RAW	0
+
 #endif
