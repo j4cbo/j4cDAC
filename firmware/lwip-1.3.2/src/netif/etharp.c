@@ -416,7 +416,7 @@ find_entry(struct ip_addr *ipaddr, u8_t flags)
 }
 
 /**
- * Send an IP packet on the network using netif->linkoutput
+ * Send an IP packet on the network using netif_linkoutput
  * The ethernet header is filled in before sending.
  *
  * @params netif the lwIP network interface on which to send the packet
@@ -442,7 +442,7 @@ etharp_send_ip(struct netif *netif, struct pbuf *p, struct eth_addr *src, struct
   ethhdr->type = htons(ETHTYPE_IP);
   LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_send_ip: sending packet %p\n", (void *)p));
   /* send the packet */
-  return netif->linkoutput(netif, p);
+  return FPA_netif_linkoutput(netif, p);
 }
 
 /**
@@ -749,7 +749,7 @@ etharp_arp_input(struct netif *netif, struct eth_addr *ethaddr, struct pbuf *p)
          are already correct, we tested that before */
 
       /* return ARP reply */
-      netif->linkoutput(netif, p);
+      FPA_netif_linkoutput(netif, p);
     /* we are not configured? */
     } else if (netif->ip_addr.addr == 0) {
       /* { for_us == 0 and netif->ip_addr.addr == 0 } */
@@ -799,7 +799,7 @@ etharp_arp_input(struct netif *netif, struct eth_addr *ethaddr, struct pbuf *p)
  * or the return type of either etharp_query() or etharp_send_ip().
  */
 err_t
-etharp_output(struct netif *netif, struct pbuf *q, struct ip_addr *ipaddr)
+etharp_output_FPV_netif_output(struct netif *netif, struct pbuf *q, struct ip_addr *ipaddr)
 {
   struct eth_addr *dest, mcastaddr;
 
@@ -1108,7 +1108,7 @@ etharp_raw(struct netif *netif, const struct eth_addr *ethsrc_addr,
 
   ethhdr->type = htons(ETHTYPE_ARP);
   /* send ARP query */
-  result = netif->linkoutput(netif, p);
+  result = FPA_netif_linkoutput(netif, p);
   ETHARP_STATS_INC(etharp.xmit);
   /* free ARP query packet */
   pbuf_free(p);
@@ -1144,7 +1144,7 @@ etharp_request(struct netif *netif, struct ip_addr *ipaddr)
  * @param p the recevied packet, p->payload pointing to the ethernet header
  * @param netif the network interface on which the packet was received
  */
-err_t
+void
 ethernet_input(struct pbuf *p, struct netif *netif)
 {
   struct eth_hdr* ethhdr;
@@ -1168,7 +1168,7 @@ ethernet_input(struct pbuf *p, struct netif *netif)
     if (VLAN_ID(vlan) != ETHARP_VLAN_CHECK) {
       /* silently ignore this packet: not for our VLAN */
       pbuf_free(p);
-      return ERR_OK;
+      return;
     }
 #endif /* ETHARP_VLAN_CHECK */
     type = htons(vlan->tpid);
@@ -1218,6 +1218,6 @@ ethernet_input(struct pbuf *p, struct netif *netif)
 
   /* This means the pbuf is freed or consumed,
      so the caller doesn't have to free it again */
-  return ERR_OK;
+  return;
 }
 #endif /* LWIP_ARP */

@@ -66,10 +66,10 @@ TABLE(initializer_t, hardware);
 TABLE(initializer_t, poll);
 
 void playback_refill() {
-	dac_point_t *ptr = 0;
 	int i;
 
-	int dlen = dac_request(&ptr);
+	int dlen = dac_request();
+	dac_point_t *ptr = dac_request_addr();
 
 	/* Have we underflowed? */
 	if (dlen < 0) {
@@ -128,6 +128,19 @@ void playback_refill() {
 		dac_start();
 }
 
+void check_events() {
+	int i;
+
+		/* Check for periodic events */
+		for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
+			if (time > events_last[i] + events[i].period) {
+				events[i].f();
+				events_last[i] += events[i].period;
+			}
+		}
+}
+
+int main(int argc, char **argv) __attribute__((noreturn));
 int main(int argc, char **argv) {
 	time = 0;
 
@@ -169,15 +182,15 @@ int main(int argc, char **argv) {
 
 	outputf("Entering main loop...");
 
-/*
 	playback_src = SRC_ILDAPLAYER;
+/*
 	playback_source_flags = ILDA_PLAYER_PLAYING | ILDA_PLAYER_REPEAT;
 */
-
 	__enable_irq();
 
 	int status = 0;
 
+	/* This might have taken some time... */
 	for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
 		events_last[i] = events[i].start + time;
 	}
@@ -210,14 +223,8 @@ int main(int argc, char **argv) {
 		}
 
 //		LPC_GPIO1->FIOSET = (1 << 28);
+		check_events();
 
-		/* Check for periodic events */
-		for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
-			if (time > events_last[i] + events[i].period) {
-				events[i].f();
-				events_last[i] += events[i].period;
-			}
-		}
 
 		/* Check the stuff we check on each loop iteration. */
 		for (i = 0; i < TABLE_LENGTH(poll); i++) {

@@ -215,11 +215,6 @@ tcp_abandon(struct tcp_pcb *pcb, int reset)
   u32_t seqno, ackno;
   u16_t remote_port, local_port;
   struct ip_addr remote_ip, local_ip;
-#if LWIP_CALLBACK_API  
-  void (* errf)(void *arg, err_t err);
-#endif /* LWIP_CALLBACK_API */
-  void *errf_arg;
-
   
   /* Figure out on which TCP PCB list we are, and remove us. If we
      are in an active state, call the receive function associated with
@@ -234,10 +229,6 @@ tcp_abandon(struct tcp_pcb *pcb, int reset)
     ip_addr_set(&remote_ip, &(pcb->remote_ip));
     local_port = pcb->local_port;
     remote_port = pcb->remote_port;
-#if LWIP_CALLBACK_API
-    errf = pcb->errf;
-#endif /* LWIP_CALLBACK_API */
-    errf_arg = pcb->callback_arg;
     tcp_pcb_remove(&tcp_active_pcbs, pcb);
     if (pcb->unacked != NULL) {
       tcp_segs_free(pcb->unacked);
@@ -250,8 +241,8 @@ tcp_abandon(struct tcp_pcb *pcb, int reset)
       tcp_segs_free(pcb->ooseq);
     }
 #endif /* TCP_QUEUE_OOSEQ */
+    TCP_EVENT_ERR(pcb, ERR_ABRT);
     skub_free(SKUB_TCP_PCB, pcb);
-    TCP_EVENT_ERR(errf, errf_arg, ERR_ABRT);
     if (reset) {
       LWIP_DEBUGF(TCP_RST_DEBUG, ("tcp_abandon: sending RST\n"));
       tcp_rst(seqno, ackno, &local_ip, &remote_ip, local_port, remote_port);
@@ -743,7 +734,7 @@ tcp_slowtmr(void)
         tcp_active_pcbs = pcb->next;
       }
 
-      TCP_EVENT_ERR(pcb->errf, pcb->callback_arg, ERR_ABRT);
+      TCP_EVENT_ERR(pcb, ERR_ABRT);
       if (pcb_reset) {
         tcp_rst(pcb->snd_nxt, pcb->rcv_nxt, &pcb->local_ip, &pcb->remote_ip,
           pcb->local_port, pcb->remote_port);
@@ -922,9 +913,8 @@ tcp_seg_copy(struct tcp_seg *seg)
  * a recv callback for the pcb.
  */
 err_t
-tcp_recv_null(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
+tcp_recv_null(struct tcp_pcb *pcb, struct pbuf *p, err_t err)
 {
-  LWIP_UNUSED_ARG(arg);
   if (p != NULL) {
     tcp_recved(pcb, p->tot_len);
     pbuf_free(p);
@@ -1114,7 +1104,7 @@ tcp_arg(struct tcp_pcb *pcb, void *arg)
  */ 
 void
 tcp_recv(struct tcp_pcb *pcb,
-   err_t (* recv)(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err))
+   err_t (* recv)(struct tcp_pcb *tpcb, struct pbuf *p, err_t err))
 {
   pcb->recv = recv;
 }
@@ -1457,5 +1447,46 @@ tcp_pcbs_sane(void)
   return 1;
 }
 #endif /* TCP_DEBUG */
+
+
+#if LWIP_CALLBACK_API
+err_t FPA_tcp_accept(struct tcp_pcb *pcb, err_t err) {
+	if (pcb->accept)
+		return pcb->accept(pcb->callback_arg, pcb, err);
+	else
+		return ERR_OK;
+}
+
+err_t FPA_tcp_sent(struct tcp_pcb *pcb, uint16_t len) {
+	if (pcb->sent)
+		return pcb->sent(pcb->callback_arg, pcb, len);
+	else
+		return ERR_OK;
+}
+
+err_t FPA_tcp_recv(struct tcp_pcb *pcb, struct pbuf *p, err_t err) {
+	return pcb->recv(pcb, p, err);
+}
+
+err_t FPA_tcp_connected(struct tcp_pcb *pcb, err_t err) {
+	if (pcb->connected)
+		return pcb->connected(pcb->callback_arg, pcb, err);
+	else
+		return ERR_OK;
+}
+
+err_t FPA_tcp_poll(struct tcp_pcb *pcb) {
+	if (pcb->poll)
+		return pcb->poll(pcb->callback_arg, pcb);
+	else
+		return ERR_OK;
+}
+
+void FPA_tcp_errf(struct tcp_pcb *pcb, err_t err) {
+	if (pcb->errf)
+		pcb->errf(pcb->callback_arg, err);
+}
+
+#endif
 
 #endif /* LWIP_TCP */

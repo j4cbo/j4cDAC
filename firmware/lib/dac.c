@@ -141,10 +141,10 @@ int dac_rate_queue(int points_per_second) {
  *
  * "Dear ring buffer: where should I put data and how much should I write?"
  *
- * This returns a number of words (not bytes) to be written. If the return
- * value is nonzero, addrp will have been set to the address to write to. 
+ * This returns a number of words (not bytes) to be written to the location
+ * give by dac_request_addr().
  */
-int dac_request(dac_point_t ** addrp) {
+int dac_request(void) {
 	int consume = dac_consume;
 	int ret;
 
@@ -154,8 +154,6 @@ int dac_request(dac_point_t ** addrp) {
 /*
 	outputf("d_r: p %d, c %d", dac_produce, consume);
 */
-
-	*addrp = &dac_buffer[dac_produce];
 
 	if (dac_produce >= consume) {
 		/* The read pointer is behind the write pointer, so we can
@@ -173,6 +171,10 @@ int dac_request(dac_point_t ** addrp) {
 	}
 
 	return ret;
+}
+
+dac_point_t *dac_request_addr(void) {
+	return &dac_buffer[dac_produce];
 }
 
 /* dac_advance

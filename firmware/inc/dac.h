@@ -56,7 +56,8 @@ void dac_init(void);
 
 int dac_prepare(void);
 int dac_start(void);
-int dac_request(dac_point_t **addrp);
+int dac_request(void);
+dac_point_t *dac_request_addr(void);
 void dac_advance(int count);
 void dac_stop(int flags);
 enum dac_state dac_get_state(void);

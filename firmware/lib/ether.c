@@ -689,7 +689,7 @@ static int eth_capacity() {
 	return capacity;
 }
 
-err_t eth_transmit(struct netif * _info, struct pbuf * p) {
+err_t eth_transmit_FPV_netif_linkoutput(struct netif * _info, struct pbuf * p) {
 
 	/* Find the number of fragments in this pbuf */
 	int len = 0, n = 0;
@@ -715,9 +715,6 @@ err_t eth_transmit(struct netif * _info, struct pbuf * p) {
 		outputf("MAC: took %d iters", i);
 	}
 
-	/* Clean up old Tx records */
-	eth_tx_cleanup();
-
 	int produce = LPC_EMAC->TxProduceIndex;
 
 	/* "Sup, hardware" */
@@ -737,6 +734,9 @@ err_t eth_transmit(struct netif * _info, struct pbuf * p) {
 }
 
 void eth_poll() {
+
+	/* Clean up old Tx records */
+	eth_tx_cleanup();
 
 	int consume = LPC_EMAC->RxConsumeIndex;
 	int produce = LPC_EMAC->RxProduceIndex;

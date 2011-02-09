@@ -281,7 +281,7 @@ udp_input(struct pbuf *p, struct netif *inp)
       /* callback */
       if (pcb->recv != NULL) {
         /* now the recv function is responsible for freeing p */
-        pcb->recv(pcb->recv_arg, pcb, p, &iphdr->src, src);
+        FPA_udp_recv(pcb, p, &iphdr->src, src);
       } else {
         /* no recv function registered? then we have to free the pbuf! */
         pbuf_free(p);
@@ -311,6 +311,10 @@ udp_input(struct pbuf *p, struct netif *inp)
   }
 end:
   PERF_STOP("udp_input");
+}
+ 
+void FPA_udp_recv(struct udp_pcb *pcb, struct pbuf *p, struct ip_addr *addr, u16_t port) {
+        pcb->recv(pcb->recv_arg, pcb, p, addr, port);
 }
 
 /**

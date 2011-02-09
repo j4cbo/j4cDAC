@@ -65,7 +65,7 @@ void             tcp_accept  (struct tcp_pcb *pcb,
                               err_t (* accept)(void *arg, struct tcp_pcb *newpcb,
                  err_t err));
 void             tcp_recv    (struct tcp_pcb *pcb,
-                              err_t (* recv)(void *arg, struct tcp_pcb *tpcb,
+                              err_t (* recv)(struct tcp_pcb *tpcb,
                               struct pbuf *p, err_t err));
 void             tcp_sent    (struct tcp_pcb *pcb,
                               err_t (* sent)(void *arg, struct tcp_pcb *tpcb,
@@ -379,7 +379,7 @@ struct tcp_pcb {
    * @param err an error argument (TODO: that is current always ERR_OK?)
    * @return ERR_OK: try to send some data by calling tcp_output
    */
-  err_t (* recv)(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err);
+  err_t (* recv)(struct tcp_pcb *pcb, struct pbuf *p, err_t err);
 
   /* Function to be called when a connection has been set up.
    * @param arg user-supplied argument (tcp_pcb.callback_arg)
@@ -475,48 +475,35 @@ err_t lwip_tcp_event(void *arg, struct tcp_pcb *pcb,
                 LWIP_EVENT_ERR, NULL, 0, (err))
 #else /* LWIP_EVENT_API */
 
-#define TCP_EVENT_ACCEPT(pcb,err,ret)                          \
-  do {                                                         \
-    if((pcb)->accept != NULL)                                  \
-      (ret) = (pcb)->accept((pcb)->callback_arg,(pcb),(err));  \
-    else (ret) = ERR_OK;                                       \
-  } while (0)
+err_t FPA_tcp_accept(struct tcp_pcb *pcb, err_t err);
+err_t FPA_tcp_sent(struct tcp_pcb *pcb, uint16_t len);
+err_t FPA_tcp_recv(struct tcp_pcb *pcb, struct pbuf *p, err_t err);
+err_t FPA_tcp_connected(struct tcp_pcb *pcb, err_t err);
+err_t FPA_tcp_poll(struct tcp_pcb *pcb);
+void FPA_tcp_errf(struct tcp_pcb *pcb, err_t err);
+
+#define TCP_EVENT_ACCEPT(pcb,err,ret)				\
+	do { (ret) = FPA_tcp_accept((pcb), (err)); } while(0)
 
 #define TCP_EVENT_SENT(pcb,space,ret)                          \
-  do {                                                         \
-    if((pcb)->sent != NULL)                                    \
-      (ret) = (pcb)->sent((pcb)->callback_arg,(pcb),(space));  \
-    else (ret) = ERR_OK;                                       \
-  } while (0)
+	do { (ret) = FPA_tcp_sent((pcb), (space)); } while(0)
 
 #define TCP_EVENT_RECV(pcb,p,err,ret)                           \
-  do {                                                          \
-    if((pcb)->recv != NULL) {                                   \
-      (ret) = (pcb)->recv((pcb)->callback_arg,(pcb),(p),(err)); \
-    } else {                                                    \
-      (ret) = tcp_recv_null(NULL, (pcb), (p), (err));           \
-    }                                                           \
-  } while (0)
+	do {							\
+		if (pcb->recv)					\
+			(ret) = FPA_tcp_recv((pcb), (p), (err)); \
+		else						\
+			(ret) = tcp_recv_null((pcb), (p), (err)); \
+	 } while(0)
 
 #define TCP_EVENT_CONNECTED(pcb,err,ret)                         \
-  do {                                                           \
-    if((pcb)->connected != NULL)                                 \
-      (ret) = (pcb)->connected((pcb)->callback_arg,(pcb),(err)); \
-    else (ret) = ERR_OK;                                         \
-  } while (0)
+	do { (ret) = FPA_tcp_connected((pcb), (err)); } while(0)
 
 #define TCP_EVENT_POLL(pcb,ret)                                \
-  do {                                                         \
-    if((pcb)->poll != NULL)                                    \
-      (ret) = (pcb)->poll((pcb)->callback_arg,(pcb));          \
-    else (ret) = ERR_OK;                                       \
-  } while (0)
+	do { (ret) = FPA_tcp_poll((pcb)); } while(0)
 
-#define TCP_EVENT_ERR(errf,arg,err)                            \
-  do {                                                         \
-    if((errf) != NULL)                                         \
-      (errf)((arg),(err));                                     \
-  } while (0)
+#define TCP_EVENT_ERR(pcb, err)                            \
+	do { FPA_tcp_errf((pcb), (err)); } while(0)
 
 #endif /* LWIP_EVENT_API */
 
@@ -589,7 +576,7 @@ u16_t tcp_eff_send_mss(u16_t sendmss, struct ip_addr *addr);
 #endif /* TCP_CALCULATE_EFF_SEND_MSS */
 
 #if LWIP_CALLBACK_API
-err_t tcp_recv_null(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err);
+err_t tcp_recv_null(struct tcp_pcb *pcb, struct pbuf *p, err_t err);
 #endif /* LWIP_CALLBACK_API */
 
 extern struct tcp_pcb *tcp_input_pcb;

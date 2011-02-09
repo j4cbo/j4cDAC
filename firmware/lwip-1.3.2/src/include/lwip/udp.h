@@ -112,6 +112,8 @@ struct udp_pcb {
 /* udp_pcbs export for exernal reference (e.g. SNMP agent) */
 extern struct udp_pcb *udp_pcbs;
 
+void FPA_udp_recv(struct udp_pcb *pcb, struct pbuf *p, struct ip_addr *addr, u16_t port);
+
 /* The following functions is the application layer interface to the
    UDP code. */
 void             udp_new        (struct udp_pcb *pcb);

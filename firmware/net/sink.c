@@ -20,7 +20,7 @@
 #include <lwip/tcp.h>
 #include <tables.h>
 
-static err_t sink_recv(void *arg, struct tcp_pcb * pcb, struct pbuf * pbuf,
+static err_t sink_recv_FPV_tcp_recv(struct tcp_pcb * pcb, struct pbuf * pbuf,
 		       err_t err) {
 
 	if (pbuf == NULL) {
@@ -37,11 +37,11 @@ static err_t sink_recv(void *arg, struct tcp_pcb * pcb, struct pbuf * pbuf,
 	return ERR_OK;
 }
 
-static err_t sink_accept(void *arg, struct tcp_pcb *pcb, err_t err) {
+static err_t sink_accept_FPV_tcp_accept(void *arg, struct tcp_pcb *pcb, err_t err) {
 	LWIP_UNUSED_ARG(err);
 	LWIP_UNUSED_ARG(arg);
 
-	tcp_recv(pcb, sink_recv);
+	tcp_recv(pcb, sink_recv_FPV_tcp_recv);
 
 	return ERR_OK;
 }
@@ -52,7 +52,7 @@ void sink_init(void) {
 	pcb = tcp_new();
 	tcp_bind(pcb, IP_ADDR_ANY, 9);
 	pcb = tcp_listen(pcb);
-	tcp_accept(pcb, sink_accept);
+	tcp_accept(pcb, sink_accept_FPV_tcp_accept);
 }
 
 INITIALIZER(protocol, sink_init);

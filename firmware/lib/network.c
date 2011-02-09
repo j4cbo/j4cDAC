@@ -58,8 +58,8 @@ void eth_init() {
 	struct ip_addr ipa = { 0 } , netmask = { 0 } , gw = { 0 };
 
 	/* Set up basic fields in ether_netif */
-	ether_netif.output = etharp_output;
-	ether_netif.linkoutput = eth_transmit;
+	ether_netif.output = etharp_output_FPV_netif_output;
+	ether_netif.linkoutput = eth_transmit_FPV_netif_linkoutput;
 	ether_netif.name[0] = 'e';
 	ether_netif.name[1] = 'n';
 	ether_netif.hwaddr_len = ETHARP_HWADDR_LEN;
@@ -102,10 +102,7 @@ void handle_packet(struct pbuf *p) {
 	switch (ntohs(ethhdr->type)) {
 	case ETHTYPE_IP:
 	case ETHTYPE_ARP:
-		if (ether_netif.input(p, &ether_netif) != ERR_OK) {
-			outputf(NETIF_DEBUG, ("netdev_input: IP input error\n"));
-			pbuf_free(p);
-		}
+		ethernet_input(p, &ether_netif);
 		break;
 
 	case 0x86dd:

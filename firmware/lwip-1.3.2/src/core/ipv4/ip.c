@@ -166,7 +166,7 @@ ip_forward(struct pbuf *p, struct ip_hdr *iphdr, struct netif *inp)
 
   PERF_STOP("ip_forward");
   /* transmit pbuf on chosen interface */
-  netif->output(netif, p, (struct ip_addr *)&(iphdr->dest));
+  FPA_netif_output(netif, p, (struct ip_addr *)&(iphdr->dest));
   return netif;
 }
 #endif /* IP_FORWARD */
@@ -182,10 +182,8 @@ ip_forward(struct pbuf *p, struct ip_hdr *iphdr, struct netif *inp)
  * 
  * @param p the received IP packet (p->payload points to IP header)
  * @param inp the netif on which this packet was received
- * @return ERR_OK if the packet was processed (could return ERR_* if it wasn't
- *         processed, but currently always returns ERR_OK)
  */
-err_t
+void
 ip_input(struct pbuf *p, struct netif *inp)
 {
   struct ip_hdr *iphdr;
@@ -208,7 +206,7 @@ ip_input(struct pbuf *p, struct netif *inp)
     IP_STATS_INC(ip.err);
     IP_STATS_INC(ip.drop);
     snmp_inc_ipinhdrerrors();
-    return ERR_OK;
+    return;
   }
 
   /* obtain IP header length in number of 32-bit words */
@@ -235,7 +233,7 @@ ip_input(struct pbuf *p, struct netif *inp)
     IP_STATS_INC(ip.lenerr);
     IP_STATS_INC(ip.drop);
     snmp_inc_ipindiscards();
-    return ERR_OK;
+    return;
   }
 
   /* verify checksum */
@@ -249,7 +247,7 @@ ip_input(struct pbuf *p, struct netif *inp)
     IP_STATS_INC(ip.chkerr);
     IP_STATS_INC(ip.drop);
     snmp_inc_ipinhdrerrors();
-    return ERR_OK;
+    return;
   }
 #endif
 
@@ -337,7 +335,7 @@ ip_input(struct pbuf *p, struct netif *inp)
       IP_STATS_INC(ip.drop);
       snmp_inc_ipinaddrerrors();
       snmp_inc_ipindiscards();
-      return ERR_OK;
+      return;
     }
   }
 
@@ -357,7 +355,7 @@ ip_input(struct pbuf *p, struct netif *inp)
       snmp_inc_ipindiscards();
     }
     pbuf_free(p);
-    return ERR_OK;
+    return;
   }
   /* packet consists of multiple fragments? */
   if ((IPH_OFFSET(iphdr) & htons(IP_OFFMASK | IP_MF)) != 0) {
@@ -368,7 +366,7 @@ ip_input(struct pbuf *p, struct netif *inp)
     p = ip_reass(p);
     /* packet not fully reassembled yet? */
     if (p == NULL) {
-      return ERR_OK;
+      return;
     }
     iphdr = p->payload;
 #else /* IP_REASSEMBLY == 0, no packet fragment reassembly code present */
@@ -379,7 +377,7 @@ ip_input(struct pbuf *p, struct netif *inp)
     IP_STATS_INC(ip.drop);
     /* unsupported protocol feature */
     snmp_inc_ipinunknownprotos();
-    return ERR_OK;
+    return;
 #endif /* IP_REASSEMBLY */
   }
 
@@ -397,7 +395,7 @@ ip_input(struct pbuf *p, struct netif *inp)
     IP_STATS_INC(ip.drop);
     /* unsupported protocol feature */
     snmp_inc_ipinunknownprotos();
-    return ERR_OK;
+    return;
   }
 #endif /* IP_OPTIONS_ALLOWED == 0 */
 
@@ -464,7 +462,7 @@ ip_input(struct pbuf *p, struct netif *inp)
   current_netif = NULL;
   current_header = NULL;
 
-  return ERR_OK;
+  return;
 }
 
 /**
@@ -487,7 +485,7 @@ ip_input(struct pbuf *p, struct netif *inp)
  * @param netif the netif on which to send this packet
  * @return ERR_OK if the packet was sent OK
  *         ERR_BUF if p doesn't have enough space for IP/LINK headers
- *         returns errors returned by netif->output
+ *         returns errors returned by netif_output
  *
  * @note ip_id: RFC791 "some host may be able to simply use
  *  unique identifiers independent of destination"
@@ -599,8 +597,8 @@ err_t ip_output_if_opt(struct pbuf *p, struct ip_addr *src, struct ip_addr *dest
   }
 #endif
 
-  LWIP_DEBUGF(IP_DEBUG, ("netif->output()"));
-  return netif->output(netif, p, dest);
+  LWIP_DEBUGF(IP_DEBUG, ("netif_output()"));
+  return FPA_netif_output(netif, p, dest);
 }
 
 /**

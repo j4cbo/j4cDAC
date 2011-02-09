@@ -34,11 +34,12 @@ static int ps_buffered;
  *
  * Close the current connection, and record why.
  */
-static void close_conn(struct tcp_pcb *pcb, uint16_t reason) {
+static int close_conn(struct tcp_pcb *pcb, uint16_t reason, int k) {
 	tcp_arg(pcb, NULL);
 	tcp_sent(pcb, NULL);
 	tcp_recv(pcb, NULL);
 	tcp_close(pcb);
+	return k;
 }
 
 /* send_resp
@@ -50,20 +51,28 @@ static void close_conn(struct tcp_pcb *pcb, uint16_t reason) {
  * for use by recv_fsm, which can tail-call send_resp with the number of
  * bytes that were consumed from the input. If the send succeeds, then that
  * value is returned; otherwise, the error is propagated up.
+ *
+ * This is split into two functions to aid tail-call optimization and
+ * reduce stack usage.
  */
-static int RV send_resp(struct tcp_pcb *pcb, char resp, char cmd, int len) {
+static err_t do_send_resp(struct tcp_pcb *pcb, char resp, char cmd)
+	__attribute__((noinline));
+static err_t do_send_resp(struct tcp_pcb *pcb, char resp, char cmd) {
 	struct dac_response response;
 	response.response = resp;
 	response.command = cmd;
 	fill_status(&response.dac_status);
 
-	err_t err = tcp_write(pcb, &response, sizeof(response),
+	return tcp_write(pcb, &response, sizeof(response),
 			      TCP_WRITE_FLAG_COPY);
+}
+
+static int RV send_resp(struct tcp_pcb *pcb, char resp, char cmd, int len) {
+	err_t err = do_send_resp(pcb, resp, cmd);
 
 	/* If we can't send the response, then close the connection. */
 	if (err != ERR_OK) {
-		close_conn(pcb, CONNCLOSED_SENDFAIL);
-		return -1;
+		return close_conn(pcb, CONNCLOSED_SENDFAIL, -1);
 	}
 
 	return len;
@@ -191,8 +200,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 			return send_resp(pcb, RESP_ACK, cmd, 1);
 
 		default:
-			close_conn(pcb, CONNCLOSED_UNKNOWNCMD);
-			return -1;
+			return close_conn(pcb, CONNCLOSED_UNKNOWNCMD, -1);
 		}
 
 		panic("missed case in recv_fsm switch");
@@ -214,8 +222,8 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		 * is a ring buffer, so it's OK if it returns less than the
 		 * number of points we have ready for it. We'll just have
 		 * the FSM invoke us again. */
-		dac_point_t *addr = NULL;
-		int nready = dac_request(&addr);
+		int nready = dac_request();
+		dac_point_t *addr = dac_request_addr();
 
 		/* On the other hand, if the DAC isn't ready for *any* data,
 		 * then ignore the rest of this write command and NAK when
@@ -277,13 +285,12 @@ handle_aborted_data:
 	return -1;
 }
 
-err_t process_packet(void *arg, struct tcp_pcb * pcb, struct pbuf * pbuf,
+err_t process_packet_FPV_tcp_recv(struct tcp_pcb * pcb, struct pbuf * pbuf,
 		     err_t err) {
 	struct pbuf * p = pbuf;
 
 	if (p == NULL) {
-		close_conn(pcb, CONNCLOSED_USER);
-		return ERR_OK;
+		return close_conn(pcb, CONNCLOSED_USER, ERR_OK);
 	}
 
 	while (p) {
@@ -369,14 +376,13 @@ err_t process_packet(void *arg, struct tcp_pcb * pcb, struct pbuf * pbuf,
 	/* We might have some output to send, too? */
 	err_t ret = tcp_output(pcb);
 	if (ret != ERR_OK) {
-		close_conn(pcb, CONNCLOSED_SENDFAIL);
-		return ret;
+		return close_conn(pcb, CONNCLOSED_SENDFAIL, ret);
 	}
 
 	return ERR_OK;
 }
 
-static err_t ps_accept(void *arg, struct tcp_pcb *pcb, err_t err) {
+static err_t ps_accept_FPV_tcp_accept(void *arg, struct tcp_pcb *pcb, err_t err) {
 
 	/* From inspection of the lwip source (core/tcp_in.c:639), 'err'
 	 * will only ever be ERR_OK, so we can ignore it here.
@@ -388,7 +394,7 @@ static err_t ps_accept(void *arg, struct tcp_pcb *pcb, err_t err) {
 		return ERR_MEM;
 
 	/* Call process_packet whenever we get data. */
-	tcp_recv(pcb, process_packet);
+	tcp_recv(pcb, process_packet_FPV_tcp_recv);
 
 	return ERR_OK;
 }
@@ -399,7 +405,7 @@ void ps_init(void) {
 	pcb = tcp_new();
 	tcp_bind(pcb, IP_ADDR_ANY, 7765);
 	pcb = tcp_listen(pcb);
-	tcp_accept(pcb, ps_accept);
+	tcp_accept(pcb, ps_accept_FPV_tcp_accept);
 }
 
 INITIALIZER(protocol, ps_init)

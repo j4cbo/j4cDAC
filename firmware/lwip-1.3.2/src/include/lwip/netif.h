@@ -96,7 +96,7 @@ struct netif {
 
   /** This function is called by the network device driver
    *  to pass a packet up the TCP/IP stack. */
-  err_t (* input)(struct pbuf *p, struct netif *inp);
+  void (* input)(struct pbuf *p, struct netif *inp);
   /** This function is called by the IP module when it wants
    *  to send a packet on the interface. This function typically
    *  first resolves the hardware address, then sends the packet. */
@@ -207,7 +207,7 @@ extern struct netif *netif_default;
 struct netif *netif_add(struct netif *netif, struct ip_addr *ipaddr, struct ip_addr *netmask,
       struct ip_addr *gw,
       void *state,
-      err_t (* input)(struct pbuf *p, struct netif *netif));
+      void (* input)(struct pbuf *p, struct netif *netif));
 
 void
 netif_set_addr(struct netif *netif,struct ip_addr *ipaddr, struct ip_addr *netmask,
@@ -229,6 +229,9 @@ void netif_set_gw(struct netif *netif, struct ip_addr *gw);
 void netif_set_up(struct netif *netif);
 void netif_set_down(struct netif *netif);
 u8_t netif_is_up(struct netif *netif);
+
+err_t FPA_netif_output(struct netif *netif, struct pbuf *p, struct ip_addr *ipaddr);
+err_t FPA_netif_linkoutput(struct netif *netif, struct pbuf *p);
 
 #if LWIP_NETIF_STATUS_CALLBACK
 /*

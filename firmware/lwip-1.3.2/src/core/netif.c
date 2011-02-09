@@ -91,7 +91,7 @@ struct netif *
 netif_add(struct netif *netif, struct ip_addr *ipaddr, struct ip_addr *netmask,
   struct ip_addr *gw,
   void *state,
-  err_t (* input)(struct pbuf *p, struct netif *netif))
+  void (* input)(struct pbuf *p, struct netif *netif))
 {
   static u8_t netifnum = 0;
 
@@ -672,3 +672,11 @@ netif_poll_all(void)
 }
 #endif /* !LWIP_NETIF_LOOPBACK_MULTITHREADING */
 #endif /* ENABLE_LOOPBACK */
+
+err_t FPA_netif_output(struct netif *netif, struct pbuf *p, struct ip_addr *ipaddr) {
+	return netif->output(netif, p, ipaddr);
+}
+
+err_t FPA_netif_linkoutput(struct netif *netif, struct pbuf *p) {
+	return netif->linkoutput(netif, p);
+}

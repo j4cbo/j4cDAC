@@ -299,7 +299,7 @@ tcp_input(struct pbuf *p, struct netif *inp)
            end. We then call the error callback to inform the
            application that the connection is dead before we
            deallocate the PCB. */
-        TCP_EVENT_ERR(pcb->errf, pcb->callback_arg, ERR_RST);
+        TCP_EVENT_ERR(pcb, ERR_RST);
         tcp_pcb_remove(&tcp_active_pcbs, pcb);
         skub_free(SKUB_TCP_PCB, pcb);
       } else if (recv_flags & TF_CLOSED) {
