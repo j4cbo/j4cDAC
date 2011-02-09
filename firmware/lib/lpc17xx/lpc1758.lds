@@ -35,10 +35,10 @@ EXTERN(__cs3_reset_cortex_m)
 EXTERN(__cs3_interrupt_vector_cortex_m)
 EXTERN(__cs3_start_c main __cs3_stack __cs3_stack_size __cs3_heap_end)
 
-PROVIDE(__cs3_stack = __cs3_region_start_ram + __cs3_region_size_ram);
-PROVIDE(__cs3_stack_size = __cs3_region_start_ram + __cs3_region_size_ram - _end);
+PROVIDE(__cs3_stack = __cs3_region_start_ram + LENGTH(ram));
+PROVIDE(__cs3_stack_size = __cs3_region_start_ram + LENGTH(ram) - _end);
 PROVIDE(__cs3_heap_start = _end);
-PROVIDE(__cs3_heap_end = __cs3_region_start_ram + __cs3_region_size_ram);
+PROVIDE(__cs3_heap_end = __cs3_region_start_ram + LENGTH(ram));
 
 SECTIONS
 {
@@ -59,7 +59,7 @@ SECTIONS
     /* Make sure we pulled in some reset code.  */
     ASSERT (. != __cs3_reset, "No reset code");
 
-    *(.text .text.* .gnu.linkonce.t.*)
+    *(EXCLUDE_FILE (*crtbegin.o) .text .text.* .gnu.linkonce.t.*)
     *(.plt)
     *(.gnu.warning)
     *(.glue_7t) *(.glue_7) *(.vfp11_veneer)
@@ -170,7 +170,6 @@ SECTIONS
   __cs3_region_init_ram = LOADADDR (.data);
   __cs3_region_init_size_ram = _edata - __cs3_region_start_ram;
   __cs3_region_zero_size_ram = _end - _edata;
-  __cs3_region_size_ram = LENGTH(ram);
   __cs3_region_num = 1;
 
   .stab 0 (NOLOAD) : { *(.stab) }
