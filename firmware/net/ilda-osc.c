@@ -112,13 +112,23 @@ static void ilda_reload_button(const char *path, int v) {
 	refresh_display();
 }
 
+int nub_atoi(const char *c) {
+	int res = 0;
+	while (*c >= '0' && *c <= '9') {
+		res *= 10;
+		res += (*c - '0');
+		c++;
+	}
+	return res;
+}
+
 void ilda_osc_play(const char *path, int v) {
 	/* Ignore release events */
 	if (!v)
 		return;
 
 	/* Figure out which file index this was */
-	int index = strtol(path + 6, NULL, 10);
+	int index = nub_atoi(path + 6);
 
 	outputf("play %d", index);
 
