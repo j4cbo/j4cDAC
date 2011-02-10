@@ -42,6 +42,8 @@ PROVIDE(__cs3_heap_end = __cs3_region_start_ram + LENGTH(ram));
 
 SECTIONS
 {
+  /DISCARD/ : { *crtbegin.o }
+
   .text :
   {
     CREATE_OBJECT_SYMBOLS
@@ -104,18 +106,14 @@ SECTIONS
     KEEP (*(SORT(.fini_array.*)))
     __fini_array_end = .;
 
-    KEEP (*crtbegin.o(.dtors))
-    KEEP (*(EXCLUDE_FILE (*crtend.o) .dtors))
-    KEEP (*(SORT(.dtors.*)))
-    KEEP (*crtend.o(.dtors))
-
     . = ALIGN(4);
     __cs3_regions = .;
     LONG (0)
     LONG (__cs3_region_init_ram)
     LONG (__cs3_region_start_ram)
     LONG (__cs3_region_init_size_ram)
-    LONG (__cs3_region_zero_size_ram)
+    LONG (_end - _edata)
+
   }
 
   /* .ARM.exidx is sorted, so has to go in its own output section.  */
@@ -169,7 +167,6 @@ SECTIONS
   } > ahb_sram_0
   __cs3_region_init_ram = LOADADDR (.data);
   __cs3_region_init_size_ram = _edata - __cs3_region_start_ram;
-  __cs3_region_zero_size_ram = _end - _edata;
   __cs3_region_num = 1;
 
   .stab 0 (NOLOAD) : { *(.stab) }
