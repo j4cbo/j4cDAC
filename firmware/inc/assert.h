@@ -14,6 +14,8 @@
 
 #include <panic.h>
 
+#if 1
+
 #define ASSERT(exp)	((void)((exp) ? 0				\
         : panic("%s:%d: Failed assertion \"%s\"", __FILE__, __LINE__, #exp)))
 
@@ -60,5 +62,17 @@
 	} while(0)
 
 #define ASSERT_OK(e)	ASSERT_EQUAL(e, 0)
+
+#else
+
+#define ASSERT(exp)
+#define ASSERT_EQUAL(e1, e2)
+#define ASSERT_EQUAL_P(e1, e2)
+#define ASSERT_NOT_EQUAL(e1, e2)
+#define ASSERT_NULL(e)
+#define ASSERT_NOT_NULL(e)
+#define ASSERT_BIT(e)
+
+#endif
 
 #endif
