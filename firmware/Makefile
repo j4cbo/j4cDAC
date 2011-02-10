@@ -11,7 +11,7 @@ SRCS += lib/core_cm3/core_cm3.c lib/lpc17xx/system_LPC17xx.c lib/lpc17xx/startup
 	drivers/source/lpc17xx_uart.c lib/serial.c main.c
 
 # Mach printf. Much more lightweight than newlib's.
-SRCS += lib/minilib/doprnt.c lib/minilib/sprintf.c
+SRCS += lib/minilib/vsnprintf.c
 
 # Application
 SRCS += lib/dac.c lib/panic.c lib/lightengine.c
