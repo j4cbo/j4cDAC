@@ -41,7 +41,7 @@ safe_insn_bases = [
 	"neg", "negs", "nop",
 	"orn", "orr", "orrs",
 	"rbit", "rev", "rev16", "revsh", "ror", "rsb", "rsbs",
-	"sbc", "sdiv", "sev", "strex", "strexb", "strexh", "sub", "subs", "svc", "sxtb", "sxth",
+	"sbc", "sbcs", "sdiv", "sev", "strex", "strexb", "strexh", "sub", "subs", "svc", "sxtb", "sxth",
 	"teq", "tst",
 	"ubfx", "udiv", "umull", "uxtb", "uxth",
 	"wfe", "wfi",
@@ -66,25 +66,32 @@ for suffix in suffixes:
 	safe_insns += [ insn + suffix + ".n" for insn in safe_insn_bases ]
 
 class Func(object):
-	def __init__(self, name, stacklen, children):
+	def __init__(self, name, stacklen, children, tchildren):
 		self.name = name
 		self.stacklen = stacklen
 		self.children = children
+		self.tchildren = tchildren
 
 	def __str__(self):
-		return "%s (%d)" % (self.name, self.stacklen)
+		return "%s (%d%s)" % (self.name, self.stacklen, "" if self.tchildren else "")
+
+	def __repr__(self):
+		return "<%s>" % (self.name, )
+
+	def leaf(self):
+		return (len(self.children | self.tchildren) == 0)	
 
 	def find_children_recursive(self, namehash, history = []):
-
 		history.append(self)
 		terminals = []
 
 		# If this is a leaf function, record the path that got us here
-		if len(self.children) == 0:
+		if self.leaf():
 			terminals.append(history)
+			return terminals
 
 		# Otherwise, loop through each function this one calls
-		for childname in self.children:
+		for childname in self.children | self.tchildren:
 			if childname not in namehash:
 				raise Exception("unknown function %s called from %s" % (childname, self.name))
 			c = namehash[childname]
@@ -100,9 +107,17 @@ class Func(object):
 
 	def find_children(self, namehash):
 		terminals = self.find_children_recursive(namehash, [])
-		terminals.sort(key = lambda fl: sum(f.stacklen for f in fl))
+		terminals.sort(key = Func.path_length)
 		return terminals
 
+	@staticmethod
+	def path_length(fl):
+		out = 0
+		for i, f in enumerate(fl):
+			if f.leaf() or (fl[i+1].name not in f.tchildren):
+				out += f.stacklen
+
+		return out
 
 
 def parse_function(ls):
@@ -227,6 +242,8 @@ def parse_function(ls):
 			off = pargs[2][1:]
 			if off.endswith("]!"): off = off[:-2]
 			cf.append(("stack", -int(off)))
+		elif op == "blx":
+			cf.append(("blx", args))
 		else:
 			cf.append(("unknown", (op, args, tg)))
 
@@ -248,7 +265,7 @@ def parse_function(ls):
 
 			# We only understand conditional returns if there
 			# was never anything on the stack.
-			if peak and not v:
+			if peak and (not v):
 				confused = 1
 
 			# Reset to our peak depth.
@@ -259,9 +276,16 @@ def parse_function(ls):
 			# an active stack frame is local-only.
 			pass
 
-		else: 
+		elif t == "blx" and function_name.startswith("FPA_"):
+			pass
+
+		else:
 			confused = 1
 
+ 	# Strcpy is a special case - it was handwritten by ARM and
+	# doesn't follow gcc's usual patterns.
+	if function_name == "strcpy":
+		confused = 0
 
 	if confused:
 		print function_name + ": confusing."
@@ -271,6 +295,16 @@ def parse_function(ls):
 	else:
 		print "%s %d\t%s" % (function_name.ljust(30), peak, " " or callees)
 
+	# If we might tail-call or regular-call, it doesn't count.
+	tail_callees -= callees
+
+	if function_name == "main":
+		callees |= set(["eth_poll"])
+
+	if tail_callees:
+		print "! TAIL: %s" % (tail_callees, )
+
+	return Func(function_name, peak, callees, tail_callees)
 
 
 def parse_file(fname):
@@ -280,14 +314,28 @@ def parse_file(fname):
 	objin, objout = os.popen4("arm-none-eabi-objdump -d -j.text " + fname)
 	lines = objout.read().split('\n')
 	li = iter(lines)
+	fs = {}
 
 	while True:
 		try:
-			parse_function(li)
+			f = parse_function(li)
+			if f is None:
+				continue
+			fs[f.name] = f
 		except StopIteration:
 			break
-	return {}
 
+	for k, v in fs.iteritems():
+		if "_FPV_" not in k:
+			continue
+		src, suffix = k.split("_FPV_")
+		if "FPA_" + suffix not in fs:
+			print "WARNING: FPA_%s not found" % (suffix, )
+			continue
+
+		fs["FPA_" + suffix].children.add(k)
+
+	return fs
 
 def grind_tree(funclist):
 
@@ -297,7 +345,7 @@ def grind_tree(funclist):
 		(key, funclist[key].find_children(funclist))
 		for key
 		in sorted(funclist.keys())
-		if key == "main" or key.startswith("__vector_")
+		if key == "main" or key.endswith("_Handler") or key.endswith("_IRQHandler")
 	)
 
 	return functree

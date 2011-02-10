@@ -8,7 +8,7 @@
 import sys
 import stacklib
 
-MAX_TREES = 5
+MAX_TREES = 15
 
 if len(sys.argv) < 2:
 	print "usage: %s [object]" % sys.argv[0]
@@ -24,10 +24,18 @@ for startfunc, terminals in functree:
 		print "\t(%d call paths omitted)" % (len(terminals) - MAX_TREES)
 
 	for funclist in terminals[-MAX_TREES:]:
-		print "\tTotal %d: %s" % (
-			sum(f.stacklen for f in funclist),
-			" -> ".join(str(f) for f in funclist)
-		)
+		pathlist = []
+		s = 0
+
+		for i, f in enumerate(funclist):
+			tc = (not f.leaf() and funclist[i+1].name in f.tchildren)
+			if tc:
+				pathlist.append(str(f) + " [TC]")
+			else:
+				pathlist.append(str(f))
+				s += f.stacklen
+			
+		print "\tTotal %d: %s" % (s, " -> ".join(pathlist))
 
 	print
 
