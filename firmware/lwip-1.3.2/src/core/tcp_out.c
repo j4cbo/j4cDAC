@@ -499,8 +499,7 @@ tcp_send_empty_ack(struct tcp_pcb *pcb)
   ip_output_hinted(p, &(pcb->local_ip), &(pcb->remote_ip), pcb->ttl, pcb->tos,
       IP_PROTO_TCP, &(pcb->addr_hint));
 #else /* LWIP_NETIF_HWADDRHINT*/
-  ip_output(p, &(pcb->local_ip), &(pcb->remote_ip), pcb->ttl, pcb->tos,
-      IP_PROTO_TCP);
+  ip_output(p, &(pcb->local_ip), &(pcb->remote_ip), IPO_PACK(pcb->ttl, pcb->tos, IP_PROTO_TCP));
 #endif /* LWIP_NETIF_HWADDRHINT*/
   pbuf_free(p);
 
@@ -663,6 +662,7 @@ tcp_output(struct tcp_pcb *pcb)
  * @param pcb the tcp_pcb for the TCP connection used to send the segment
  */
 static void
+__attribute__((noinline))
 tcp_output_segment(struct tcp_seg *seg, struct tcp_pcb *pcb)
 {
   u16_t len;
@@ -741,8 +741,7 @@ tcp_output_segment(struct tcp_seg *seg, struct tcp_pcb *pcb)
   ip_output_hinted(seg->p, &(pcb->local_ip), &(pcb->remote_ip), pcb->ttl, pcb->tos,
       IP_PROTO_TCP, &(pcb->addr_hint));
 #else /* LWIP_NETIF_HWADDRHINT*/
-  ip_output(seg->p, &(pcb->local_ip), &(pcb->remote_ip), pcb->ttl, pcb->tos,
-      IP_PROTO_TCP);
+  ip_output(seg->p, &(pcb->local_ip), &(pcb->remote_ip), IPO_PACK(pcb->ttl, pcb->tos, IP_PROTO_TCP));
 #endif /* LWIP_NETIF_HWADDRHINT*/
 }
 
@@ -799,7 +798,7 @@ tcp_rst(u32_t seqno, u32_t ackno,
   TCP_STATS_INC(tcp.xmit);
   snmp_inc_tcpoutrsts();
    /* Send output with hardcoded TTL since we have no access to the pcb */
-  ip_output(p, local_ip, remote_ip, TCP_TTL, 0, IP_PROTO_TCP);
+  ip_output(p, local_ip, remote_ip, IPO_PACK(TCP_TTL, 0, IP_PROTO_TCP));
   pbuf_free(p);
   LWIP_DEBUGF(TCP_RST_DEBUG, ("tcp_rst: seqno %"U32_F" ackno %"U32_F".\n", seqno, ackno));
 }
@@ -964,7 +963,7 @@ tcp_keepalive(struct tcp_pcb *pcb)
   ip_output_hinted(p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl, 0, IP_PROTO_TCP,
     &(pcb->addr_hint));
 #else /* LWIP_NETIF_HWADDRHINT*/
-  ip_output(p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl, 0, IP_PROTO_TCP);
+  ip_output(p, &pcb->local_ip, &pcb->remote_ip, IPO_PACK(pcb->ttl, 0, IP_PROTO_TCP));
 #endif /* LWIP_NETIF_HWADDRHINT*/
 
   pbuf_free(p);
@@ -1042,7 +1041,7 @@ tcp_zero_window_probe(struct tcp_pcb *pcb)
   ip_output_hinted(p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl, 0, IP_PROTO_TCP,
     &(pcb->addr_hint));
 #else /* LWIP_NETIF_HWADDRHINT*/
-  ip_output(p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl, 0, IP_PROTO_TCP);
+  ip_output(p, &pcb->local_ip, &pcb->remote_ip, IPO_PACK(pcb->ttl, 0, IP_PROTO_TCP));
 #endif /* LWIP_NETIF_HWADDRHINT*/
 
   pbuf_free(p);

@@ -492,8 +492,7 @@ ip_input(struct pbuf *p, struct netif *inp)
  */
 err_t
 ip_output_if(struct pbuf *p, struct ip_addr *src, struct ip_addr *dest,
-             u8_t ttl, u8_t tos,
-             u8_t proto, struct netif *netif)
+             u32_t params, struct netif *netif)
 {
 #if IP_OPTIONS_SEND
   return ip_output_if_opt(p, src, dest, ttl, tos, proto, netif, NULL, 0);
@@ -512,6 +511,9 @@ err_t ip_output_if_opt(struct pbuf *p, struct ip_addr *src, struct ip_addr *dest
 #endif /* IP_OPTIONS_SEND */
   struct ip_hdr *iphdr;
   static u16_t ip_id = 0;
+
+  u8_t ttl = IPO_UNPACK_TTL(params), tos = IPO_UNPACK_TOS(params);
+  u8_t proto = IPO_UNPACK_PROTO(params);
 
   snmp_inc_ipoutrequests();
 
@@ -619,8 +621,7 @@ err_t ip_output_if_opt(struct pbuf *p, struct ip_addr *src, struct ip_addr *dest
  *         see ip_output_if() for more return values
  */
 err_t
-ip_output(struct pbuf *p, struct ip_addr *src, struct ip_addr *dest,
-          u8_t ttl, u8_t tos, u8_t proto)
+ip_output(struct pbuf *p, struct ip_addr *src, struct ip_addr *dest, u32_t params)
 {
   struct netif *netif;
 
@@ -630,7 +631,7 @@ ip_output(struct pbuf *p, struct ip_addr *src, struct ip_addr *dest,
     return ERR_RTE;
   }
 
-  return ip_output_if(p, src, dest, ttl, tos, proto, netif);
+  return ip_output_if(p, src, dest, params, netif);
 }
 
 #if LWIP_NETIF_HWADDRHINT

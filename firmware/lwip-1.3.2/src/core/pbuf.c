@@ -529,6 +529,7 @@ pbuf_header(struct pbuf *p, s16_t header_size_increment)
  *
  */
 u8_t
+__attribute__((always_inline))
 pbuf_free(struct pbuf *p)
 {
   u16_t type;

@@ -214,7 +214,7 @@ icmp_input(struct pbuf *p, struct netif *inp)
     } else {
       err_t ret;
       ret = ip_output_if(p, &(iphdr->src), IP_HDRINCL,
-                   ICMP_TTL, 0, IP_PROTO_ICMP, inp);
+                   IPO_PACK(ICMP_TTL, 0, IP_PROTO_ICMP), inp);
       if (ret != ERR_OK) {
         LWIP_DEBUGF(ICMP_DEBUG, ("icmp_input: ip_output_if returned an error: %c.\n", ret));
       }
@@ -324,7 +324,7 @@ icmp_send_response(struct pbuf *p, u8_t type, u8_t code)
   snmp_inc_icmpoutmsgs();
   /* increase number of destination unreachable messages attempted to send */
   snmp_inc_icmpouttimeexcds();
-  ip_output(q, NULL, &(iphdr->src), ICMP_TTL, 0, IP_PROTO_ICMP);
+  ip_output(q, NULL, &(iphdr->src), IPO_PACK(ICMP_TTL, 0, IP_PROTO_ICMP));
   pbuf_free(q);
 }
 

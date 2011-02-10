@@ -158,14 +158,18 @@ extern struct netif *current_netif;
 /** Header of the input packet currently being processed. */
 extern const struct ip_hdr *current_header;
 
+#define IPO_PACK(ttl, tos, proto) (((ttl) << 16) | ((tos) << 8) | (proto))
+#define IPO_UNPACK_TTL(p) (((p)>>16) & 0xff)
+#define IPO_UNPACK_TOS(p) (((p)>>8) & 0xff)
+#define IPO_UNPACK_PROTO(p) ((p) & 0xff)
+
 #define ip_init() /* Compatibility define, not init needed. */
 struct netif *ip_route(struct ip_addr *dest);
 void ip_input(struct pbuf *p, struct netif *inp);
 err_t ip_output(struct pbuf *p, struct ip_addr *src, struct ip_addr *dest,
-       u8_t ttl, u8_t tos, u8_t proto);
+       u32_t params);
 err_t ip_output_if(struct pbuf *p, struct ip_addr *src, struct ip_addr *dest,
-       u8_t ttl, u8_t tos, u8_t proto,
-       struct netif *netif);
+       u32_t params, struct netif *netif);
 #if LWIP_NETIF_HWADDRHINT
 err_t ip_output_hinted(struct pbuf *p, struct ip_addr *src, struct ip_addr *dest,
        u8_t ttl, u8_t tos, u8_t proto, u8_t *addr_hint);

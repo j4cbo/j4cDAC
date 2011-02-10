@@ -141,6 +141,7 @@ static err_t update_arp_entry(struct netif *netif, struct ip_addr *ipaddr, struc
  * @param q a qeueue of etharp_q_entry's to free
  */
 static void
+__attribute__((always_inline))
 free_etharp_q(struct etharp_q_entry *q)
 {
   struct etharp_q_entry *r;
