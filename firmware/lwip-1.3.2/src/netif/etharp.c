@@ -890,6 +890,7 @@ etharp_output_FPV_netif_output(struct netif *netif, struct pbuf *q, struct ip_ad
  *
  */
 err_t
+__attribute__((always_inline))
 etharp_query(struct netif *netif, struct ip_addr *ipaddr, struct pbuf *q)
 {
   struct eth_addr * srcaddr = (struct eth_addr *)netif->hwaddr;
@@ -1044,6 +1045,7 @@ etharp_query(struct netif *netif, struct ip_addr *ipaddr, struct pbuf *q)
 static
 #endif /* LWIP_AUTOIP */
 err_t
+__attribute__((always_inline))
 etharp_raw(struct netif *netif, const struct eth_addr *ethsrc_addr,
            const struct eth_addr *ethdst_addr,
            const struct eth_addr *hwsrc_addr, const struct ip_addr *ipsrc_addr,
