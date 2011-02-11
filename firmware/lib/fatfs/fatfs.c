@@ -24,7 +24,7 @@
 FATFS fs;
 
 void sd_init(void) {
-	char filename_buf[256];
+	char filename_buf[128];
 
 	int res = disk_initialize(0);
 	if (res) {
