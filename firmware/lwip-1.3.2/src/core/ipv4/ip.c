@@ -58,6 +58,7 @@
 
 #include <string.h>
 
+#ifdef LWIP_CURRENT_NETIF_HEADER
 /**
  * The interface that provided the packet for the current callback
  * invocation.
@@ -68,6 +69,7 @@ struct netif *current_netif;
  * Header of the input packet currently being processed.
  */
 const struct ip_hdr *current_header;
+#endif
 
 /**
  * Finds the appropriate network interface for a given IP address. It
@@ -404,8 +406,10 @@ ip_input(struct pbuf *p, struct netif *inp)
   ip_debug_print(p);
   LWIP_DEBUGF(IP_DEBUG, ("ip_input: p->len %"U16_F" p->tot_len %"U16_F"\n", p->len, p->tot_len));
 
+#ifdef LWIP_CURRENT_NETIF_HEADER
   current_netif = inp;
   current_header = iphdr;
+#endif
 
 #if LWIP_RAW
   /* raw input did not eat the packet? */
@@ -459,8 +463,10 @@ ip_input(struct pbuf *p, struct netif *inp)
     }
   }
 
+#ifdef LWIP_CURRENT_NETIF_HEADER
   current_netif = NULL;
   current_header = NULL;
+#endif
 
   return;
 }

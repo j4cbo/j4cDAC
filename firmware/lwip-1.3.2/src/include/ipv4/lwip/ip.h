@@ -153,10 +153,12 @@ PACK_STRUCT_END
 #define IPH_PROTO_SET(hdr, proto) (hdr)->_ttl_proto = (htons((proto) | (IPH_TTL(hdr) << 8)))
 #define IPH_CHKSUM_SET(hdr, chksum) (hdr)->_chksum = (chksum)
 
+#ifdef LWIP_CURRENT_NETIF_HEADER
 /** The interface that provided the packet for the current callback invocation. */
 extern struct netif *current_netif;
 /** Header of the input packet currently being processed. */
 extern const struct ip_hdr *current_header;
+#endif
 
 #define IPO_PACK(ttl, tos, proto) (((ttl) << 16) | ((tos) << 8) | (proto))
 #define IPO_UNPACK_TTL(p) (((p)>>16) & 0xff)
@@ -179,6 +181,9 @@ err_t ip_output_if_opt(struct pbuf *p, struct ip_addr *src, struct ip_addr *dest
        u8_t ttl, u8_t tos, u8_t proto, struct netif *netif, void *ip_options,
        u16_t optlen);
 #endif /* IP_OPTIONS_SEND */
+
+#ifdef LWIP_CURRENT_NETIF_HEADER
+/** The interface that provided the packet for the current callback invocation. */
 /** Get the interface that received the current packet.
  * This function must only be called from a receive callback (udp_recv,
  * raw_recv, tcp_accept). It will return NULL otherwise. */
@@ -187,6 +192,8 @@ err_t ip_output_if_opt(struct pbuf *p, struct ip_addr *src, struct ip_addr *dest
  * This function must only be called from a receive callback (udp_recv,
  * raw_recv, tcp_accept). It will return NULL otherwise. */
 #define ip_current_header() (current_header)
+#endif
+
 #if IP_DEBUG
 void ip_debug_print(struct pbuf *p);
 #else
