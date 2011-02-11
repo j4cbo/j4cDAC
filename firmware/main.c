@@ -68,6 +68,9 @@ TABLE(initializer_t, poll);
 void playback_refill() {
 	int i;
 
+	if (playback_src == SRC_NETWORK)
+		return;
+
 	int dlen = dac_request();
 	dac_point_t *ptr = dac_request_addr();
 
@@ -128,23 +131,27 @@ void playback_refill() {
 		dac_start();
 }
 
-void check_events() {
+void FPA_init() {
 	int i;
 
-		/* Check for periodic events */
-		for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
-			if (time > events_last[i] + events[i].period) {
-				events[i].f();
-				events_last[i] += events[i].period;
-			}
-		}
+	outputf("== hardware ==");
+
+	for (i = 0; i < TABLE_LENGTH(hardware); i++) {
+		outputf("%s()", hardware_table[i].name);
+		hardware_table[i].f();
+	}
+
+	outputf("== protocol ==");
+
+	for (i = 0; i < TABLE_LENGTH(protocol); i++) {
+		outputf("%s()", protocol_table[i].name);
+		protocol_table[i].f();
+	}
 }
 
 int main(int argc, char **argv) __attribute__((noreturn));
 int main(int argc, char **argv) {
 	time = 0;
-
-	int i;
 
 	SysTick_Config(SystemCoreClock / 10000);
 	serial_init();
@@ -163,19 +170,7 @@ int main(int argc, char **argv) {
 	outputf("lwip_init()");
 	lwip_init();
 
-	outputf("== hardware ==");
-
-	for (i = 0; i < TABLE_LENGTH(hardware); i++) {
-		outputf("%s()", hardware_table[i].name);
-		hardware_table[i].f();
-	}
-
-	outputf("== protocol ==");
-
-	for (i = 0; i < TABLE_LENGTH(protocol); i++) {
-		outputf("%s()", protocol_table[i].name);
-		protocol_table[i].f();
-	}
+	FPA_init();
 
 	outputf("ilda player");
 	ilda_open("ildatest.ild");
@@ -187,9 +182,7 @@ int main(int argc, char **argv) {
 	playback_source_flags = ILDA_PLAYER_PLAYING | ILDA_PLAYER_REPEAT;
 */
 	__enable_irq();
-
-	int status = 0;
-
+	int i, status = 0;
 	/* This might have taken some time... */
 	for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
 		events_last[i] = events[i].start + time;
@@ -201,8 +194,7 @@ int main(int argc, char **argv) {
 	while (1) {
 		/* If we're playing from something other than the network,
 		 * refill the point buffer. */
-		if (playback_src != SRC_NETWORK)
-			playback_refill();
+		playback_refill();
 
 		if (!(LPC_GPIO1->FIOPIN & (1 << 26))) {
 			outputf("Blocking...");
@@ -223,12 +215,18 @@ int main(int argc, char **argv) {
 		}
 
 //		LPC_GPIO1->FIOSET = (1 << 28);
-		check_events();
-
 
 		/* Check the stuff we check on each loop iteration. */
 		for (i = 0; i < TABLE_LENGTH(poll); i++) {
 			poll_table[i].f();
+		}
+
+		/* Check for periodic events */
+		for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
+			if (time > events_last[i] + events[i].period) {
+				events[i].f();
+				events_last[i] += events[i].period;
+			}
 		}
 	}
 }

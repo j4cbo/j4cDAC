@@ -298,9 +298,6 @@ def parse_function(ls):
 	# If we might tail-call or regular-call, it doesn't count.
 	tail_callees -= callees
 
-	if function_name == "main":
-		callees |= set(["eth_poll"])
-
 	if tail_callees:
 		print "! TAIL: %s" % (tail_callees, )
 
@@ -325,6 +322,7 @@ def parse_file(fname):
 		except StopIteration:
 			break
 
+	# Wire up function pointers
 	for k, v in fs.iteritems():
 		if "_FPV_" not in k:
 			continue
@@ -335,10 +333,28 @@ def parse_file(fname):
 
 		fs["FPA_" + suffix].children.add(k)
 
+	# Look for setup and mainloop initializers
+	iin, iout = os.popen4("grep -Irh ^INITIALIZER .")
+	inits = [ t.split('(', 1)[1].strip(' );').split(',')
+                  for t in iout.read().split('\n') if ('(' in t) ]
+	for group, val in inits:
+		group = group.strip(' ')
+		val = val.strip(' ')
+
+		if val not in fs:
+			print "WARNING: non-linked initializer %s" % (val, )
+			continue
+
+		if group in [ "hardware", "protocol" ]:
+			fs["FPA_init"].children.add(val)
+		elif group == "poll":
+			fs["main"].children.add(val)
+		else:
+			print "WARNING: group %s unknown" % (group, )
+
 	return fs
 
 def grind_tree(funclist):
-
 	# Massive generator expression to sort through everything called
 	# from "main" or an interrupt
 	functree = (
