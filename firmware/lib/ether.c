@@ -733,12 +733,10 @@ err_t eth_transmit_FPV_netif_linkoutput(struct netif * _info, struct pbuf * p) {
 	return ERR_OK;
 }
 
-void eth_poll() {
-
+void eth_poll_1(void) {
 	/* Clean up old Tx records */
 	eth_tx_cleanup();
 
-	int consume = LPC_EMAC->RxConsumeIndex;
 	int produce = LPC_EMAC->RxProduceIndex;
 	int readpos = eth_rx_read_index;
 	struct pbuf * p;
@@ -746,7 +744,7 @@ void eth_poll() {
 	int packets_waiting = produce - readpos;
 	if (packets_waiting < 0) packets_waiting += NUM_RX_BUF;
 
-	if (!packets_waiting) return;
+	if (!packets_waiting) return; 
 
 #ifdef ETHER_SPEW
 	outputf("p: %d %d/%d/%d", packets_waiting, consume, readpos, produce);
@@ -762,9 +760,14 @@ void eth_poll() {
 	outputf("Rx %d: fl %08x, pbuf %08x, d %p/%d",  consume, status, p, p->payload, length);
 #endif
 
-	readpos = (readpos + 1) % NUM_RX_BUF;
-
+	eth_rx_read_index = (readpos + 1) % NUM_RX_BUF;
 	handle_packet(p);
+}
+
+void eth_poll_2(void) {
+	struct pbuf *p;
+	int readpos = eth_rx_read_index;
+	int consume = LPC_EMAC->RxConsumeIndex;
 
 	while (consume != readpos) {
 		/* Try to allocate a new pbuf */
