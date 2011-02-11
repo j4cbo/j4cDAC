@@ -496,7 +496,7 @@ ip_input(struct pbuf *p, struct netif *inp)
  * @note ip_id: RFC791 "some host may be able to simply use
  *  unique identifiers independent of destination"
  */
-err_t
+err_t __attribute__((always_inline))
 ip_output_if(struct pbuf *p, struct ip_addr *src, struct ip_addr *dest,
              u32_t params, struct netif *netif)
 {

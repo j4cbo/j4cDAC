@@ -855,7 +855,7 @@ tcp_segs_free(struct tcp_seg *seg)
  * @param seg single tcp_seg to free
  * @return the number of pbufs that were deallocated
  */
-u8_t
+u8_t __attribute__((always_inline))
 tcp_seg_free(struct tcp_seg *seg)
 {
   u8_t count = 0;
