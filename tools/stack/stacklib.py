@@ -298,8 +298,10 @@ def parse_function(ls):
 	# If we might tail-call or regular-call, it doesn't count.
 	tail_callees -= callees
 
+	if callees:
+		print "  Calls: [ %s ]" % (", ".join(callees), )
 	if tail_callees:
-		print "! TAIL: %s" % (tail_callees, )
+		print "  Tail calls: [ %s ]" % (", ".join(tail_callees), )
 
 	return Func(function_name, peak, callees, tail_callees)
 
