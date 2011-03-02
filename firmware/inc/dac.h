@@ -18,19 +18,7 @@
 #ifndef DAC_H
 #define DAC_H
 
-typedef struct dac_point {
-	uint16_t control;
-	int16_t x;
-	int16_t y;
-	uint16_t r;
-	uint16_t g;
-	uint16_t b;
-	uint16_t i;
-	uint16_t u1;
-	uint16_t u2;
-} dac_point_t;
-
-#define DAC_CTRL_RATE_CHANGE	0x8000
+#include <protocol.h>
 
 enum dac_state {
 	DAC_IDLE = 0,
