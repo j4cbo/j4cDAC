@@ -72,6 +72,11 @@ struct data_command {
 	struct dac_point data[];
 } __attribute__ ((packed));
 
+struct data_command_header {
+	uint8_t command;	/* 'd' (0x64) */
+	uint16_t npoints;
+} __attribute__ ((packed));
+
 struct dac_response {
 	uint8_t response;
 	uint8_t command;
