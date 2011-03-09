@@ -21,6 +21,7 @@
 
 #include "lpc17xx_clkpwr.h"
 #include "serial.h"
+#include "dp83848.h"
 #include "mdio.h"
 #include <string.h>
 
@@ -227,6 +228,9 @@ int EMAC_Init(EMAC_CFG_Type *EMAC_ConfigStruct) {
 	}
 
 	outputf("-- phy mode");
+
+	/* Put the PHY in RMII mode */
+	mdio_write(DP83848_RBR, 0x21);
 
 	// Set PHY mode
 	if (EMAC_SetPHYMode(EMAC_ConfigStruct->Mode) < 0){
