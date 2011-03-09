@@ -35,15 +35,16 @@ typedef struct dac_point {
 #define DAC_CTRL_RATE_CHANGE    0x8000
 
 struct dac_status {
+	uint8_t protocol;
 	uint8_t light_engine_state;
 	uint8_t playback_state;
+	uint8_t source;
 	uint16_t light_engine_flags;
 	uint16_t playback_flags;
+	uint16_t source_flags;
 	uint16_t buffer_fullness;
 	uint32_t point_rate;
 	uint32_t point_count;
-	uint8_t source;
-	uint16_t source_flags;
 } __attribute__ ((packed));
 
 struct dac_broadcast {
