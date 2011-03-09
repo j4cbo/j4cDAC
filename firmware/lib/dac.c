@@ -115,8 +115,10 @@ int dac_start(void) {
  * Queue up a point rate change.
  */
 int dac_rate_queue(int points_per_second) {
-	if (dac_state == DAC_IDLE)
+	if (dac_state == DAC_IDLE) {
+		outputf("drq rejected: idle");
 		return -1;
+	}
 
 	int produce = dac_rate_produce;
 
@@ -127,12 +129,14 @@ int dac_rate_queue(int points_per_second) {
 	/* The buffer can only ever become one word short of full -
 	 * produce = consume means empty.
 	 */
-	if (fullness >= DAC_RATE_BUFFER_SIZE - 1)
+	if (fullness >= DAC_RATE_BUFFER_SIZE - 1) {
+		outputf("drq rejected: full");
 		return -1;
+	}
 
 	dac_rate_buffer[produce] = points_per_second;
 
-	dac_rate_produce = (produce + 1) % DAC_BUFFER_POINTS;
+	dac_rate_produce = (produce + 1) % DAC_RATE_BUFFER_SIZE;
 
 	return 0;
 }
@@ -412,6 +416,7 @@ void PWM1_IRQHandler(void) {
 			rate_consume++;
 			if (rate_consume >= DAC_RATE_BUFFER_SIZE)
 				rate_consume = 0;
+			dac_rate_consume = rate_consume;
 		}
 	}
 

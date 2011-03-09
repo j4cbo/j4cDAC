@@ -34,7 +34,7 @@ enum dac_state {
 
 #define DAC_BUFFER_POINTS	1800
 
-#define DAC_RATE_BUFFER_SIZE	16
+#define DAC_RATE_BUFFER_SIZE	40
 
 /* This is the maximum point rate that we advertise in our periodic
  * broadcast packet. 100kpps ought to be enough for anyone. */
