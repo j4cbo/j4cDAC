@@ -127,7 +127,7 @@ void playback_refill() {
 	}
 
 	/* If the buffer is nearly full, start it up */
-	if (dlen < 100 && dac_get_state() == DAC_PREPARED)
+	if (dlen < 200 && dac_get_state() == DAC_PREPARED)
 		dac_start();
 }
 
