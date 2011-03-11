@@ -245,7 +245,13 @@ unsigned __stdcall LoopUpdate(void *x){
 		LeaveCriticalSection(&buffer_lock);
 
 		/* Now, see how much data we should write. */
-		int cap = 1799 - dac_last_status()->buffer_fullness;
+		int cap = 1798;
+
+		if (!dac_outstanding_acks())
+			cap -= 160;
+
+		cap -= dac_last_status()->buffer_fullness;
+		if (cap < 0) cap = 1;
 
 		struct buffer_item *b = &dac_buffer[dac_buffer_read];
 
@@ -259,12 +265,13 @@ unsigned __stdcall LoopUpdate(void *x){
 		if (cap < 100) {
 			Sleep(10);
 			cap += 20;
+			if (cap > b_left)
+				cap = b_left;
 		}
 
-		fprintf(fp, "Writing %d points (buf has %d)\n", cap, dac_last_status()->buffer_fullness);
-		fflush(fp);
+		int res = dac_send_data(&conn, b->data + b->idx, cap, b->pps);
 
-		if (dac_send_data(&conn, b->data + b->idx, cap, b->pps) < 0) {
+		if (res < 0) {
 			/* Welp, something's wrong. There's not much we
 			 * can do at an API level other than start throwing
 			 * "error" returns up to the application... */
@@ -276,7 +283,7 @@ unsigned __stdcall LoopUpdate(void *x){
 
 		/* What next? */
 		EnterCriticalSection(&buffer_lock);
-		b->idx += cap;
+		b->idx += res;
 
 		if (b->idx < b->points) {
 			/* There's more in this frame. */
@@ -290,6 +297,8 @@ unsigned __stdcall LoopUpdate(void *x){
 			b->repeatcount--;
 		} else if (dac_buffer_fullness) {
 			/* Move to the next frame */
+			fprintf(fp, "advancing frame\n");
+			fflush(fp);
 			dac_buffer_fullness--;
 			dac_buffer_read++;
 			if (dac_buffer_read >= BUFFER_NFRAMES)
@@ -297,6 +306,9 @@ unsigned __stdcall LoopUpdate(void *x){
 		} else if (b->repeatcount >= 0) {
 			/* Stop playing until we get a new frame. */
 			state = ST_READY;
+		} else {
+			fprintf(fp, "repeating frame\n");
+			fflush(fp);
 		}
 
 		/* If we get here without hitting any of the above cases,

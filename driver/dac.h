@@ -29,5 +29,6 @@ typedef struct dac_conn_s {
 int dac_connect(dac_conn_t *conn, const char *host, const char *port);
 int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rate);
 const struct dac_status * dac_last_status(void);
+int dac_outstanding_acks(void);
 
 #endif
