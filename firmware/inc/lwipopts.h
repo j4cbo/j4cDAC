@@ -41,7 +41,7 @@
 #define MEMP_NUM_TCP_PCB_LISTEN	3
 
 #define TCP_MSS         1460
-#define TCP_WND		10000
+#define TCP_WND		7500
 #define TCP_SND_BUF     (2 * TCP_MSS)
 #define TCP_SND_QUEUELEN 8
 
