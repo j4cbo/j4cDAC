@@ -51,7 +51,7 @@ SRCS += net/point-stream.c net/broadcast.c net/sink.c net/osc.c net/bpm.c \
 OBJS1 = $(SRCS:.c=.o)
 OBJS = $(OBJS1:.s=.o)
 
-all: j4cDAC.hex size
+all: j4cDAC.hex j4cDAC.bin size
 
 %.o: %.c
 	$(PREFIX)gcc $(CFLAGS) -c $< -o $@
@@ -61,6 +61,9 @@ all: j4cDAC.hex size
 
 j4cDAC.hex: j4cDAC.elf
 	$(PREFIX)objcopy -O ihex -R .eeprom -R .fuse -R .lock $< $@
+
+j4cDAC.bin: j4cDAC.hex
+	../tools/image.py $< $@
 
 j4cDAC.elf: $(OBJS)
 	$(PREFIX)gcc $(LDFLAGS) $(OBJS) -o j4cDAC.elf
