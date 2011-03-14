@@ -17,11 +17,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import intelhex
-import binascii
+import zlib
 import struct
 import sys
 
 APP_START = 0x4000
+
+IMAGE_ROUND = 256
 
 def main():
 	if len(sys.argv) != 3:
@@ -35,10 +37,8 @@ def main():
 		sys.exit(1)
 
 	# Find the actual data length
-	imagelen = (hexfile.maxaddr() - APP_START + 64)
-	imagelen -= (imagelen % 64)
-
-	print "Image length: %d / %x" % (imagelen, imagelen)
+	imagelen = (hexfile.maxaddr() - APP_START + IMAGE_ROUND)
+	imagelen -= (imagelen % IMAGE_ROUND)
 
 	# Insert data length as vector 8
 	data_len = struct.pack("<I", imagelen)
@@ -46,12 +46,19 @@ def main():
 
 	# Extract the binary image data
 	data = hexfile.tobinstr(start = APP_START)
-	if len(data) % 64:
-		data += (64 - (len(data) % 64)) * "\0"
+
+	print "Image length: %d / %x (rounded up from %d)" % (
+		imagelen, imagelen, len(data))
+
+	data = data.ljust(imagelen, "\0")
 
 	# Add a crc
-	crc = struct.pack("<I", binascii.crc32(data) & 0xffffffff)
-	data += crc + "\0" * 60
+	crc = zlib.crc32(data) & 0xffffffff
+
+	print "CRC: 0x%08x" % (crc, )
+
+	crcdata = struct.pack("<I", crc)
+	data += crcdata + "\0" * 252
 
 	# Tack on a header
 	data = ("j4cDAC firmware image - DO NOT EDIT\n".ljust(59, "~")
