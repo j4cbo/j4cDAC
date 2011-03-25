@@ -79,6 +79,11 @@ format_int(struct context *ctx, unsigned int base, unsigned long arg) {
 	char *n = buf + sizeof(buf) - 1;
 	char *o = n;
 
+	if (!arg) {
+		*n = digits[0];
+		n--;
+	}
+
 	while (arg) {
 		*n = digits[arg % base];
 		n--;
