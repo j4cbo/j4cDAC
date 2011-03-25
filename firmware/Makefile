@@ -79,13 +79,16 @@ j4cDAC.bin: j4cDAC.hex
 j4cDAC.elf: $(OBJS)
 	$(PREFIX)gcc $(LDFLAGS) $(OBJS) -o j4cDAC.elf
 
-.PHONY: clean flash size term
+.PHONY: clean flash bl size term
 
 clean:
 	rm -f j4cDAC.elf $(OBJS)
 
 flash:
 	~/lpc21isp/lpc21isp -debug3 j4cDAC.hex /dev/ttyUSB0 230400 14746
+
+bl:
+	sudo dfu-util -D j4cDAC.bin -R
 
 size:
 	$(PREFIX)size -A j4cDAC.elf
