@@ -13,6 +13,7 @@
 #include <lwip/dhcp.h>
 #include <ipv4/lwip/autoip.h>
 #include <string.h>
+#include <assert.h>
 #include <broadcast.h>
 #include <tables.h>
 #include <lightengine.h>
