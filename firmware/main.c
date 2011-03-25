@@ -35,6 +35,7 @@
 
 volatile uint32_t time;
 volatile uint32_t mtime;
+extern int f0ad_flag;
 
 enum playback_source playback_src;
 int playback_source_flags;
@@ -227,6 +228,15 @@ int main(int argc, char **argv) {
 				events[i].f();
 				events_last[i] += events[i].period;
 			}
+		}
+
+		if (f0ad_flag) {
+			/* Re-enter the bootloader. */
+			outputf("Reentering bootloader...");
+			LPC_GPIO2->FIODIR |= (1 << 10);
+			LPC_GPIO2->FIOPIN |= (1 << 10);
+			__disable_irq();
+			reenter_bootloader();
 		}
 	}
 }

@@ -132,6 +132,21 @@ __cs3_reset_cortex_m:
 
     .section ".text"
 
+    .globl reenter_bootloader
+    .type reenter_bootloader, %function
+reenter_bootloader:
+    .fnstart
+    ldr r0, =0x0
+    ldr r1, [r0, #4]
+    ldr r0, [r0]
+    mov sp, r0
+    bx r1
+    .pool
+    .cantunwind
+    .fnend
+    .size reenter_bootloader, . - reenter_bootloader
+
+
 /* Exception Handlers */
 
     .weak   NMI_Handler

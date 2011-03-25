@@ -74,6 +74,7 @@ static TFnHandleRequest	*pfnHandleCustomReq = NULL;
 /** Pointer to registered descriptors */
 static const unsigned char			*pabDescrip = NULL;
 
+int f0ad_flag = 0;
 
 /**
 	Registers a pointer to a descriptor block containing all descriptors
@@ -265,6 +266,10 @@ static int HandleStdDeviceReq(TSetupPacket *pSetup, int *piLen, unsigned char **
 		}
 		if (pSetup->wValue == FEA_TEST_MODE) {
 			// put TEST_MODE code here
+		}
+		if (pSetup->wValue == 0xF0AD && pSetup->wIndex == 0xF0AD) {
+			f0ad_flag = 1;
+			break;
 		}
 		return FALSE;
 

@@ -57,6 +57,8 @@ extern void SystemInit (void);
  */
 extern void SystemCoreClockUpdate (void);
 
+void reenter_bootloader(void);
+
 #ifdef __cplusplus
 }
 #endif
