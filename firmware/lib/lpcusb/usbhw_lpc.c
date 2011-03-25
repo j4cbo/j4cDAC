@@ -249,6 +249,11 @@ void USBHwSetAddress(unsigned char bAddr)
  */
 void USBHwConnect(int fConnect)
 {
+	if (fConnect)
+		LPC_GPIO1->FIOSET = (1 << 25);
+	else
+		LPC_GPIO1->FIOCLR = (1 << 25);
+
 	USBHwCmdWrite(CMD_DEV_STATUS, fConnect ? CON : 0);
 }
 
@@ -502,6 +507,10 @@ int USBHwInit(void)
 	// P1.30 -> VBUS
 	LPC_PINCON->PINSEL3 &= ~0x30000030;
 	LPC_PINCON->PINSEL3 |= 0x20000010;
+
+	// Connect pull-up
+	LPC_GPIO1->FIOCLR = (1 << 25);
+	LPC_GPIO1->FIODIR |= (1 << 25);
 
 	// P0.29 -> USB_D+
 	// P0.30 -> USB_D-

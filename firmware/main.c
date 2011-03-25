@@ -205,12 +205,12 @@ int main(int argc, char **argv) {
 //		LPC_GPIO1->FIOCLR = (1 << 28);
 
 		if (status) {
-			LPC_GPIO0->FIOPIN = 1;
-			LPC_GPIO1->FIOPIN = 0;
+			LPC_GPIO0->FIOSET = 1;
+			LPC_GPIO1->FIOCLR = (1 << 29);
 			status = 0;
 		} else {
-			LPC_GPIO0->FIOPIN = 0;
-			LPC_GPIO1->FIOPIN = (1 << 29);
+			LPC_GPIO0->FIOCLR = 1;
+			LPC_GPIO1->FIOSET = (1 << 29);
 			status = 1;
 		}
 
