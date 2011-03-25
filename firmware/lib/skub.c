@@ -97,6 +97,11 @@ void skub_init(void) {
 	}
 }
 
+#ifdef PC_BUILD
+#define __LDREXW(x) (*(x))
+#define __STREXW(v, x) ((*(x) = (v)), 0)
+#endif
+
 static void * skub_alloc_from_pool(const struct skub_pool_info * pool) {
 
 	int i, nbitfields = (pool->max + 31) / 32;
@@ -178,7 +183,11 @@ void skub_free(enum skub_type region, void *ptr) {
 	int idx = offset / pool->sz;
 
 	/* Bit-band writes are atomic. */
+#ifdef PC_BUILD
+	pool->bitmask[idx / 32] |= (1 << (idx % 32));
+#else
 	*(uint32_t *)BITBAND_SRAM((uint32_t) pool->bitmask, idx) = 1;
+#endif
 }
 
 void skub_free_sz(void *ptr) {
@@ -197,7 +206,11 @@ void skub_free_sz(void *ptr) {
 		int idx = offset / pool->sz;
 
 		/* Bit-band writes are atomic. */
-		*(uint32_t *) BITBAND_SRAM((uint32_t) pool->bitmask, idx) = 1;
+#ifdef PC_BUILD
+		pool->bitmask[idx / 32] |= (1 << (idx % 32));
+#else
+		*(uint32_t *)BITBAND_SRAM((uint32_t) pool->bitmask, idx) = 1;
+#endif
 
 		return;
 	}

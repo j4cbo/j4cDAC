@@ -15,14 +15,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdarg.h>
+#include <stdio.h>
+
+#ifndef PC_BUILD
+
 #include "LPC17xx.h"
 #include "lpc17xx_uart.h"
 #include "lpc17xx_pinsel.h"
 
-#include <stdarg.h>
-#include <stdio.h>
-#include <serial.h>
 #include <attrib.h>
+#include <serial.h>
 
 #define DEBUG_UART      ((LPC_UART_TypeDef *)LPC_UART0)
 
@@ -66,3 +69,27 @@ void BusFault_Handler_C(uint32_t * stack) {
 	outputf("pc: %p", stack[6]);
 	while (1);
 }
+
+#else
+
+#include <stdlib.h>
+
+void panic(const char *fmt, ...) {
+	va_list va;
+	char buffer[80];
+	int n;
+
+	va_start(va, fmt);
+	n = vsnprintf(buffer, sizeof(buffer) - 2, fmt, va);
+
+	if (n > (sizeof(buffer) - 2))
+		n = sizeof(buffer) - 2;
+
+	buffer[n] = '\r';
+	buffer[n + 1] = '\n';
+
+	puts(buffer);
+	exit(1);
+}
+
+#endif

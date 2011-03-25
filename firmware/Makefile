@@ -47,9 +47,9 @@ CFLAGS += $(INCLUDES)
 
 # LPCUSB
 BRD_SRCS += lib/lpcusb/usbhw_lpc.c lib/lpcusb/usbinit.c lib/lpcusb/usbstdreq.c \
-	lib/lpcusb/usbcontrol.c lib/lpcusb/usbtest.c
+	lib/lpcusb/usbcontrol.c lib/lpcusb/usbtest.c net/bpm.c
 
-APP_SRCS += net/point-stream.c net/broadcast.c net/sink.c net/osc.c net/bpm.c \
+APP_SRCS += net/point-stream.c net/broadcast.c net/sink.c net/osc.c \
 	net/ilda-osc.c net/correction-osc.c lib/transform.c
 
 SRCS = $(BRD_SRCS) $(APP_SRCS)
@@ -58,6 +58,11 @@ OBJS1 = $(SRCS:.c=.o)
 OBJS = $(OBJS1:.s=.o)
 
 all: j4cDAC.hex j4cDAC.bin size
+
+PC_SRCS = pc.c unix/tapif.c unix/sdcard.c unix/dac.c
+
+pc: $(PC_SRCS) $(APP_SRCS)
+	gcc $(PC_SRCS) $(APP_SRCS) $(INCLUDES) -DPC_BUILD -o pc -Wall -g
 
 %.o: %.c
 	$(PREFIX)gcc $(CFLAGS) -c $< -o $@
