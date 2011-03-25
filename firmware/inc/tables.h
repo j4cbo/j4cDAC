@@ -55,17 +55,40 @@
 
 typedef void (*thunk_t)(void);
 
+#define TABLE_ITEMS(typ, sym, ...) const typ sym[] \
+	__attribute__((section(".table." #typ ".1"))) = { __VA_ARGS__ };
+
+#define TABLE_LENGTH(name)	(name##_table_end - name##_table)
+
+#ifdef PC_BUILD
+
+typedef struct {
+	thunk_t f;
+} initializer_t;
+
+#include <stdio.h>
+
+extern int table_hardware_ready; 
+extern int table_protocol_ready;
+extern int table_poll_ready;
+
+#define INIT_ARRAY(x) __attribute__((section(".init_array.j4cDAC." x)))
+
+#define INITIALIZER(table, f) void f##_wrapper (void) { \
+	if (!table_##table##_ready) return;		\
+	printf("%s\n", #f); f(); }			\
+	const thunk_t f##_ptr INIT_ARRAY(#table ".1") = f##_wrapper;
+
+#define TABLE(typ, name) \
+	const typ name##_table[0] __attribute__((section(".init_array.j4cDAC." #name )));		\
+	const typ name##_table_end[0] __attribute__((section(".init_array.j4cDAC." #name ".END")));
+
+#else
+
 typedef struct {
 	thunk_t f;
 	const char * name;
 } initializer_t;
-
-#define TABLE_ITEMS(typ, sym, ...) const typ sym[] \
-	__attribute__((section(".table." #typ ".1"))) = { __VA_ARGS__ };
-
-#define TABLE(typ, name) \
-	const typ name##_table[0] __attribute__((section(".table." #name )));		\
-	const typ name##_table_end[0] __attribute__((section(".table." #name ".END")));
 
 #define INITIALIZER(table, f) const initializer_t f##_ptr \
 	__attribute__((section(".table." #table ".1"))) = { f, #f };
@@ -74,6 +97,10 @@ typedef struct {
 	const initializer_t name##_table[0] __attribute__((section(".table." #name )));		\
 	const initializer_t name##_table_end[0] __attribute__((section(".table." #name ".END")));
 
-#define TABLE_LENGTH(name)	(name##_table_end - name##_table)
+#define TABLE(typ, name) \
+	const typ name##_table[0] __attribute__((section(".table." #name )));		\
+	const typ name##_table_end[0] __attribute__((section(".table." #name ".END")));
+
+#endif
 
 #endif /* TABLES_H */
