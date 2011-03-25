@@ -147,6 +147,18 @@ reenter_bootloader:
     .size reenter_bootloader, . - reenter_bootloader
 
 
+    .globl panic
+    .type panic, %function
+panic:
+    .fnstart
+    cpsid i     /* Disable interrupts */
+    bl panic_internal
+    .pool
+    .cantunwind
+    .fnend
+    .size panic, . - panic
+
+
 /* Exception Handlers */
 
     .weak   NMI_Handler

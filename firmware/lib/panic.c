@@ -31,7 +31,7 @@
 
 #define PANIC_STRING	"***\r\n*** PANIC: "
 
-void panic(const char *fmt, ...) {
+void ATTR_VISIBLE panic_internal(const char *fmt, ...) {
 	va_list va;
 	char buffer[80];
 	int n;
