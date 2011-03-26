@@ -17,7 +17,6 @@
 
 #include <serial.h>
 #include <string.h>
-#include <lpc17xx_pinsel.h>
 #include <lpc17xx_gpdma.h>
 #include <lpc17xx_ssp.h>
 #include <lpc17xx_pwm.h>
@@ -207,17 +206,9 @@ void dac_init() {
 	CLKPWR_SetPCLKDiv(CLKPWR_PCLKSEL_PWM1, CLKPWR_PCLKSEL_CCLK_DIV_4);
 
 	/* Set up the SPI pins: SCLK, SYNC, DIN */
-	PINSEL_CFG_Type PinCfg;
-	PinCfg.Funcnum = 2;
-	PinCfg.OpenDrain = 0;
-	PinCfg.Pinmode = 0;
-	PinCfg.Portnum = 0;
-	PinCfg.Pinnum = 6;
-	PINSEL_ConfigPin(&PinCfg);
-	PinCfg.Pinnum = 7;
-	PINSEL_ConfigPin(&PinCfg);
-	PinCfg.Pinnum = 9;
-	PINSEL_ConfigPin(&PinCfg);
+	LPC_PINCON->PINSEL0 =
+		  (LPC_PINCON->PINSEL0 & ~((3 << 12) | (3 << 14) | (3 << 18)))
+		| (2 << 12) | (2 << 14) | (2 << 18);
 
 	/* ... and LDAC on the PWM peripheral */
 	LPC_PINCON->PINSEL4 |= (1 << 8);

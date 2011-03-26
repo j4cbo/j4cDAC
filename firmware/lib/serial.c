@@ -1,6 +1,5 @@
 #include "LPC17xx.h"
 #include "lpc17xx_uart.h"
-#include "lpc17xx_pinsel.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -8,16 +7,10 @@
 #define DEBUG_UART	((LPC_UART_TypeDef *)LPC_UART0)
 
 void serial_init() {
-	/* Configure pins */
-	PINSEL_CFG_Type PinCfg;
-	PinCfg.Funcnum = 1;
-	PinCfg.OpenDrain = 0;
-	PinCfg.Pinmode = 0;
-	PinCfg.Pinnum = 2;
-	PinCfg.Portnum = 0;
-	PINSEL_ConfigPin(&PinCfg);
-	PinCfg.Pinnum = 3;
-	PINSEL_ConfigPin(&PinCfg);
+	/* Configure pins to use UART */
+	LPC_PINCON->PINSEL0 =
+		  (LPC_PINCON->PINSEL0 & ~((3 << 4) | (3 << 6)))
+		| (1 << 4) | (1 << 6);
 
 	/* Start up the UART */
 	UART_CFG_Type UARTConfigStruct;
