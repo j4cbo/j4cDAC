@@ -214,7 +214,7 @@ static const unsigned char abDescriptors[] = {
 	@param [in] bEP
 	@param [in] bEPStatus
  */
-static void BulkOut(unsigned char bEP, unsigned char bEPStatus)
+static void BulkOut_FPV_usb_ephdlr(unsigned char bEP, unsigned char bEPStatus)
 {
 	int i, iLen;
 //	long lHigherPriorityTaskWoken = 0;
@@ -238,7 +238,7 @@ static void BulkOut(unsigned char bEP, unsigned char bEPStatus)
 	@param [in] bEP
 	@param [in] bEPStatus
  */
-static void BulkIn(unsigned char bEP, unsigned char bEPStatus)
+static void BulkIn_FPV_usb_ephdlr(unsigned char bEP, unsigned char bEPStatus)
 {
 #if 0
 	int i, iLen;
@@ -280,7 +280,7 @@ static void BulkIn(unsigned char bEP, unsigned char bEPStatus)
 	@param [out] piLen
 	@param [out] ppbData
  */
-static int HandleClassRequest(TSetupPacket *pSetup, int *piLen, unsigned char **ppbData)
+static int HandleClassRequest_FPV_usb_reqhdlr(TSetupPacket *pSetup, int *piLen, unsigned char **ppbData)
 {
 	switch (pSetup->bRequest) {
 
@@ -420,12 +420,12 @@ void usbtest_init(void)
 	USBRegisterDescriptors(abDescriptors);
 
 	// register class request handler
-	USBRegisterRequestHandler(REQTYPE_TYPE_CLASS, HandleClassRequest, abClassReqData);
+	USBRegisterRequestHandler(REQTYPE_TYPE_CLASS, HandleClassRequest_FPV_usb_reqhdlr, abClassReqData);
 
 	// register endpoint handlers
 	USBHwRegisterEPIntHandler(INT_IN_EP, NULL);
-	USBHwRegisterEPIntHandler(BULK_IN_EP, BulkIn);
-	USBHwRegisterEPIntHandler(BULK_OUT_EP, BulkOut);
+	USBHwRegisterEPIntHandler(BULK_IN_EP, BulkIn_FPV_usb_ephdlr);
+	USBHwRegisterEPIntHandler(BULK_OUT_EP, BulkOut_FPV_usb_ephdlr);
 	
 	// register frame handler
 	USBHwRegisterFrameHandler(USBFrameHandler);

@@ -31,19 +31,39 @@ union float_int {
 	uint32_t i;
 };
 
-void handle_acc(const char *path, int x, int y, int z) {
+void handle_acc_FPV_osc(const char *path, int x, int y, int z) {
 }
 
-void handle_fader(const char *path, int v) {
+void handle_fader_FPV_osc(const char *path, int v) {
 	outputf("%d", v);
 }
 
 TABLE(osc_handler, osc_handler)
 
 TABLE_ITEMS(osc_handler, default_handlers,
-	{ "/accxyz", 3, { .f3 = handle_acc }, { 1000000, 1000000, 1000000 } },
-	{ "/1/fader1", 1, { .f1 = handle_fader }, { 1000000 } }
+	{ "/accxyz", 3, { .f3 = handle_acc_FPV_osc }, { 1000000, 1000000, 1000000 } },
+	{ "/1/fader1", 1, { .f1 = handle_fader_FPV_osc }, { 1000000 } }
 )
+
+void FPA_osc(const struct osc_handler *h, const char *address, int *params) {
+	switch (h->nargs) {
+	case 0:
+		h->f0(address);
+		break;
+	case 1:
+		h->f1(address, params[0]);
+		break;
+	case 2:
+		h->f2(address, params[0], params[1]);
+		break;
+	case 3:
+		h->f3(address, params[0], params[1], params[2]);
+		break;
+	default:
+		panic("bad nargs in osc handler: %s i=%d",
+		      h->address, h->nargs);
+	}
+}
 
 void osc_parse_packet(char *data, int length) {
 
@@ -136,23 +156,7 @@ void osc_parse_packet(char *data, int length) {
 		}
 
 		/* Now, call the appropriate function */
-		switch (h->nargs) {
-		case 0:
-			h->f0(address);
-			break;
-		case 1:
-			h->f1(address, params[0]);
-			break;
-		case 2:
-			h->f2(address, params[0], params[1]);
-			break;
-		case 3:
-			h->f3(address, params[0], params[1], params[2]);
-			break;
-		default:
-			panic("bad nargs in osc handler list: %d i=%d",
-			      i, h->nargs);
-		}
+		FPA_osc(h, address, params);
 	}
 
 	if (!nmatched && address_len >= 2 && address[address_len - 1] != 'z' \

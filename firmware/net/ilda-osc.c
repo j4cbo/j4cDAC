@@ -101,11 +101,11 @@ static void refresh_display() {
 	osc_send_string("/ilda/fpsreadout", buf);
 }
 
-static void ilda_tab_enter(const char *path) {
+static void ilda_tab_enter_FPV_osc(const char *path) {
 	refresh_display();
 }
 
-static void ilda_reload_button(const char *path, int v) {
+static void ilda_reload_FPV_osc(const char *path, int v) {
 	if (!v)
 		return;
 
@@ -122,7 +122,7 @@ int nub_atoi(const char *c) {
 	return res;
 }
 
-void ilda_osc_play(const char *path, int v) {
+void ilda_play_FPV_osc(const char *path, int v) {
 	/* Ignore release events */
 	if (!v)
 		return;
@@ -135,7 +135,7 @@ void ilda_osc_play(const char *path, int v) {
 	walk_fs(index);
 }
 
-static void ilda_handle_pps(const char *path, int v) {
+static void ilda_pps_FPV_osc(const char *path, int v) {
 	char buf[6];
 	snprintf(buf, sizeof(buf), "%dk", v);
 	osc_send_string("/ilda/ppsreadout", buf);
@@ -147,7 +147,7 @@ static void ilda_handle_pps(const char *path, int v) {
 	ilda_set_fps_limit(ilda_current_fps);
 }
 
-static void ilda_handle_fps(const char *path, int v) {
+static void ilda_fps_FPV_osc(const char *path, int v) {
 	char buf[6];
 	snprintf(buf, sizeof(buf), "%d", v);
 	osc_send_string("/ilda/fpsreadout", buf);
@@ -158,7 +158,7 @@ static void ilda_handle_fps(const char *path, int v) {
 	ilda_set_fps_limit(v);
 }
 
-static void ilda_handle_repeat(const char *path, int v) {
+static void ilda_repeat_FPV_osc(const char *path, int v) {
 	if (playback_src != SRC_ILDAPLAYER)
 		return;
 
@@ -168,7 +168,7 @@ static void ilda_handle_repeat(const char *path, int v) {
 		playback_source_flags &= ~ILDA_PLAYER_REPEAT;
 }
 
-static void ilda_handle_stop(const char *path, int v) {
+static void ilda_stop_FPV_osc(const char *path, int v) {
 	if (!v)
 		return;
 
@@ -177,20 +177,20 @@ static void ilda_handle_stop(const char *path, int v) {
 }
 
 TABLE_ITEMS(osc_handler, ilda_osc_handlers,
-	{ "/ilda/1/play", 1, { .f1 = ilda_osc_play }, { 1 } },
-	{ "/ilda/2/play", 1, { .f1 = ilda_osc_play }, { 1 } },
-	{ "/ilda/3/play", 1, { .f1 = ilda_osc_play }, { 1 } },
-	{ "/ilda/4/play", 1, { .f1 = ilda_osc_play }, { 1 } },
-	{ "/ilda/5/play", 1, { .f1 = ilda_osc_play }, { 1 } },
-	{ "/ilda/6/play", 1, { .f1 = ilda_osc_play }, { 1 } },
-	{ "/ilda/7/play", 1, { .f1 = ilda_osc_play }, { 1 } },
-	{ "/ilda/8/play", 1, { .f1 = ilda_osc_play }, { 1 } },
-	{ "/ilda/9/play", 1, { .f1 = ilda_osc_play }, { 1 } },
-	{ "/ilda/10/play", 1, { .f1 = ilda_osc_play }, { 1 } },
-	{ "/ilda/reloadbutton", 1, { .f1 = ilda_reload_button }, { 1 } },
-	{ "/ilda/pps", 1, { .f1 = ilda_handle_pps }, { 1 } },
-	{ "/ilda/fps", 1, { .f1 = ilda_handle_fps }, { 1 } },
-	{ "/ilda/repeat", 1, { .f1 = ilda_handle_repeat }, { 1 } },
-	{ "/ilda", 0, { .f0 = ilda_tab_enter } },
-	{ "/stop", 1, { .f1 = ilda_handle_stop }, { 1 } }
+	{ "/ilda/1/play", 1, { .f1 = ilda_play_FPV_osc }, { 1 } },
+	{ "/ilda/2/play", 1, { .f1 = ilda_play_FPV_osc }, { 1 } },
+	{ "/ilda/3/play", 1, { .f1 = ilda_play_FPV_osc }, { 1 } },
+	{ "/ilda/4/play", 1, { .f1 = ilda_play_FPV_osc }, { 1 } },
+	{ "/ilda/5/play", 1, { .f1 = ilda_play_FPV_osc }, { 1 } },
+	{ "/ilda/6/play", 1, { .f1 = ilda_play_FPV_osc }, { 1 } },
+	{ "/ilda/7/play", 1, { .f1 = ilda_play_FPV_osc }, { 1 } },
+	{ "/ilda/8/play", 1, { .f1 = ilda_play_FPV_osc }, { 1 } },
+	{ "/ilda/9/play", 1, { .f1 = ilda_play_FPV_osc }, { 1 } },
+	{ "/ilda/10/play", 1, { .f1 = ilda_play_FPV_osc }, { 1 } },
+	{ "/ilda/reloadbutton", 1, { .f1 = ilda_reload_FPV_osc }, { 1 } },
+	{ "/ilda/pps", 1, { .f1 = ilda_pps_FPV_osc }, { 1 } },
+	{ "/ilda/fps", 1, { .f1 = ilda_fps_FPV_osc }, { 1 } },
+	{ "/ilda/repeat", 1, { .f1 = ilda_repeat_FPV_osc }, { 1 } },
+	{ "/ilda", 0, { .f0 = ilda_tab_enter_FPV_osc } },
+	{ "/stop", 1, { .f1 = ilda_stop_FPV_osc }, { 1 } }
 )

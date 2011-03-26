@@ -74,7 +74,7 @@ void usb_init(void)
 	USBHwEPConfig(0x80, MAX_PACKET_SIZE0);
 	
 	// register standard request handler
-	USBRegisterRequestHandler(REQTYPE_TYPE_STANDARD, USBHandleStandardRequest, abStdReqData);
+	USBRegisterRequestHandler(REQTYPE_TYPE_STANDARD, USBHandleStandardRequest_FPV_usb_reqhdlr, abStdReqData);
 }
 
 INITIALIZER(hardware, usb_init)

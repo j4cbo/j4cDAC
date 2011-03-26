@@ -108,7 +108,7 @@ void USBRegisterCustomReqHandler(TFnHandleRequest *pfnHandler);
 typedef int (TFnGetDescriptor)(unsigned short wTypeIndex, unsigned short wLangID, int *piLen, unsigned char **ppbData);
 
 /** Default standard request handler */
-int USBHandleStandardRequest(TSetupPacket *pSetup, int *piLen, unsigned char **ppbData);
+int USBHandleStandardRequest_FPV_usb_reqhdlr(TSetupPacket *pSetup, int *piLen, unsigned char **ppbData);
 
 /** Default EP0 handler */
 void USBHandleControlTransfer(unsigned char bEP, unsigned char bEPStat);

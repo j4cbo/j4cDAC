@@ -391,21 +391,14 @@ static int HandleStdEndPointReq(TSetupPacket	*pSetup, int *piLen, unsigned char 
 /**
 	Default handler for standard ('chapter 9') requests
 	
-	If a custom request handler was installed, this handler is called first.
-		
 	@param [in]		pSetup		The setup packet
 	@param [in,out]	*piLen		Pointer to data length
 	@param [in]		ppbData		Data buffer.
 
 	@return TRUE if the request was handled successfully
  */
-int USBHandleStandardRequest(TSetupPacket	*pSetup, int *piLen, unsigned char **ppbData)
+int USBHandleStandardRequest_FPV_usb_reqhdlr(TSetupPacket	*pSetup, int *piLen, unsigned char **ppbData)
 {
-	// try the custom request handler first
-	if ((pfnHandleCustomReq != NULL) && pfnHandleCustomReq(pSetup, piLen, ppbData)) {
-		return TRUE;
-	}
-	
 	switch (REQTYPE_GET_RECIP(pSetup->bmRequestType)) {
 	case REQTYPE_RECIP_DEVICE:		return HandleStdDeviceReq(pSetup, piLen, ppbData);
 	case REQTYPE_RECIP_INTERFACE:	return HandleStdInterfaceReq(pSetup, piLen, ppbData);
@@ -413,23 +406,3 @@ int USBHandleStandardRequest(TSetupPacket	*pSetup, int *piLen, unsigned char **p
 	default: 						return FALSE;
 	}
 }
-
-
-/**
-	Registers a callback for custom device requests
-	
-	In USBHandleStandardRequest, the custom request handler gets a first
-	chance at handling the request before it is handed over to the 'chapter 9'
-	request handler.
-	
-	This can be used for example in HID devices, where a REQ_GET_DESCRIPTOR
-	request is sent to an interface, which is not covered by the 'chapter 9'
-	specification.
-		
-	@param [in]	pfnHandler	Callback function pointer
- */
-void USBRegisterCustomReqHandler(TFnHandleRequest *pfnHandler)
-{
-	pfnHandleCustomReq = pfnHandler;
-}
-

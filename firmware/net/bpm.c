@@ -130,7 +130,7 @@ void BPM_IRQHandler(void) {
 	bpm_work = 1;
 }
 
-static void bpm_tap(const char *path, int v) {
+static void bpm_tap_FPV_osc(const char *path, int v) {
 	if (!v)
 		return;
 
@@ -200,7 +200,7 @@ static void bpm_tap(const char *path, int v) {
 }
 
 TABLE_ITEMS(osc_handler, bpm_osc_handler,
-	{ "/bpm/tap", 1, { .f1 = bpm_tap }, { 1 } }
+	{ "/bpm/tap", 1, { .f1 = bpm_tap_FPV_osc }, { 1 } }
 )
 
 static int bpm_led_state = 0;

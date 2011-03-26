@@ -83,7 +83,7 @@ static unsigned char				*apbDataStore[4] = {NULL, NULL, NULL, NULL};
 
 	@return TRUE if the request was handles successfully
  */
-static int _HandleRequest(TSetupPacket *pSetup, int *piLen, unsigned char **ppbData)
+int __attribute__((noinline)) FPA_usb_reqhdlr(TSetupPacket *pSetup, int *piLen, unsigned char **ppbData)
 {
 	TFnHandleRequest *pfnHandler;
 	int iType;
@@ -169,7 +169,7 @@ void USBHandleControlTransfer(unsigned char bEP, unsigned char bEPStat)
 			if ((Setup.wLength == 0) ||
 				(REQTYPE_GET_DIR(Setup.bmRequestType) == REQTYPE_DIR_TO_HOST)) {
 				// ask installed handler to process request
-				if (!_HandleRequest(&Setup, &iLen, &pbData)) {
+				if (!FPA_usb_reqhdlr(&Setup, &iLen, &pbData)) {
 					DBG("_HandleRequest1 failed\n");
 					StallControlPipe(bEPStat);
 					return;
@@ -202,7 +202,7 @@ void USBHandleControlTransfer(unsigned char bEP, unsigned char bEPStat)
 					// received all, send data to handler
 					iType = REQTYPE_GET_TYPE(Setup.bmRequestType);
 					pbData = apbDataStore[iType];
-					if (!_HandleRequest(&Setup, &iLen, &pbData)) {
+					if (!FPA_usb_reqhdlr(&Setup, &iLen, &pbData)) {
 						DBG("_HandleRequest2 failed\n");
 						StallControlPipe(bEPStat);
 						return;

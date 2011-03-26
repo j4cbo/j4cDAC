@@ -411,6 +411,12 @@ void USBHwConfigDevice(int fConfigured)
 }
 
 
+void FPA_usb_ephdlr(int i, unsigned char bStat) { 
+	if (_apfnEPIntHandlers[i / 2] != NULL) {
+		_apfnEPIntHandlers[i / 2](IDX2EP(i), bStat);
+	}
+}
+
 /**
 	USB interrupt handler
 		
@@ -479,15 +485,11 @@ void USBHwISR(void)
 						((bEPStat & EPSTAT_EPN) ? EP_STATUS_NACKED : 0) |
 						((bEPStat & EPSTAT_PO) ? EP_STATUS_ERROR : 0);
 				// call handler
-				if (_apfnEPIntHandlers[i / 2] != NULL) {
-					_apfnEPIntHandlers[i / 2](IDX2EP(i), bStat);
-				}
+				FPA_usb_ephdlr(i, bStat);
 			}
 		}
 	}
 }
-
-
 
 /**
 	Initialises the USB hardware
