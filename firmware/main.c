@@ -54,6 +54,8 @@ struct periodic_event {
 	int start;
 } const events[] = {
 	{ tcp_tmr, 250, "tcp", 100 },
+	{ ip_reass_tmr, 1000, "ip_reass", 17 },
+	{ etharp_tmr, 5000, "ip_reass", 177 },
 	{ dhcp_coarse_tmr, 60000, "dhcp c", 35 },
 	{ dhcp_fine_tmr, 500, "dhcp f", 25 },
 	{ autoip_tmr, AUTOIP_TMR_INTERVAL, "autoip", 10 },
@@ -150,6 +152,16 @@ void FPA_init() {
 	}
 }
 
+void check_periodic_timers() {
+	int i;
+	for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
+		if (time > events_last[i] + events[i].period) {
+			events[i].f();
+			events_last[i] += events[i].period;
+		}
+	}
+}
+
 int main(int argc, char **argv) __attribute__((noreturn));
 int main(int argc, char **argv) {
 	time = 0;
@@ -223,12 +235,7 @@ int main(int argc, char **argv) {
 		}
 
 		/* Check for periodic events */
-		for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
-			if (time > events_last[i] + events[i].period) {
-				events[i].f();
-				events_last[i] += events[i].period;
-			}
-		}
+		check_periodic_timers();
 
 		if (f0ad_flag) {
 			/* Re-enter the bootloader. */
