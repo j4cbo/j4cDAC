@@ -21,7 +21,7 @@
 #include <tables.h>
 
 static err_t sink_recv_FPV_tcp_recv(struct tcp_pcb * pcb, struct pbuf * pbuf,
-		       err_t err) {
+                                    err_t err) {
 
 	if (pbuf == NULL) {
 		outputf("ps: connection closed");
