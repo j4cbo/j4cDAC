@@ -22,7 +22,6 @@
 
 #include "LPC17xx.h"
 #include "lpc17xx_uart.h"
-#include "lpc17xx_pinsel.h"
 
 #include <attrib.h>
 #include <serial.h>

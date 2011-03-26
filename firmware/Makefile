@@ -8,7 +8,7 @@ LDFLAGS = -Tlib/lpc17xx/lpc1758.lds -mcpu=cortex-m3 -mthumb -fwhole-program -Wl,
 # Cortex-M3 support code
 CFLAGS += -Ilib/core_cm3 -Ilib/lpc17xx
 BRD_SRCS += lib/core_cm3/core_cm3.c lib/lpc17xx/system_LPC17xx.c lib/lpc17xx/startup_LPC17xx.s \
-	drivers/source/lpc17xx_clkpwr.c drivers/source/lpc17xx_pinsel.c \
+	drivers/source/lpc17xx_clkpwr.c \
 	drivers/source/lpc17xx_uart.c lib/serial.c main.c
 
 # Mach printf. Much more lightweight than newlib's.

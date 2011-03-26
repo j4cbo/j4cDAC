@@ -652,7 +652,6 @@ FlagStatus EMAC_CheckReceiveDataStatus(uint32_t ulRxStatType)
 	return (((eth_rx_stat[idx].Info) & ulRxStatType) ? SET : RESET);
 }
 
-#include "lpc17xx_pinsel.h"
 #include <serial.h>
 
 #include <lwip/init.h>
@@ -796,18 +795,12 @@ void eth_poll_2(void) {
 void eth_hardware_init(uint8_t *macaddr) {
 
 	/* Set up pins */
-	PINSEL_CFG_Type PinCfg;
-	PinCfg.Funcnum = 1;
-	PinCfg.OpenDrain = 0;
-	PinCfg.Pinmode = 0;
-	PinCfg.Portnum = 1;
-
 	outputf("Setting pins");
 
 	int i;
 	for (i = 0; i < (sizeof(ether_pins) / sizeof(ether_pins[0])); i++) {
-		PinCfg.Pinnum = ether_pins[i];
-		PINSEL_ConfigPin(&PinCfg);
+		int shift = 2 * ether_pins[i];
+		LPC_PINCON->PINSEL2 = (LPC_PINCON->PINSEL2 & ~(3 << shift)) | (1 << shift);
 	}
 
 	LPC_GPIO2->FIODIR |= MDC;
