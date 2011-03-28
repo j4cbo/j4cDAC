@@ -1,22 +1,9 @@
-/*
- * A USB Bootloader based on the serial example of LPCUSB.
- *
- * This bootloader can connect to a host as a USB CDC serial device
- * and accept Intel HEX records (which are programmed into Flash) as
- * well as a few simple commands.  If no commands or HEX records
- * arrive within 10 seconds of boot-up, and if there is a valid IRQ
- * vector block at PROGRAM_LOCATION, the bootloader restores the
- * processor to more-or-less RESET condition, copies the vector block
- * to RAM and remaps the vector block, then transfers control to the
- * program.  (If there is no valid IRQ vector block, the bootloader
- * waits forever for somebody to send IHEX records or talk to it.)
- *
- * Written by dave madden <dhm@mersenne.com>
- */
-
-/*
- * LPCUSB, an USB device driver for LPC microcontrollers	
- * Copyright (C) 2006 Bertrik Sikken (bertrik@sikken.nl)
+/* USB DFU bootloader for LPC17xx
+ *   Copyright (c) 2011 Jacob Potter <jacob@durbatuluk.us>
+ * Based on usboot, USB CDC bootloader for LPC2xxx
+ *   Copyright (c) 2008 Dave Madden <dhm@mersenne.com>
+ * Based on LPCUSB, a USB device driver for LPC microcontrollers	
+ *   Copyright (C) 2006 Bertrik Sikken (bertrik@sikken.nl)
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
