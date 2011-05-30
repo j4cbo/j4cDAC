@@ -249,7 +249,7 @@ unsigned __stdcall LoopUpdate(void *x){
 		int cap = 1798;
 
 		if (!dac_outstanding_acks())
-			cap -= 160;
+			cap -= 200;
 
 		cap -= dac_last_status()->buffer_fullness;
 		if (cap < 0) cap = 1;

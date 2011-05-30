@@ -28,7 +28,7 @@
 
 #include "dac.h"
 
-#define DEFAULT_TIMEOUT	200000
+#define DEFAULT_TIMEOUT	2000000
 extern FILE * fp;
 
 static struct dac_response dac_resp;
@@ -285,7 +285,7 @@ int check_data_response(void) {
 		return -1;
 	}
 
-	if (dac_resp.response != 'a') {
+	if (dac_resp.response != 'a' && dac_resp.response != 'I') {
 		fprintf(fp, "!! Protocol error: ACK for 'd' got '%c' (%d)\n",
 			dac_resp.response, dac_resp.response);
 		return -1;
