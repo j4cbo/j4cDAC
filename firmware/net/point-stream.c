@@ -91,12 +91,12 @@ static int RV send_resp(struct tcp_pcb *pcb, char resp, char cmd, int len) {
  * this will call close_conn on the connection and return -1.
  */
 static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
-	char cmd = *data;
+	uint8_t cmd = *data;
 	int npoints;
 
 	switch (ps_state) {
 	case MAIN:
-		switch (*data) {
+		switch (cmd) {
 		case 'p':
 			/* Prepare stream. */
 			if (dac_prepare() < 0) {
