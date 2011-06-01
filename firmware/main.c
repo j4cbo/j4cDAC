@@ -99,7 +99,8 @@ void playback_refill() {
 		if (!(playback_source_flags & ILDA_PLAYER_PLAYING))
 			break;
 
-		outputf("%d", dlen);
+		if (dlen > 50)
+			outputf("[!] %d", dlen);
 
 		i = ilda_read_points(dlen, ptr);
 
