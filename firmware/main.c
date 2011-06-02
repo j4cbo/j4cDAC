@@ -75,7 +75,7 @@ void playback_refill() {
 		return;
 
 	int dlen = dac_request();
-	dac_point_t *ptr = dac_request_addr();
+	packed_point_t *ptr = dac_request_addr();
 
 	/* Have we underflowed? */
 	if (dlen < 0) {

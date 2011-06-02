@@ -19,7 +19,7 @@
 #define ILD_PLAYER_H
 
 int ilda_open(const char * fname);
-int ilda_read_points(int max_points, dac_point_t *p);
+int ilda_read_points(int max_points, packed_point_t *p);
 void ilda_reset_file(void);
 
 void ilda_set_fps_limit(int max_fps);

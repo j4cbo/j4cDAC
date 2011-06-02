@@ -198,7 +198,7 @@ void ilda_tc_point(dac_point_t *p, int r, int g, int b, int flags) {
  * Returns 0 if the end of the file has been reached, -1 if an
  * error occurs, or the number of bytes actually written otherwise.
  */
-int ilda_read_points(int max_points, dac_point_t *p) {
+int ilda_read_points(int max_points, packed_point_t *pp) {
 	uint8_t buf[10];
 	int i, x, y;
 
@@ -251,6 +251,7 @@ int ilda_read_points(int max_points, dac_point_t *p) {
 	for (i = 0; i < max_points; i++) {
 		int pt_num = ilda_frame_pointcount - ilda_points_left + i;
 		char *sfb_ptr = ilda_sf_buffer + (6 * pt_num);
+		dac_point_t p;
 
 		switch (ilda_state) {
 		case 0:
@@ -259,7 +260,7 @@ int ilda_read_points(int max_points, dac_point_t *p) {
 
 			x = buf[0] << 8 | buf[1];
 			y = buf[2] << 8 | buf[3];
-			ilda_palette_point(p, buf[6] << 8 | buf[7]);
+			ilda_palette_point(&p, buf[6] << 8 | buf[7]);
 			break;
 
 		case 1:
@@ -268,7 +269,7 @@ int ilda_read_points(int max_points, dac_point_t *p) {
 
 			x = buf[0] << 8 | buf[1];
 			y = buf[2] << 8 | buf[3];
-			ilda_palette_point(p, buf[4] << 8 | buf[5]);
+			ilda_palette_point(&p, buf[4] << 8 | buf[5]);
 			break;
 
 		case 4:
@@ -277,7 +278,7 @@ int ilda_read_points(int max_points, dac_point_t *p) {
 	
 			x = buf[0] << 8 | buf[1];
 			y = buf[2] << 8 | buf[3];
-			ilda_tc_point(p, buf[6], buf[7], buf[8], buf[9]);
+			ilda_tc_point(&p, buf[6], buf[7], buf[8], buf[9]);
 			break;
 
 		case 5:
@@ -286,20 +287,20 @@ int ilda_read_points(int max_points, dac_point_t *p) {
 
 			x = buf[0] << 8 | buf[1];
 			y = buf[2] << 8 | buf[3];
-			ilda_tc_point(p, buf[4], buf[5], buf[6], buf[7]);
+			ilda_tc_point(&p, buf[4], buf[5], buf[6], buf[7]);
 			break;
 
 		case -2:
 			/* Small frame replay */
 			x = sfb_ptr[0] << 8 | (sfb_ptr[2] & 0xF0);
 			y = sfb_ptr[1] << 8 | (sfb_ptr[2] << 4);
-			p->r = sfb_ptr[3] << 8;
-			p->g = sfb_ptr[4] << 8;
-			p->b = sfb_ptr[5] << 8;
-			int max = p->r;
-			if (p->g > max) max = p->g;
-			if (p->b > max) max = p->b;
-			p->i = max;
+			p.r = sfb_ptr[3] << 8;
+			p.g = sfb_ptr[4] << 8;
+			p.b = sfb_ptr[5] << 8;
+			int max = p.r;
+			if (p.g > max) max = p.g;
+			if (p.b > max) max = p.b;
+			p.i = max;
 			break;
 
 		default:
@@ -307,8 +308,8 @@ int ilda_read_points(int max_points, dac_point_t *p) {
 			return -1;
 		}
 
-		p->x = x;
-		p->y = y;
+		p.x = x;
+		p.y = y;
 
 		/* Save this point into the small frame buf, if needed */
 		if (ilda_frame_pointcount <= SMALL_FRAME_THRESHOLD &&
@@ -316,12 +317,14 @@ int ilda_read_points(int max_points, dac_point_t *p) {
 			sfb_ptr[0] = y >> 8;
 			sfb_ptr[1] = x >> 8;
 			sfb_ptr[2] = (x & 0xF0) | ((y & 0xF0) >> 4);
-			sfb_ptr[3] = p->r >> 8;
-			sfb_ptr[3] = p->g >> 8;
-			sfb_ptr[3] = p->b >> 8;
+			sfb_ptr[3] = p.r >> 8;
+			sfb_ptr[3] = p.g >> 8;
+			sfb_ptr[3] = p.b >> 8;
 		}
 
-		p++;
+		dac_pack_point(pp, &p);
+
+		pp++;
 	}
 
 	/* Now that we've read points, advance */
@@ -340,8 +343,11 @@ int ilda_read_points(int max_points, dac_point_t *p) {
 			ilda_file.curr_clust = ilda_frame_start.curr_clust;
 			ilda_file.dsect = ilda_frame_start.dsect;
 			ilda_points_left = ilda_frame_pointcount;
+
+#if !_FS_TINY
 			if (disk_read(ilda_file.fs->drv, ilda_file.buf, ilda_file.dsect, 1))
 				return -1;
+#endif
 		}
 	}
 

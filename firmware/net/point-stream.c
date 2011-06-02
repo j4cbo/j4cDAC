@@ -224,7 +224,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		 * number of points we have ready for it. We'll just have
 		 * the FSM invoke us again. */
 		int nready = dac_request();
-		dac_point_t *addr = dac_request_addr();
+		packed_point_t *addr = dac_request_addr();
 
 		/* On the other hand, if the DAC isn't ready for *any* data,
 		 * then ignore the rest of this write command and NAK when
@@ -240,7 +240,12 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		if (npoints > nready)
 			npoints = nready;
 
-		memcpy(addr, data, npoints * sizeof(struct dac_point));
+		dac_point_t *pdata = (dac_point_t *)data;
+
+		int i;
+		for (i = 0; i < npoints; i++) {
+			dac_pack_point(addr + i, pdata + i);
+		}
 
 		/* Let the DAC know we've given it more data */
 		dac_advance(npoints);

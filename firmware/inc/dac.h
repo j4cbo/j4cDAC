@@ -40,12 +40,43 @@ enum dac_state {
  * broadcast packet. 100kpps ought to be enough for anyone. */
 #define DAC_MAX_POINT_RATE	100000
 
+typedef struct packed_point_t {
+	uint32_t words[3];
+	uint16_t control;
+} __attribute__((packed)) packed_point_t;
+
+/* Pack a point from the DAC into a bufferable format */
+
+static inline void dac_pack_point(packed_point_t *dest, dac_point_t *src) {
+	/*
+	   XXXYYYRR
+	   RGGGBBBI
+	   II111222
+	*/
+	dest->control = src->control;
+	dest->words[0] = ((src->x & 0xFFF0) << 16)
+		| ((src->y & 0xFFF0) << 4) | (src->r >> 8);
+	dest->words[1] = ((src->r & 0xFFF0) << 24) | ((src->g & 0xFFF0) << 12)
+		| (src->b & 0xFFF0) | ((src->i & 0xFFF0) >> 12);
+	dest->words[2] = ((src->i & 0xFFF0) << 20) | ((src->u1 & 0xFFF0) << 8)
+		| (src->u2 >> 4);
+}
+
+#define UNPACK_X(p)	(((p)->words[0] >> 20) & 0xFFF)
+#define UNPACK_Y(p)	(((p)->words[0] >> 8) & 0xFFF)
+#define UNPACK_R(p)	((((p)->words[0] << 4) & 0xFF0) | ((p)->words[1] >> 28))
+#define UNPACK_G(p)	(((p)->words[1] >> 16) & 0xFFF)
+#define UNPACK_B(p)	(((p)->words[1] >> 4) & 0xFFF)
+#define UNPACK_I(p)	((((p)->words[1] << 8) & 0xF00) | ((p)->words[2] >> 24))
+#define UNPACK_U1(p)	(((p)->words[2] >> 12) & 0xFFF)
+#define UNPACK_U2(p)	(((p)->words[2] >> 0) & 0xFFF)
+
 void dac_init(void);
 
 int dac_prepare(void);
 int dac_start(void);
 int dac_request(void);
-dac_point_t *dac_request_addr(void);
+packed_point_t *dac_request_addr(void);
 void dac_advance(int count);
 void dac_stop(int flags);
 enum dac_state dac_get_state(void);

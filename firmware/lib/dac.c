@@ -35,7 +35,7 @@
  * This gives us up to 60ms at 30k, 45ms at 40k, 36ms at 50k, or 30ms at
  * 60k.
  */
-static dac_point_t dac_buffer[DAC_BUFFER_POINTS] AHB0;
+static packed_point_t dac_buffer[DAC_BUFFER_POINTS] AHB0;
 static int dac_produce;
 static volatile int dac_consume;
 
@@ -176,7 +176,7 @@ int dac_request(void) {
 	return ret;
 }
 
-dac_point_t *dac_request_addr(void) {
+packed_point_t *dac_request_addr(void) {
 	return &dac_buffer[dac_produce];
 }
 
@@ -377,19 +377,24 @@ void PWM1_IRQHandler(void) {
 
 	#define MASK_XY(v)	((((v) >> 4) + 0x800) & 0xFFF)
 
-	int32_t x = translate_x(dac_buffer[consume].x, dac_buffer[consume].y);
-	int32_t y = translate_y(dac_buffer[consume].x, dac_buffer[consume].y);
+	packed_point_t *p = &dac_buffer[consume];
+
+	uint32_t xi = UNPACK_X(p) << 4;
+	uint32_t yi = UNPACK_Y(p) << 4;
+
+	int32_t x = translate_x(xi, yi);
+	int32_t y = translate_y(xi, yi);
 
 	LPC_SSP1->DR = MASK_XY(x) | 0x6000;
 	LPC_SSP1->DR = MASK_XY(y) | 0x7000;
 
-	delay_line_write(&red_delay, (dac_buffer[consume].r >> 4) | 0x4000);
-	delay_line_write(&green_delay, (dac_buffer[consume].g >> 4) | 0x3000);
-	delay_line_write(&blue_delay, (dac_buffer[consume].b >> 4) | 0x2000);
+	delay_line_write(&red_delay, UNPACK_R(p) | 0x4000);
+	delay_line_write(&green_delay, UNPACK_G(p) | 0x3000);
+	delay_line_write(&blue_delay, UNPACK_B(p) | 0x2000);
 
-	LPC_SSP1->DR = (dac_buffer[consume].i >> 4) | 0x5000;
-	LPC_SSP1->DR = (dac_buffer[consume].u1 >> 4) | 0x1000;
-	LPC_SSP1->DR = (dac_buffer[consume].u2 >> 4);
+	LPC_SSP1->DR = UNPACK_I(p) | 0x5000;
+	LPC_SSP1->DR = UNPACK_U1(p) | 0x1000;
+	LPC_SSP1->DR = UNPACK_U2(p);
 
 	if (dac_shutter_req) {
 		LPC_GPIO2->FIOSET = (1 << DAC_SHUTTER_PIN);
@@ -447,6 +452,17 @@ int dac_fullness(void) {
  */
 void shutter_set(int state) {
 	dac_shutter_req = state;
+}
+
+/* impl_dac_pack_point
+ *
+ * The actual dac_pack_point function is declared 'static inline' in dac.h,
+ * so it will always be inlined. This wrapper forces a copy of the code to
+ * be emitted standalone too for inspection purposes.
+ */
+void impl_dac_pack_point(packed_point_t *dest, dac_point_t *src) __attribute__((used));
+void impl_dac_pack_point(packed_point_t *dest, dac_point_t *src) {
+	dac_pack_point(dest, src);
 }
 
 INITIALIZER(hardware, dac_init);
