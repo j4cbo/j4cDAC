@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define SMALL_FRAME_THRESHOLD	50
+#define SMALL_FRAME_THRESHOLD	100
 char ilda_sf_buffer[6 * SMALL_FRAME_THRESHOLD];
 
 #include <ff.h>
