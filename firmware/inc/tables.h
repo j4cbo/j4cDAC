@@ -76,7 +76,7 @@ extern int table_poll_ready;
 
 #define INITIALIZER(table, f) void f##_wrapper (void) { \
 	if (!table_##table##_ready) return;		\
-	printf("%s\n", #f); f(); }			\
+	outputf("%s\n", #f); f(); }			\
 	const thunk_t f##_ptr INIT_ARRAY(#table ".1") = f##_wrapper;
 
 #define TABLE(typ, name) \
