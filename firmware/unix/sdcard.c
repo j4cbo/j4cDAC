@@ -20,6 +20,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <serial.h>
 
 struct sdcard_config sdcard_config;
 uint8_t sdcard_card_type;
@@ -41,12 +42,12 @@ int sdcard_init(void) {
  	sdcard_config.blocksize = 512;
 	sdcard_config.size = st.st_size;
 	sdcard_config.sectorcnt = st.st_size / 512; 
-	printf("%d blocks.\n", sdcard_config.sectorcnt);
+	outputf("%d blocks.\n", sdcard_config.sectorcnt);
 	return 0;
 }
 
 int sdcard_read(uint8_t * buf, int sector, int count) {
-	printf("<sd> reading %d from %d", count, sector);
+	outputf("<sd> reading %d from %d\n", count, sector);
 	int res = fseek(sdcard_file, sector * 512, SEEK_SET);
 	if (res < 0) {
 		perror("fseek");
@@ -61,7 +62,7 @@ int sdcard_read(uint8_t * buf, int sector, int count) {
 }
 
 int sdcard_write(const uint8_t * buf, int sector, int count) {
-	printf("<sd> writing %d to %d", count, sector);
+	outputf("<sd> writing %d to %d\n", count, sector);
 	int res = fseek(sdcard_file, sector * 512, SEEK_SET);
 	if (res < 0) {
 		perror("fseek");

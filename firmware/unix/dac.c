@@ -18,19 +18,20 @@
 #include <dac.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <serial.h>
 
 int dac_set_rate(int points_per_second) {
-	printf("<dac> set rate %d\n", points_per_second);
+	outputf("<dac> set rate %d\n", points_per_second);
 	return 0;
 }
 
 int dac_start(void) {
-	printf("<dac> start\n");
+	outputf("<dac> start\n");
 	return 0;
 }
 
 int dac_rate_queue(int points_per_second) {
-	printf("<dac> queue rate %d\n", points_per_second);
+	outputf("<dac> queue rate %d\n", points_per_second);
 	return 0;
 }
 
@@ -39,24 +40,24 @@ int dac_request(void) {
 	return 0;
 }
 
-dac_point_t *dac_request_addr(void) {
+packed_point_t *dac_request_addr(void) {
 	return NULL;
 }
 
 void dac_advance(int count) {
-	printf("<dac> advance %d\n", count);
+	outputf("<dac> advance %d\n", count);
 }
 
 void dac_init() {
 }
 
 int dac_prepare(void) {
-	printf("<dac> prepare\n");
+	outputf("<dac> prepare\n");
 	return 0;
 }
 
 void dac_stop(int flags) {
-	printf("<dac> stop %d\n", flags);
+	outputf("<dac> stop %d\n", flags);
 }
 
 enum dac_state dac_get_state(void) {

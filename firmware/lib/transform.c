@@ -18,6 +18,7 @@
 #include <stdint.h>
 #include <transform.h>
 #include <tables.h>
+#include <serial.h>
 
 /* We use a four-point perspective transformation here. The transform
  * is given by:

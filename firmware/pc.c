@@ -24,11 +24,18 @@ int table_hardware_ready = 1;
 int table_protocol_ready = 1;
 int table_poll_ready = 0;
 
+FILE *outputf_file;
+
 void outputf(const char *fmt, ...) {
+	if (!outputf_file) {
+		outputf_file = fopen("out.log", "w");
+	}
+	char buf[160];
 	va_list va;
 	va_start(va, fmt);
-	vprintf(fmt, va);
-	puts("\n");
+	vsnprintf(buf, sizeof(buf), fmt, va);
+	fprintf(outputf_file, "%s\n", buf);
+	fflush(outputf_file);
 }
 
 int playback_source_flags;
@@ -69,7 +76,7 @@ void playback_refill() {
 		return;
 
 	int dlen = dac_request();
-	dac_point_t *ptr = dac_request_addr();
+	packed_point_t *ptr = dac_request_addr();
 
 	/* Have we underflowed? */
 	if (dlen < 0) {
