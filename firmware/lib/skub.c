@@ -24,8 +24,8 @@
 /* The heap */
 #define SKUB_POOL_FIXED(name, typ, num) \
 	static typ skub_pool_##name[num];
-#define SKUB_POOL_VAR(sz, count) \
-	static uint8_t skub_pool_##sz[sz * count] __attribute__ ((aligned (4)));
+#define SKUB_POOL_VAR(sz, count, attr) \
+	static uint8_t skub_pool_##sz[sz * count] __attribute__ ((aligned (4))) attr;
 #include <skub-zones.h>
 #undef SKUB_POOL_FIXED
 #undef SKUB_POOL_VAR
@@ -34,7 +34,7 @@
 struct skub_bitmaps {
 #define SKUB_POOL_FIXED(name, typ, num) \
 	uint32_t bitmap_##name[(num + 31) / 32];
-#define SKUB_POOL_VAR(sz, count) \
+#define SKUB_POOL_VAR(sz, count, attr) \
 	uint32_t bitmap_##sz[(count + 31) / 32];
 #include <skub-zones.h>
 #undef SKUB_POOL_FIXED
@@ -55,7 +55,7 @@ static const struct skub_pool_info skub_pools_fixed[] = {
 #define SKUB_POOL_FIXED(name, typ, num) \
 	{ (uint8_t *)skub_pool_##name, skub_bitmaps.bitmap_##name, \
 	  num, sizeof(typ) },
-#define SKUB_POOL_VAR(sz, count)
+#define SKUB_POOL_VAR(sz, count, attr)
 #include <skub-zones.h>
 #undef SKUB_POOL_FIXED
 #undef SKUB_POOL_VAR
@@ -63,7 +63,7 @@ static const struct skub_pool_info skub_pools_fixed[] = {
 
 static const struct skub_pool_info skub_pools_var[] = {
 #define SKUB_POOL_FIXED(name, typ, num)
-#define SKUB_POOL_VAR(sz, count) \
+#define SKUB_POOL_VAR(sz, count, attr) \
 	{ (uint8_t *)skub_pool_##sz, skub_bitmaps.bitmap_##sz, \
 	  count, sz },
 #include <skub-zones.h>
