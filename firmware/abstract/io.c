@@ -76,7 +76,7 @@ static int xatoi(const char *c) {
 }
 
 static void parse_update(char **argv) {
-	if (!argv[1]) return;
+	if (!argv[0] || !argv[1]) return;
 
 	oscillator_t *osc = get_oscillator(argv[0]);
 	if (!osc) {
