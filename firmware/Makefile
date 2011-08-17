@@ -30,7 +30,9 @@ APP_SRCS += $(LWIP)/core/dns.c $(LWIP)/core/init.c $(LWIP)/core/netif.c \
         $(LWIP)/core/ipv4/ip.c $(LWIP)/core/ipv4/ip_frag.c \
         $(LWIP)/netif/etharp.c $(LWIP)/core/dhcp.c
 
-APP_SRCS += lib/skub.c ild-player.c
+APP_SRCS += lib/skub.c ild-player.c lib/fixpoint.c
+
+APP_SRCS += abstract/render.c abstract/io.c
 
 # Ethernet driver
 BRD_SRCS += lib/ether.c lib/network.c drivers/source/mdio.c

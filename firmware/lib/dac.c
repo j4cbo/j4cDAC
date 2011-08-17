@@ -29,6 +29,8 @@
 #include <transform.h>
 #include <lightengine.h>
 #include <tables.h>
+#include <playback.h>
+#include <render.h>
 
 /* Each point is 18 bytes. We buffer 1800 points = 32400 bytes.
  *
@@ -357,44 +359,25 @@ static void delay_line_write(struct delay_line *dl, uint16_t in) {
 	}
 }
 
-void PWM1_IRQHandler(void) {
-	/* Tell the interrupt handler we've handled it */
-	if (LPC_PWM1->IR & PWM_IR_PWMMRn(0)) {
-		LPC_PWM1->IR = PWM_IR_PWMMRn(0);
-	} else {
-		panic("Unexpected PWM IRQ");
-	}
+static void __attribute__((always_inline)) dac_write_point(dac_point_t *p) {
 
-	ASSERT_EQUAL(dac_state, DAC_PLAYING);
-
-	int consume = dac_consume;
-
-	/* Are we out of buffer space? If so, shut the lasers down. */
-	if (consume == dac_produce) {
-		dac_stop(DAC_FLAG_STOP_UNDERFLOW);
-		return;
-	}
-
-	#define MASK_XY(v)	((((v) >> 4) + 0x800) & 0xFFF)
-
-	packed_point_t *p = &dac_buffer[consume];
-
-	uint32_t xi = UNPACK_X(p) << 4;
-	uint32_t yi = UNPACK_Y(p) << 4;
+	uint32_t xi = p->x;
+	uint32_t yi = p->y;
 
 	int32_t x = translate_x(xi, yi);
 	int32_t y = translate_y(xi, yi);
 
+	#define MASK_XY(v)	((((v) >> 4) + 0x800) & 0xFFF)
 	LPC_SSP1->DR = MASK_XY(x) | 0x6000;
 	LPC_SSP1->DR = MASK_XY(y) | 0x7000;
 
-	delay_line_write(&red_delay, UNPACK_R(p) | 0x4000);
-	delay_line_write(&green_delay, UNPACK_G(p) | 0x3000);
-	delay_line_write(&blue_delay, UNPACK_B(p) | 0x2000);
+	delay_line_write(&red_delay, (p->r >> 4) | 0x4000);
+	delay_line_write(&green_delay, (p->g >> 4)| 0x3000);
+	delay_line_write(&blue_delay, (p->b >> 4) | 0x2000);
 
-	LPC_SSP1->DR = UNPACK_I(p) | 0x5000;
-	LPC_SSP1->DR = UNPACK_U1(p) | 0x1000;
-	LPC_SSP1->DR = UNPACK_U2(p);
+	LPC_SSP1->DR = (p->i >> 4) | 0x5000;
+	LPC_SSP1->DR = (p->u1 >> 4) | 0x1000;
+	LPC_SSP1->DR = (p->u2 >> 4);
 
 	if (dac_shutter_req) {
 		LPC_GPIO2->FIOSET = (1 << DAC_SHUTTER_PIN);
@@ -405,7 +388,7 @@ void PWM1_IRQHandler(void) {
 	}
 
 	/* Change the point rate? */
-	if (dac_buffer[consume].control & DAC_CTRL_RATE_CHANGE) {
+	if (p->control & DAC_CTRL_RATE_CHANGE) {
 		int rate_consume = dac_rate_consume;
 		if (rate_consume != dac_rate_produce) {
 			dac_set_rate(dac_rate_buffer[rate_consume]);
@@ -417,13 +400,58 @@ void PWM1_IRQHandler(void) {
 	}
 
 	dac_count++;
+}
 
-	consume++;
+void PWM1_IRQHandler(void) {
+	/* Tell the interrupt handler we've handled it */
+	if (LPC_PWM1->IR & PWM_IR_PWMMRn(0)) {
+		LPC_PWM1->IR = PWM_IR_PWMMRn(0);
+	} else {
+		panic("Unexpected PWM IRQ");
+	}
+ 
+	switch (playback_src) {
+	case SRC_NETWORK:
+	case SRC_ILDAPLAYER: {
+		ASSERT_EQUAL(dac_state, DAC_PLAYING);
 
-	if (consume >= DAC_BUFFER_POINTS)
-		consume = 0;
+		int consume = dac_consume;
 
-	dac_consume = consume;
+		/* Are we out of buffer space? If so, shut the lasers down. */
+		if (consume == dac_produce) {
+			dac_stop(DAC_FLAG_STOP_UNDERFLOW);
+			return;
+		}
+
+		packed_point_t *p = &dac_buffer[consume];
+		dac_point_t dp = {
+			.x = UNPACK_X(p) << 4,
+			.y = UNPACK_Y(p) << 4,
+			.i = UNPACK_I(p) << 4,
+			.r = UNPACK_R(p) << 4,
+			.g = UNPACK_G(p) << 4,
+			.b = UNPACK_B(p) << 4,
+			.u1 = UNPACK_U1(p) << 4,
+			.u2 = UNPACK_U2(p) << 4,
+			.control = p->control
+		};
+
+		dac_write_point(&dp);
+
+		consume++;
+
+		if (consume >= DAC_BUFFER_POINTS)
+			consume = 0;
+
+		dac_consume = consume;
+	}
+
+	case SRC_SYNTH: {
+		dac_point_t dp;
+		get_next_point(&dp);
+		dac_write_point(&dp);
+	}
+	}
 }
 
 enum dac_state dac_get_state(void) {

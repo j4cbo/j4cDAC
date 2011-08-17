@@ -71,7 +71,7 @@ TABLE(initializer_t, poll);
 void playback_refill() {
 	int i;
 
-	if (playback_src == SRC_NETWORK)
+	if (playback_src != SRC_ILDAPLAYER)
 		return;
 
 	int dlen = dac_request();
@@ -163,6 +163,9 @@ void check_periodic_timers() {
 	}
 }
 
+void abs_parse_line(char *l);
+char x[160] AHB0;
+
 int main(int argc, char **argv) __attribute__((noreturn));
 int main(int argc, char **argv) {
 	time = 0;
@@ -191,7 +194,12 @@ int main(int argc, char **argv) {
 
 	outputf("Entering main loop...");
 
-	playback_src = SRC_ILDAPLAYER;
+	playback_src = SRC_SYNTH;
+
+	strcpy(x, "master:6553600 x:6555056 y:6540519 z:6532004 red:3:-1352240273 green:3:4424000 blue:3:1442897174 blank:13097162 xrot:-253403070 yrot:0");
+//	strcpy(x, "master:6848512 x:6878360 y:6848512 z:6832121 red:11:-1355104273 green:11:51536146 blue:11:1438473174 blank:34355770 xrot:-730144440 yrot:605590389");
+//	strcpy(x, "master:4554752 x:18218925 y:27338551 z:4554236 red:3:1075470120 green:3:-1787841411 blue:3:-356185646 blank:6:731705883 xrot:-554050781 yrot:382252089");
+	abs_parse_line(x);
 /*
 	playback_source_flags = ILDA_PLAYER_PLAYING | ILDA_PLAYER_REPEAT;
 */
@@ -202,9 +210,11 @@ int main(int argc, char **argv) {
 		events_last[i] = events[i].start + time;
 	}
 
-	dac_set_rate(12000);
+	dac_set_rate(30000);
 	ilda_set_fps_limit(30);
 
+	dac_prepare();
+	dac_start();
 	while (1) {
 		/* If we're playing from something other than the network,
 		 * refill the point buffer. */
@@ -241,6 +251,7 @@ int main(int argc, char **argv) {
 		if (f0ad_flag) {
 			/* Re-enter the bootloader. */
 			outputf("Reentering bootloader...");
+			dac_stop(0);
 			LPC_GPIO2->FIODIR |= (1 << 10);
 			LPC_GPIO2->FIOPIN |= (1 << 10);
 			__disable_irq();
