@@ -230,6 +230,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		 * then ignore the rest of this write command and NAK when
 		 * it's over. The FSM will  */
 		if (nready <= 0) {
+			outputf("underflow: pl %d np %d", ps_pointsleft, npoints);
 			ps_state = DATA_ABORTING;
 
 			/* Danger: goto. This could probably be structured

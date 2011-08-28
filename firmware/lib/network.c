@@ -86,6 +86,8 @@ void eth_init() {
 	netif_add(&ether_netif, &ipa, &netmask, &gw, NULL, ethernet_input);
 	netif_set_default(&ether_netif);
 	netif_set_up(&ether_netif);
+
+	outputf("starting DHCP");
 	dhcp_start(&ether_netif, &dhcp_state);
 }
 

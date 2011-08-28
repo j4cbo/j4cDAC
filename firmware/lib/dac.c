@@ -96,11 +96,15 @@ int dac_set_rate(int points_per_second) {
  * specified point rate.
  */
 int dac_start(void) {
-	if (dac_state != DAC_PREPARED)
+	if (dac_state != DAC_PREPARED) {
+		outputf("dac: not starting - not prepared");
 		return -1;
+	}
 
-	if (!dac_current_pps)
+	if (!dac_current_pps) {
+		outputf("dac: not starting - no pps");
 		return -1;
+	}
 
 	outputf("dac: starting");
 
@@ -445,12 +449,15 @@ void PWM1_IRQHandler(void) {
 
 		dac_consume = consume;
 	}
+	break;
 
 	case SRC_SYNTH: {
 		dac_point_t dp;
 		get_next_point(&dp);
 		dac_write_point(&dp);
 	}
+	break;
+
 	}
 }
 

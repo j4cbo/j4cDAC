@@ -54,11 +54,11 @@ static inline void dac_pack_point(packed_point_t *dest, dac_point_t *src) {
 	   II111222
 	*/
 	dest->control = src->control;
-	dest->words[0] = ((src->x & 0xFFF0) << 16)
+	dest->words[0] = (((uint32_t)src->x & 0xFFF0) << 16)
 		| ((src->y & 0xFFF0) << 4) | (src->r >> 8);
-	dest->words[1] = ((src->r & 0xFFF0) << 24) | ((src->g & 0xFFF0) << 12)
+	dest->words[1] = (((uint32_t)src->r & 0xFFF0) << 24) | (((uint32_t)src->g & 0xFFF0) << 12)
 		| (src->b & 0xFFF0) | ((src->i & 0xFFF0) >> 12);
-	dest->words[2] = ((src->i & 0xFFF0) << 20) | ((src->u1 & 0xFFF0) << 8)
+	dest->words[2] = (((uint32_t)src->i & 0xFFF0) << 20) | (((uint32_t)src->u1 & 0xFFF0) << 8)
 		| (src->u2 >> 4);
 }
 
