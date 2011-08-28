@@ -21,6 +21,8 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <sys/time.h>
+#include <time.h>
 #include <string.h>
 
 #include <process.h>
@@ -63,10 +65,24 @@ static CRITICAL_SECTION buffer_lock;
 static HANDLE loop_go;
 
 struct buffer_item dac_buffer[BUFFER_NFRAMES];
-int dac_buffer_read, dac_buffer_fullness;
+int dac_buffer_read = 0, dac_buffer_fullness = 0;
 HANDLE ThisDll = NULL, workerthread = NULL;
 FILE* fp = NULL;
 static dac_conn_t conn;
+
+/* Logging
+ */
+void flog (char *fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	fprintf(fp, "[%ld.%06ld] ", tv.tv_sec, tv.tv_usec);
+	vfprintf(fp, fmt, args);
+	va_end(args);
+	//fflush(fp);
+}
 
 /* Buffer access
  */
@@ -75,8 +91,7 @@ struct buffer_item *buf_get_write() {
 	int write = (dac_buffer_read + dac_buffer_fullness) % BUFFER_NFRAMES;
 	LeaveCriticalSection(&buffer_lock);
 
-	fprintf(fp, "Writing to index %d\n", write);
-	fflush(fp);
+	flog("Writing to index %d\n", write);
 
 	return &dac_buffer[write];
 }
@@ -153,13 +168,11 @@ bool do_write_frame(const int card_num, const void * data, int points, int pps,
 	if (reps == ((uint16_t) -1))
 		reps = -1;
 
-	fprintf(fp, "Writing frame: %d points, %d reps\n", points, reps);
-	fflush(fp);
+	flog("Writing frame: %d points, %d reps\n", points, reps);
 
 	/* If not ready for a new frame, bail */
 	if (EzAudDacGetStatus(card_num) != GET_STATUS_READY) {
-		fprintf(fp, "--> not ready\n");
-		fflush(fp);
+		flog("--> not ready\n");
 		return -1;
 	}
 
@@ -202,8 +215,7 @@ EXPORT int __stdcall EzAudDacGetStatus(const int CardNum){
 	LeaveCriticalSection(&buffer_lock);
 
 	if (fullness == BUFFER_NFRAMES) {
-		fprintf(fp, "bouncing\n");
-		fflush(fp);
+		flog("bouncing\n");
 		Sleep(1);
 		return GET_STATUS_BUSY;
 	} else {
@@ -215,6 +227,17 @@ EXPORT int __stdcall EzAudDacGetStatus(const int CardNum){
 
 // This is the buffer filling thread for WriteFrame() and WriteFrameNR()
 unsigned __stdcall LoopUpdate(void *x){
+
+	SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
+
+	DWORD pc = GetPriorityClass(GetCurrentProcess());
+	flog("Process priority class: %d\n", pc);
+	if (!pc) flog("Error: %d\n", GetLastError());
+
+	int res;
+	res = SetThreadPriority(GetCurrentThread, THREAD_PRIORITY_TIME_CRITICAL);
+	flog("SetThreadPriority ret %d\n");
+
 	EnterCriticalSection(&buffer_lock);
 
 	while (1) {
@@ -222,14 +245,13 @@ unsigned __stdcall LoopUpdate(void *x){
 		while (state == ST_READY) {
 			LeaveCriticalSection(&buffer_lock);
 
-			fprintf(fp, "Waiting...\n");
-			fflush(fp);
+			flog("Waiting...\n");
 
 			int res = WaitForSingleObject(loop_go, INFINITE);
 
 			EnterCriticalSection(&buffer_lock);
 			if (res != WAIT_OBJECT_0) {
-				fprintf(fp, "!! WFSO failed: %lu\n",
+				flog("!! WFSO failed: %lu\n",
 					GetLastError());
 				state = ST_BROKEN;
 				return 0;
@@ -237,8 +259,7 @@ unsigned __stdcall LoopUpdate(void *x){
 		}
 
 		if (state != ST_RUNNING) {
-			fprintf(fp, "-- Shutting down.\n");
-			fflush(fp);
+			flog("-- Shutting down.\n");
 			LeaveCriticalSection(&buffer_lock);
 			return 0;
 		}
@@ -249,7 +270,7 @@ unsigned __stdcall LoopUpdate(void *x){
 		int cap = 1798;
 
 		if (!dac_outstanding_acks())
-			cap -= 200;
+			cap -= 250;
 
 		cap -= dac_last_status()->buffer_fullness;
 		if (cap < 0) cap = 1;
@@ -296,10 +317,9 @@ unsigned __stdcall LoopUpdate(void *x){
 		if (b->repeatcount > 1) {
 			/* Play this frame again? */
 			b->repeatcount--;
-		} else if (dac_buffer_fullness) {
+		} else if (dac_buffer_fullness > 1) {
 			/* Move to the next frame */
-			fprintf(fp, "advancing frame\n");
-			fflush(fp);
+			flog("advancing frame - buffer fullness %d\n", dac_buffer_fullness);
 			dac_buffer_fullness--;
 			dac_buffer_read++;
 			if (dac_buffer_read >= BUFFER_NFRAMES)
@@ -308,8 +328,7 @@ unsigned __stdcall LoopUpdate(void *x){
 			/* Stop playing until we get a new frame. */
 			state = ST_READY;
 		} else {
-			fprintf(fp, "repeating frame\n");
-			fflush(fp);
+			flog("repeating frame\n");
 		}
 
 		/* If we get here without hitting any of the above cases,
@@ -340,17 +359,15 @@ EXPORT int __stdcall EzAudDacGetCardNum(void){
 		fp = fopen(fn, "w");
 	}
 
-	fprintf(fp, "== j4cDAC ==\n");
+	flog("== j4cDAC ==\n");
 
 	/* Load up the INI */
 	snprintf(fn, sizeof(fn), "%s\\j4cDAC.ini", dll_fn);
-	fprintf(fp, "Loading file: %s\n", fn);
-	fflush(fp);
+	flog("Loading file: %s\n", fn);
 	dictionary *d = iniparser_load(fn);
 
 	if (!d) {
-		fprintf(fp,"Failed to open ini file.\n");
-		fflush(fp);
+		flog("Failed to open ini file.\n");
 		return 0;
 	}
 
@@ -358,16 +375,14 @@ EXPORT int __stdcall EzAudDacGetCardNum(void){
 	WSADATA wsaData;
 	int res = WSAStartup(MAKEWORD(2,2), &wsaData);
 	if (res != 0) {
-		fprintf(fp, "!! WSAStartup failed: %d\n", res);
-		fflush(fp);
+		flog("!! WSAStartup failed: %d\n", res);
 		return 0;
 	}
 
 	// Parse ini
 	const char * host = iniparser_getstring(d, "network:host", NULL);
 	if (!host) {
-		fprintf(fp, "!! No host given in config file.\n");
-		fflush(fp);
+		flog("!! No host given in config file.\n");
 		return 0;
 	}
 	//char * host = strdup(hosts);
@@ -377,8 +392,7 @@ EXPORT int __stdcall EzAudDacGetCardNum(void){
 	// Connect to the DAC
 	if (dac_connect(&conn, host, port) < 0) {
 //		free(host);
-		fprintf(fp, "!! DAC connection failed.\n");
-		fflush(fp);
+		flog("!! DAC connection failed.\n");
 		iniparser_freedict(d);
 		return 0;
 	}
@@ -393,19 +407,17 @@ EXPORT int __stdcall EzAudDacGetCardNum(void){
 
 	workerthread = (HANDLE)_beginthreadex(NULL, 0, &LoopUpdate, NULL, 0, NULL);
 	if (!workerthread) {
-		fprintf(fp, "!! Begin thread error: %s\n", strerror(errno));
+		flog("!! Begin thread error: %s\n", strerror(errno));
 		return 0;
-	} else {
-		SetThreadPriority(workerthread, THREAD_PRIORITY_TIME_CRITICAL);
 	}
 
-	fprintf(fp, "Ready.\n");
-	fflush(fp);
+	flog("Ready.\n");
 
 	return 1;
 }
 
 bool __stdcall EzAudDacStop(const int CardNum){
+	flog("STOP!\n");
 	EnterCriticalSection(&buffer_lock);
 	if (state == ST_READY)
 		SetEvent(loop_go);
@@ -425,12 +437,12 @@ bool __stdcall EzAudDacClose(void){
 
 	int rv = WaitForSingleObject(workerthread, 250);
 	if (rv != WAIT_OBJECT_0)
-		fprintf(fp," Exit thread timed out.\n");
+		flog("Exit thread timed out.\n");
 
 	CloseHandle(workerthread);
 
 	if (fp) {
-		fprintf(fp,"Exiting\n");
+		flog("Exiting\n");
 		fclose(fp);
 		fp = NULL;
 	}
@@ -447,20 +459,17 @@ EXPORT int __stdcall EasyLaseGetCardNum(void) {
 }
 
 EXPORT int __stdcall EasyLaseSend(const int CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t KPPS) {
-	fprintf(fp, "ELSend called: card %d, %d bytes, %d kpps\n", CardNum, Bytes, KPPS);
-	fflush(fp);
+	flog("ELSend called: card %d, %d bytes, %d kpps\n", CardNum, Bytes, KPPS);
 	return 1;
 }
 
 EXPORT int __stdcall EasyLaseWriteFrameUncompressed(const int CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t PPS) {
-	fprintf(fp," ELWFU called: card %d, %d bytes, %d pps\n", CardNum, Bytes, PPS);
-	fflush(fp);
+	flog(" ELWFU called: card %d, %d bytes, %d pps\n", CardNum, Bytes, PPS);
 	return 1;
 }
 
 EXPORT int __stdcall EasyLaseReConnect() {
-	fprintf(fp," ELReConnect called.\n");
-	fflush(fp);
+	flog(" ELReConnect called.\n");
 	return 0;
 }
 

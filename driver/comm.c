@@ -29,7 +29,7 @@
 #include "dac.h"
 
 #define DEFAULT_TIMEOUT	2000000
-extern FILE * fp;
+void flog (char *fmt, ...);
 
 static struct dac_response dac_resp;
 static int dac_num_outstanding_acks;
@@ -40,6 +40,7 @@ static int dac_num_outstanding_acks;
  */
 #define ct_assert(e) ((void)sizeof(char[1 - 2*!(e)]))
 
+int dac_sendall(dac_conn_t *conn, void *data, int len);
 
 /* Log a socket error to the j4cDAC driver log file.
  */
@@ -50,7 +51,7 @@ void log_socket_error(const char *call) {
 	FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, err, 0,
 		buf, sizeof(buf), 0);
 
-	fprintf(fp, "!! Socket error in %s: %d: %s\n", call, err, buf);
+	flog("!! Socket error in %s: %d: %s\n", call, err, buf);
 }
 
 
@@ -93,8 +94,7 @@ int dac_read_bytes(dac_conn_t *conn, char *buf, int len) {
 			conn->sock = INVALID_SOCKET;
 			return -1;
 		} else if (res == 0) {
-			fprintf(fp, "!! Read from DAC timed out.\n");
-			fflush(fp);
+			flog("!! Read from DAC timed out.\n");
 			closesocket(conn->sock);
 			conn->sock = INVALID_SOCKET;
 			return -1;
@@ -140,13 +140,13 @@ int dac_read_resp(dac_conn_t *conn, int timeout) {
 
 void dac_dump_resp(void) {
 	struct dac_status *st = &dac_resp.dac_status;
-	fprintf(fp, "Protocol %d / LE %d / playback %d / source %d\n",
+	flog("Protocol %d / LE %d / playback %d / source %d\n",
 		0 /* st->protocol */, st->light_engine_state,
 		st->playback_state, st->source);
-	fprintf(fp, "Flags: LE %x, playback %x, source %x\n",
+	flog("Flags: LE %x, playback %x, source %x\n",
 		st->light_engine_flags, st->playback_flags,
 		st->source_flags);
-	fprintf(fp, "Buffer: %d points, %d pps, %d total played\n",
+	flog("Buffer: %d points, %d pps, %d total played\n",
 		st->buffer_fullness, st->point_rate, st->point_count);
 }
 
@@ -167,11 +167,11 @@ int dac_connect(dac_conn_t *conn, const char *host, const char *port) {
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
-	fprintf(fp, "Calling getaddrinfo: \"%s\", \"%s\"\n", host, port);
+	flog("Calling getaddrinfo: \"%s\", \"%s\"\n", host, port);
 
 	int res = getaddrinfo(host, port, &hints, &result);
 	if (res != 0) {
-		fprintf(fp, "getaddrinfo failed: %d\n", res);
+		flog("getaddrinfo failed: %d\n", res);
 		return -1;
 	}
 
@@ -216,8 +216,7 @@ int dac_connect(dac_conn_t *conn, const char *host, const char *port) {
 		conn->sock = INVALID_SOCKET;
 		return -1;
 	} else if (res == 0) {
-		fprintf(fp, "Connection to %s timed out.\n", host);
-		fflush(fp);
+		flog("Connection to %s timed out.\n", host);
 		closesocket(conn->sock);
 		conn->sock = INVALID_SOCKET;
 		return -1;
@@ -252,13 +251,19 @@ int dac_connect(dac_conn_t *conn, const char *host, const char *port) {
 		return -1;
 	}
 
-	fprintf(fp, "Connected.\n");
-	fflush(fp);
+	flog("Connected.\n");
 
 	// After we connect, the host will send an initial status response. 
 	dac_read_resp(conn, DEFAULT_TIMEOUT);
-
 	dac_dump_resp();
+
+	char c = 'p';
+	dac_sendall(conn, &c, 1);
+	dac_read_resp(conn, DEFAULT_TIMEOUT);
+	dac_dump_resp();
+
+	flog("Sent.\n");
+
 	return 0;
 }
 
@@ -279,14 +284,9 @@ int dac_sendall(dac_conn_t *conn, void *data, int len) {
 }
 
 int check_data_response(void) {
-	if (dac_resp.command != 'd') {
-		fprintf(fp, "!! Protocol error: sent 'd', got '%c' (%d)\n",
-			dac_resp.command, dac_resp.command);
-		return -1;
-	}
-
-	if (dac_resp.response != 'a' && dac_resp.response != 'I') {
-		fprintf(fp, "!! Protocol error: ACK for 'd' got '%c' (%d)\n",
+	if (dac_resp.response != 'a' /* && dac_resp.response != 'I' */) {
+		flog("!! Protocol error: ACK for '%c' got '%c' (%d)\n",
+			dac_resp.command,
 			dac_resp.response, dac_resp.response);
 		return -1;
 	}
@@ -301,13 +301,28 @@ struct {
 } __attribute__((packed)) dac_local_buffer;
 
 int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rate) { 
+	int res;
+
 	/* Write the header */
 
 	if (npoints > 250) npoints = 250;
 
-	fprintf(fp, "Writing %d points (buf has %d, oa %d)\n", npoints,
+	if (dac_last_status()->buffer_fullness > 1700) {
+		flog("Sending begin command...\n");
+
+		struct begin_command b;
+		b.command = 'b';
+		b.point_rate = rate;
+		b.low_water_mark = 0;
+		if ((res = dac_sendall(conn, &b, sizeof(b))) < 0)
+			return res;
+
+		/* Read ACK */
+		dac_num_outstanding_acks++;
+	}
+
+	flog("Writing %d points (buf has %d, oa %d)\n", npoints,
 		dac_last_status()->buffer_fullness, dac_num_outstanding_acks);
-	fflush(fp);
 
 	dac_local_buffer.queue.command = 'q';
 	dac_local_buffer.queue.point_rate = rate;
@@ -323,39 +338,25 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 	ct_assert(sizeof(dac_local_buffer) == 18008);
 
 	/* Write the data */
-	int res;
 	if ((res = dac_sendall(conn, &dac_local_buffer,
 		8 + npoints * sizeof(struct dac_point))) < 0)
 		return res;
 
-//	/* Wait a bit for response */
-//	Sleep(1);
+	/* Expect two ACKs */
+	dac_num_outstanding_acks += 2;
 
-	/* Catch up with previous data ack */
-	if (dac_num_outstanding_acks) {
-		fprintf(fp, "there are outstanding acks - catching up\n");
-		if ((res = dac_read_resp(conn, 500)) < 0)
-			return res;
-		if ((res = check_data_response()) < 0)
-			return res;
+	/* Read any ACKs we are owed */
+	while (dac_num_outstanding_acks) {
+		if (wait_for_activity(conn->sock, 2500)) { 
+			if ((res = dac_read_resp(conn, 1)) < 0)
+				return res;
+			if ((res = check_data_response()) < 0)
+				return res;
 
-		dac_num_outstanding_acks--;
-	}
-
-	/* Read the rate change ACK */
-	if ((res = dac_read_resp(conn, DEFAULT_TIMEOUT)) < 0)
-		return res;
-
-	/* Now, see if we have an ACK for the data */
-	if (wait_for_activity(conn->sock, 2500)) { 
-		fprintf(fp, "got resp\n");
-		fflush(fp);
-		if ((res = dac_read_resp(conn, 1)) < 0)
-			return res;
-		if ((res = check_data_response()) < 0)
-			return res;
-	} else {
-		dac_num_outstanding_acks++;
+			dac_num_outstanding_acks--;
+		} else {
+			break;
+		}
 	}
 		
 	return npoints;
