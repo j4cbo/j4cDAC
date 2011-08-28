@@ -304,8 +304,7 @@ unsigned __stdcall LoopUpdate(void *x){
 		struct buffer_item *b = &dac_buffer[dac_buffer_read];
 
 		if (cap < 100) {
-			flog("L: chilla\n");
-			Sleep(10);
+			Sleep(5);
 			cap += 20;
 		}
 
