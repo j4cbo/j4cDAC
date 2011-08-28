@@ -91,7 +91,7 @@ struct buffer_item *buf_get_write() {
 	int write = (dac_buffer_read + dac_buffer_fullness) % BUFFER_NFRAMES;
 	LeaveCriticalSection(&buffer_lock);
 
-	flog("Writing to index %d\n", write);
+	flog("M: Writing to index %d\n", write);
 
 	return &dac_buffer[write];
 }
@@ -107,9 +107,12 @@ void buf_advance_write() {
 
 /* Data conversion functions
 */
-void EasyLase_convert_data(struct buffer_item *buf, const void *vdata, int points) {
+int EasyLase_convert_data(struct buffer_item *buf, const void *vdata, int bytes) {
 	const struct EL_Pnt_s *data = (const struct EL_Pnt_s *)vdata;
+	int points = bytes / sizeof(*data);
 	int i;
+
+	if (!buf) return points;
 	if (points > BUFFER_POINTS_PER_FRAME) {
 		points = BUFFER_POINTS_PER_FRAME;
 	}
@@ -127,11 +130,15 @@ void EasyLase_convert_data(struct buffer_item *buf, const void *vdata, int point
 	}
 
 	buf->points = points;
+	return points;
 }
 
-void EzAudDac_convert_data(struct buffer_item *buf, const void *vdata, int points) {
+int EzAudDac_convert_data(struct buffer_item *buf, const void *vdata, int bytes) {
 	const struct EAD_Pnt_s *data = (const struct EAD_Pnt_s *)vdata;
+	int points = bytes / sizeof(*data);
 	int i;
+
+	if (!buf) return points;
 	if (points > BUFFER_POINTS_PER_FRAME) {
 		points = BUFFER_POINTS_PER_FRAME;
 	}
@@ -149,6 +156,7 @@ void EzAudDac_convert_data(struct buffer_item *buf, const void *vdata, int point
 	}
 
 	buf->points = points;
+	return points;
 }
 
 
@@ -162,35 +170,53 @@ bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 /* Write a frame.
  */
 
-bool do_write_frame(const int card_num, const void * data, int points, int pps,
-	int reps, void (*convert)(struct buffer_item *, const void *, int)) {
+bool do_write_frame(const int card_num, const void * data, int bytes, int pps,
+	int reps, int (*convert)(struct buffer_item *, const void *, int)) {
+
+	int points = convert(NULL, NULL, bytes);
 
 	if (reps == ((uint16_t) -1))
 		reps = -1;
 
-	flog("Writing frame: %d points, %d reps\n", points, reps);
-
 	/* If not ready for a new frame, bail */
 	if (EzAudDacGetStatus(card_num) != GET_STATUS_READY) {
-		flog("--> not ready\n");
-		return -1;
+		flog("M: NOT READY: %d points, %d reps\n", points, reps);
+		return 0;
 	}
 
 	/* Ignore 0-repeat frames */
 	if (!reps)
-		return 0;
+		return 1;
+
+	int internal_reps = 250 / points;
+	char * bigdata = NULL;
+	if (internal_reps) {
+		bigdata = malloc(bytes * internal_reps);
+		int i;
+		for (i = 0; i < internal_reps; i++) {
+			memcpy(bigdata + i*bytes, data, bytes);
+		}
+		bytes *= internal_reps;
+		data = bigdata;
+	}
+
+	flog("M: Writing: %d/%d points, %d reps\n",
+		points, convert(NULL, NULL, bytes), reps);
 
 	struct buffer_item *next = buf_get_write();
-	convert(next, data, points);
+	convert(next, data, bytes);
 	next->pps = pps;
 	next->repeatcount = reps;
 
 	buf_advance_write();
-	return 0;
+
+	if (bigdata) free(bigdata);
+
+	return 1;
 }
 
 bool __stdcall EzAudDacWriteFrameNR(const int CardNum, const struct EAD_Pnt_s* data, int Bytes, uint16_t PPS, uint16_t Reps){
-	return do_write_frame(CardNum, data, Bytes / sizeof(*data),
+	return do_write_frame(CardNum, data, Bytes,
 		PPS, Reps, EzAudDac_convert_data);
 }
 
@@ -199,7 +225,7 @@ bool __stdcall EzAudDacWriteFrame(const int CardNum, const struct EAD_Pnt_s* dat
 }
 
 EXPORT bool __stdcall EasyLaseWriteFrameNR(const int CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t PPS, uint16_t Reps){
-	return do_write_frame(CardNum, data, Bytes / sizeof(*data),
+	return do_write_frame(CardNum, data, Bytes,
 		PPS, Reps, EasyLase_convert_data);
 }
 
@@ -215,7 +241,7 @@ EXPORT int __stdcall EzAudDacGetStatus(const int CardNum){
 	LeaveCriticalSection(&buffer_lock);
 
 	if (fullness == BUFFER_NFRAMES) {
-		flog("bouncing\n");
+		flog("M: bouncing\n");
 		Sleep(1);
 		return GET_STATUS_BUSY;
 	} else {
@@ -245,7 +271,7 @@ unsigned __stdcall LoopUpdate(void *x){
 		while (state == ST_READY) {
 			LeaveCriticalSection(&buffer_lock);
 
-			flog("Waiting...\n");
+			flog("L: Waiting...\n");
 
 			int res = WaitForSingleObject(loop_go, INFINITE);
 
@@ -259,12 +285,13 @@ unsigned __stdcall LoopUpdate(void *x){
 		}
 
 		if (state != ST_RUNNING) {
-			flog("-- Shutting down.\n");
+			flog("L: Shutting down.\n");
 			LeaveCriticalSection(&buffer_lock);
 			return 0;
 		}
 
 		LeaveCriticalSection(&buffer_lock);
+		flog("calculating write...\n");
 
 		/* Now, see how much data we should write. */
 		int cap = 1798;
@@ -277,19 +304,20 @@ unsigned __stdcall LoopUpdate(void *x){
 
 		struct buffer_item *b = &dac_buffer[dac_buffer_read];
 
+		if (cap < 100) {
+			flog("L: chilla\n");
+			Sleep(10);
+			cap += 20;
+		}
+
 		/* How many points can we send? */
 		int b_left = b->points - b->idx;
+
 		if (cap > b_left)
 			cap = b_left;
 		if (cap > 1000)
 			cap = 1000;
 
-		if (cap < 100) {
-			Sleep(10);
-			cap += 20;
-			if (cap > b_left)
-				cap = b_left;
-		}
 
 		int res = dac_send_data(&conn, b->data + b->idx, cap, b->pps);
 
@@ -319,16 +347,17 @@ unsigned __stdcall LoopUpdate(void *x){
 			b->repeatcount--;
 		} else if (dac_buffer_fullness > 1) {
 			/* Move to the next frame */
-			flog("advancing frame - buffer fullness %d\n", dac_buffer_fullness);
+			flog("L: advancing frame - buffer fullness %d\n", dac_buffer_fullness);
 			dac_buffer_fullness--;
 			dac_buffer_read++;
 			if (dac_buffer_read >= BUFFER_NFRAMES)
 				dac_buffer_read = 0;
 		} else if (b->repeatcount >= 0) {
 			/* Stop playing until we get a new frame. */
+			flog("L: returning to idle\n");
 			state = ST_READY;
 		} else {
-			flog("repeating frame\n");
+			flog("L: repeating frame\n");
 		}
 
 		/* If we get here without hitting any of the above cases,

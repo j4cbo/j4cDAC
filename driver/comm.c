@@ -308,7 +308,7 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 	if (npoints > 250) npoints = 250;
 
 	if (dac_last_status()->buffer_fullness > 1700) {
-		flog("Sending begin command...\n");
+		flog("L: Sending begin command...\n");
 
 		struct begin_command b;
 		b.command = 'b';
@@ -321,7 +321,7 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 		dac_num_outstanding_acks++;
 	}
 
-	flog("Writing %d points (buf has %d, oa %d)\n", npoints,
+	flog("L: Writing %d points (buf has %d, oa %d)\n", npoints,
 		dac_last_status()->buffer_fullness, dac_num_outstanding_acks);
 
 	dac_local_buffer.queue.command = 'q';
@@ -348,6 +348,7 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 	/* Read any ACKs we are owed */
 	while (dac_num_outstanding_acks) {
 		if (wait_for_activity(conn->sock, 2500)) { 
+			flog("L: getting ACK\n");
 			if ((res = dac_read_resp(conn, 1)) < 0)
 				return res;
 			if ((res = check_data_response()) < 0)
@@ -355,10 +356,13 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 
 			dac_num_outstanding_acks--;
 		} else {
+			flog("L: timed out waiting for ACK\n");
 			break;
 		}
 	}
-		
+
+	flog("L: done\n");
+
 	return npoints;
 }
 
