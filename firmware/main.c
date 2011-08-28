@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
 
 	outputf("Entering main loop...");
 
-	playback_src = SRC_SYNTH;
+	playback_src = SRC_NETWORK;
 
 	strcpy(x, "master:6553600 x:6555056 y:6540519 z:6532004 red:3:-1352240273 green:3:4424000 blue:3:1442897174 blank:13097162 xrot:-253403070 yrot:0");
 //	strcpy(x, "master:6848512 x:6878360 y:6848512 z:6832121 red:11:-1355104273 green:11:51536146 blue:11:1438473174 blank:34355770 xrot:-730144440 yrot:605590389");
