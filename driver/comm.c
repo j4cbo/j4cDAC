@@ -348,7 +348,6 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 	/* Read any ACKs we are owed */
 	while (dac_num_outstanding_acks) {
 		if (wait_for_activity(conn->sock, 2500)) { 
-			flog("L: getting ACK\n");
 			if ((res = dac_read_resp(conn, 1)) < 0)
 				return res;
 			if ((res = check_data_response()) < 0)

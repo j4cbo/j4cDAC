@@ -291,7 +291,6 @@ unsigned __stdcall LoopUpdate(void *x){
 		}
 
 		LeaveCriticalSection(&buffer_lock);
-		flog("calculating write...\n");
 
 		/* Now, see how much data we should write. */
 		int cap = 1798;
