@@ -284,7 +284,7 @@ int dac_sendall(dac_conn_t *conn, void *data, int len) {
 }
 
 int check_data_response(void) {
-	if (dac_resp.response != 'a' /* && dac_resp.response != 'I' */) {
+	if (dac_resp.response != 'a' && dac_resp.response != 'I') {
 		flog("!! Protocol error: ACK for '%c' got '%c' (%d)\n",
 			dac_resp.command,
 			dac_resp.response, dac_resp.response);
@@ -307,6 +307,16 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 
 	if (npoints > 250) npoints = 250;
 
+	if (dac_last_status()->playback_state == 0) {
+		flog("L: Sending prepare command...\n");
+		char c = 'p';
+		if ((res = dac_sendall(conn, &c, sizeof(c))) < 0)
+			return res;
+
+		/* Read ACK */
+		dac_num_outstanding_acks++;
+	}
+
 	if (dac_last_status()->buffer_fullness > 1700) {
 		flog("L: Sending begin command...\n");
 
@@ -317,7 +327,6 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 		if ((res = dac_sendall(conn, &b, sizeof(b))) < 0)
 			return res;
 
-		/* Read ACK */
 		dac_num_outstanding_acks++;
 	}
 
