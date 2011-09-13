@@ -90,9 +90,9 @@ j4cDAC.elf: $(OBJS)
 .PHONY: clean flash bl size term
 
 clean:
-	rm -f j4cDAC.elf j4cDAC.hex j4cDAC.map j4cDAC.bin pc $(OBJS)
+	rm -f j4cDAC.elf j4cDAC.hex j4cDAC.map j4cDAC.bin j4cDAC.binhex j4cDAC-full.hex pc $(OBJS)
 
-flash:
+flash: j4cDAC-full.hex
 	~/lpc21isp/lpc21isp -debug3 j4cDAC-full.hex /dev/ttyUSB0 230400 14746
 
 bl:
