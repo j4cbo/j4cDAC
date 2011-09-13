@@ -17,6 +17,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import intelhex
+import StringIO
 import zlib
 import struct
 import sys
@@ -61,11 +62,15 @@ def main():
 	data += crcdata + "\0" * 252
 
 	# Tack on a header
-	data = ("j4cDAC firmware image - DO NOT EDIT\n".ljust(59, "~")
+	image = ("j4cDAC firmware image - DO NOT EDIT\n".ljust(59, "~")
 	        + "\n" + data_len + data)
 
-	file(sys.argv[2], "w").write(data)
-	print "Wrote %d bytes." % (len(data), )
+	file(sys.argv[2], "w").write(image)
+	print "Wrote %d bytes." % (len(image), )
+
+	h2 = intelhex.IntelHex()
+	h2.loadbin(StringIO.StringIO(data), APP_START)
+	h2.tofile(sys.argv[2] + "hex", format='hex')
 
 if __name__ == "__main__":
 	main()

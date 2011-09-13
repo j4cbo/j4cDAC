@@ -72,6 +72,12 @@ pc: $(PC_SRCS) $(APP_SRCS)
 %.o: %.s
 	$(PREFIX)gcc $(CFLAGS) -c $< -o $@
 
+../boot/boot.hex:
+	make -C ../boot
+
+j4cDAC-full.hex: j4cDAC.bin ../boot/boot.hex
+	grep '^:......00' ../boot/boot.hex | cat - j4cDAC.binhex > j4cDAC-full.hex
+
 j4cDAC.hex: j4cDAC.elf
 	$(PREFIX)objcopy -O ihex -R .eeprom -R .fuse -R .lock $< $@
 
@@ -87,7 +93,7 @@ clean:
 	rm -f j4cDAC.elf j4cDAC.hex j4cDAC.map j4cDAC.bin pc $(OBJS)
 
 flash:
-	~/lpc21isp/lpc21isp -debug3 j4cDAC.hex /dev/ttyUSB0 230400 14746
+	~/lpc21isp/lpc21isp -debug3 j4cDAC-full.hex /dev/ttyUSB0 230400 14746
 
 bl:
 	sudo dfu-util -D j4cDAC.bin -R
