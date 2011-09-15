@@ -1,13 +1,13 @@
 PREFIX = arm-none-eabi-
 
-INCLUDES = -Iinc -I../common/inc -Ilib/core_cm3 -Ilib/lpc17xx -Idrivers/include -I../common
+INCLUDES = -Iinc -I../common/inc -Ilib/lpc17xx -Idrivers/include -I../common
 CFLAGS += -fno-common -mcpu=cortex-m3 -mthumb -Os -g
 CFLAGS += -Wall -Ilib/lpcusb -fdata-sections -fshort-enums
 LDFLAGS = -Tlib/lpc17xx/lpc1758.lds -mcpu=cortex-m3 -mthumb -fwhole-program -Wl,-Map=j4cDAC.map
 
 # Cortex-M3 support code
-CFLAGS += -Ilib/core_cm3 -Ilib/lpc17xx
-BRD_SRCS += lib/core_cm3/core_cm3.c lib/lpc17xx/system_LPC17xx.c lib/lpc17xx/startup_LPC17xx.s \
+CFLAGS += -Ilib/lpc17xx
+BRD_SRCS += ../common/lib/core_cm3.c lib/lpc17xx/system_LPC17xx.c lib/lpc17xx/startup_LPC17xx.s \
 	drivers/source/lpc17xx_clkpwr.c \
 	drivers/source/lpc17xx_uart.c lib/serial.c main.c
 

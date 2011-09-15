@@ -1,12 +1,12 @@
 PREFIX = arm-none-eabi-
 
-CFLAGS = -Iinc -Ilib/core_cm3 -Ilib/lpc17xx -I../firmware/drivers/include -I../common/inc -fno-common -mcpu=cortex-m3 -mthumb -Os -g -Inet
+CFLAGS = -Iinc -Ilib/lpc17xx -I../firmware/drivers/include -I../common/inc -fno-common -mcpu=cortex-m3 -mthumb -Os -g -Inet
 CFLAGS += -Wall -Ilib/lpcusb -ffunction-sections -fdata-sections -fshort-enums -gdwarf-2 -gstrict-dwarf -Wl,--gc-sections -nostdlib -nostdinc
 LDFLAGS = -Tlib/lpc17xx/lpc1758.lds -mcpu=cortex-m3 -mthumb -fwhole-program -gdwarf-2 -gstrict-dwarf -Wl,-Map=boot.map -Wl,--gc-sections -nostdlib -nostdinc
 
 # Cortex-M3 support code
-CFLAGS += -Ilib/core_cm3 -Ilib/lpc17xx
-SRCS += lib/core_cm3/core_cm3.c lib/lpc17xx/system_LPC17xx.c lib/lpc17xx/startup_LPC17xx.s \
+CFLAGS += -Ilib/lpc17xx
+SRCS += ../common/lib/core_cm3.c lib/lpc17xx/system_LPC17xx.c lib/lpc17xx/startup_LPC17xx.s \
 	lib/serial.c ../firmware/drivers/source/lpc17xx_uart.c ../firmware/drivers/source/lpc17xx_clkpwr.c \
 	../common/lib/hardware.c
 
