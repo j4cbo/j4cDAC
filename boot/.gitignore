@@ -1,4 +1,5 @@
 *.o
+*.boot.o
 boot.elf
 boot.hex
 boot.map
