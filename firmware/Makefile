@@ -12,7 +12,7 @@ BRD_SRCS += ../common/lib/core_cm3.c lib/lpc17xx/system_LPC17xx.c lib/lpc17xx/st
 	drivers/source/lpc17xx_uart.c lib/serial.c main.c
 
 # Mach printf. Much more lightweight than newlib's.
-APP_SRCS += lib/minilib/vsnprintf.c
+APP_SRCS += ../common/lib/vsnprintf.c
 
 # Application
 BRD_SRCS += lib/dac.c

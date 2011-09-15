@@ -11,7 +11,7 @@ SRCS += ../common/lib/core_cm3.c lib/lpc17xx/system_LPC17xx.c lib/lpc17xx/startu
 	../common/lib/hardware.c
 
 # Mach printf. Much more lightweight than newlib's.
-SRCS += lib/minilib/vsnprintf.c minilib.c
+SRCS += ../common/lib/vsnprintf.c minilib.c
 
 # LPCUSB
 SRCS += lib/lpcusb/usbhw_lpc.c lib/lpcusb/usbinit.c lib/lpcusb/usbstdreq.c \
