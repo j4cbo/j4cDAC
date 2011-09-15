@@ -312,7 +312,7 @@ int main(void)
 
 	/* Wait a bit */
 	int i;
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < 1000; i++) {
 		asm volatile("nop");
 	}
 
