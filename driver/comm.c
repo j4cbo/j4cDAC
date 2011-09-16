@@ -74,6 +74,25 @@ int wait_for_activity(SOCKET fd, int usec) {
 	return res;
 }
 
+/* Wait for writability.
+ */
+int wait_for_write(SOCKET fd, int usec) {
+	fd_set set;
+	FD_ZERO(&set);
+	FD_SET(fd, &set);
+	struct timeval time;
+	time.tv_sec = usec / 1000000;
+	time.tv_usec = usec % 1000000;
+	int res = select(0, NULL, &set, &set, &time);
+
+	if (res == SOCKET_ERROR) {
+		log_socket_error("select");
+		return -1;
+	}
+
+	return res;
+}
+
 /* Read exactly n bytes from the DAC connection socket.
  *
  * This reads exactly len bytes into buf. Data is read in chunks from the
@@ -269,7 +288,14 @@ int dac_connect(dac_conn_t *conn, const char *host, const char *port) {
 
 int dac_sendall(dac_conn_t *conn, void *data, int len) {
 	do {
-		int res = send(conn->sock, data, len, 0);
+		int res = wait_for_write(conn->sock, 100000);
+		if (res < 0) {
+			return -1;
+		} else if (res == 0) {
+			flog("write timed out");
+		}
+
+		res = send(conn->sock, data, len, 0);
 
 		if (res == SOCKET_ERROR) {
 			log_socket_error("send");
