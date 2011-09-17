@@ -295,9 +295,6 @@ unsigned __stdcall LoopUpdate(void *x){
 		/* Now, see how much data we should write. */
 		int cap = 1798;
 
-		if (!dac_outstanding_acks())
-			cap -= 250;
-
 		cap -= dac_last_status()->buffer_fullness;
 		if (cap < 0) cap = 1;
 

@@ -328,12 +328,13 @@ struct {
 
 int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rate) { 
 	int res;
+	const struct dac_status *st = dac_last_status();
 
 	/* Write the header */
 
-	if (npoints > 250) npoints = 250;
+	if (npoints > 80) npoints = 80;
 
-	if (dac_last_status()->playback_state == 0) {
+	if (st->playback_state == 0) {
 		flog("L: Sending prepare command...\n");
 		char c = 'p';
 		if ((res = dac_sendall(conn, &c, sizeof(c))) < 0)
@@ -343,7 +344,7 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 		dac_num_outstanding_acks++;
 	}
 
-	if (dac_last_status()->buffer_fullness > 1700) {
+	if (st->buffer_fullness > 1700 && st->playback_state == 1) {
 		flog("L: Sending begin command...\n");
 
 		struct begin_command b;
@@ -356,8 +357,8 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 		dac_num_outstanding_acks++;
 	}
 
-	flog("L: Writing %d points (buf has %d, oa %d)\n", npoints,
-		dac_last_status()->buffer_fullness, dac_num_outstanding_acks);
+	flog("L: Writing %d points (buf has %d, oa %d, st %d)\n", npoints,
+		st->buffer_fullness, dac_num_outstanding_acks, st->playback_state);
 
 	dac_local_buffer.queue.command = 'q';
 	dac_local_buffer.queue.point_rate = rate;
