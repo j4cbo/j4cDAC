@@ -29,9 +29,9 @@
 #include <ether_private.h>
 #include <attrib.h>
 
-#define NUM_TX_DESC	6
+#define NUM_TX_DESC	12
 #define NUM_RX_BUF	12
-#define RX_BUF_SIZE	1528
+#define RX_BUF_SIZE	1520
 
 /* Transmit descriptors, receive descriptors, and receive buffers */
 static struct pbuf *eth_tx_pbufs[NUM_TX_DESC];
@@ -705,6 +705,7 @@ err_t eth_transmit_FPV_netif_linkoutput(struct netif * _info, struct pbuf * p) {
 	if (n > (NUM_TX_DESC - 1)) {
 		outputf("MAC: FATAL: pbuf too long: %d > %d",
 		         n, NUM_TX_DESC - 1);
+		pbuf_free(p);
 		return ERR_ABRT;
 	}
 
