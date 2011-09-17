@@ -73,6 +73,7 @@ static int RV send_resp(struct tcp_pcb *pcb, char resp, char cmd, int len) {
 
 	/* If we can't send the response, then close the connection. */
 	if (err != ERR_OK) {
+		outputf("do_send_resp returned %d", err);
 		return close_conn(pcb, CONNCLOSED_SENDFAIL, -1);
 	}
 
