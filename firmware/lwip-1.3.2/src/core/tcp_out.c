@@ -177,6 +177,7 @@ tcp_enqueue(struct tcp_pcb *pcb, void *arg, u16_t len,
     LWIP_DEBUGF(TCP_OUTPUT_DEBUG | LWIP_DBG_LEVEL_WARNING,
       ("tcp_enqueue: too much data (len=%"U16_F" > snd_buf=%"U16_F")\n", len, pcb->snd_buf));
     pcb->flags |= TF_NAGLEMEMERR;
+outputf("tcp_enq: send buf len");
     return ERR_MEM;
   }
   left = len;
@@ -199,6 +200,7 @@ tcp_enqueue(struct tcp_pcb *pcb, void *arg, u16_t len,
       ("tcp_enqueue: too long queue %"U16_F" (max %"U16_F")\n", queuelen, TCP_SND_QUEUELEN));
     TCP_STATS_INC(tcp.memerr);
     pcb->flags |= TF_NAGLEMEMERR;
+outputf("tcp_enq: send queue len");
     return ERR_MEM;
   }
   if (queuelen != 0) {
@@ -222,6 +224,7 @@ tcp_enqueue(struct tcp_pcb *pcb, void *arg, u16_t len,
     if (seg == NULL) {
       LWIP_DEBUGF(TCP_OUTPUT_DEBUG | LWIP_DBG_LEVEL_SERIOUS, 
                   ("tcp_enqueue: could not allocate memory for tcp_seg\n"));
+outputf("tcp_enq: alloc TCP_SEG");
       goto memerr;
     }
     seg->next = NULL;
@@ -247,6 +250,7 @@ tcp_enqueue(struct tcp_pcb *pcb, void *arg, u16_t len,
       if ((seg->p = pbuf_alloc(PBUF_TRANSPORT, seglen + optlen, PBUF_RAM)) == NULL) {
         LWIP_DEBUGF(TCP_OUTPUT_DEBUG | LWIP_DBG_LEVEL_SERIOUS, 
                     ("tcp_enqueue : could not allocate memory for pbuf copy size %"U16_F"\n", seglen));
+outputf("tcp_enq: alloc pbuf");
         goto memerr;
       }
       LWIP_ASSERT("check that first pbuf can hold the complete seglen",
@@ -263,6 +267,7 @@ tcp_enqueue(struct tcp_pcb *pcb, void *arg, u16_t len,
       if ((seg->p = pbuf_alloc(PBUF_TRANSPORT, optlen, PBUF_RAM)) == NULL) {
         LWIP_DEBUGF(TCP_OUTPUT_DEBUG | LWIP_DBG_LEVEL_SERIOUS, 
                     ("tcp_enqueue: could not allocate memory for header pbuf\n"));
+outputf("tcp_enq: alloc hdr pbuf");
         goto memerr;
       }
       queuelen += pbuf_clen(seg->p);
@@ -279,6 +284,7 @@ tcp_enqueue(struct tcp_pcb *pcb, void *arg, u16_t len,
           seg->p = NULL;
           LWIP_DEBUGF(TCP_OUTPUT_DEBUG | LWIP_DBG_LEVEL_SERIOUS, 
                       ("tcp_enqueue: could not allocate memory for zero-copy pbuf\n"));
+outputf("tcp_enq: alloc rom pbuf");
           goto memerr;
         }
         ++queuelen;
@@ -297,6 +303,7 @@ tcp_enqueue(struct tcp_pcb *pcb, void *arg, u16_t len,
     if ((queuelen > TCP_SND_QUEUELEN) || (queuelen > TCP_SNDQUEUELEN_OVERFLOW)) {
       LWIP_DEBUGF(TCP_OUTPUT_DEBUG | LWIP_DBG_LEVEL_SERIOUS,
         ("tcp_enqueue: queue too long %"U16_F" (%"U16_F")\n", queuelen, TCP_SND_QUEUELEN));
+outputf("tcp_enq: send queue len 2");
       goto memerr;
     }
 
@@ -306,6 +313,7 @@ tcp_enqueue(struct tcp_pcb *pcb, void *arg, u16_t len,
     if (pbuf_header(seg->p, TCP_HLEN)) {
       LWIP_DEBUGF(TCP_OUTPUT_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("tcp_enqueue: no room for TCP header in pbuf.\n"));
       TCP_STATS_INC(tcp.err);
+outputf("tcp_enq: tcp hdr");
       goto memerr;
     }
     seg->tcphdr = seg->p->payload;
@@ -358,6 +366,7 @@ tcp_enqueue(struct tcp_pcb *pcb, void *arg, u16_t len,
       /* Can we cope with this failing?  Just assert for now */
       LWIP_ASSERT("pbuf_header failed\n", 0);
       TCP_STATS_INC(tcp.err);
+outputf("tcp_enq: remove hdr");
       goto memerr;
     }
     if (queue->p->len == 0) {
