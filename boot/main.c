@@ -30,6 +30,8 @@
 
 #include <minilib.h>
 #include <LPC17xx.h>
+#include <hardware.h>
+
 #include "usbdebug.h"
 #include "usboot_iap.h"
 #include "usbapi.h"
@@ -39,6 +41,7 @@
 
 volatile uint32_t time = 0;
 volatile int st_status;
+enum hw_board_rev board_rev;
 
 void SysTick_Handler(void) {
 	if (time % 500 == 0) {
@@ -303,21 +306,42 @@ int main(void)
 
         serial_init();
 
-	outputf("== BOOTLOADER ==");
+	outputf("##########################");
+	outputf("# Ether Dream BOOTLOADER #");
+	outputf("##########################");
 
-	/* Sample the bootloader pin to see if it is being forced high; if
-	 * so, or if the application is not intact, enter bootload mode. */
-	LPC_PINCON->PINMODE4 |= (3 << 20);
-	LPC_PINCON->PINMODE3 |= (3 << 30);
+	board_rev = hw_get_board_rev();
+	outputf("Hardware Revision: %d", board_rev);
 
-	/* Wait a bit */
-	int i;
-	for (i = 0; i < 1000; i++) {
-		asm volatile("nop");
-	}
+	int pin_held;
 
-	int pin_held = (LPC_GPIO2->FIOPIN & (1 << 10)) ? 1 : 0;
 	int app_is_ok = app_ok();
+
+	/* Determine whether we're in force-bootloader mdoe */
+	if (board_rev == 0) {
+		/* On prototype boards, force-bootloader is done by shorting
+		 * P1[26] (pin 7 on the 10-pin expansion header) to ground
+		 * (pin 9). */
+		LPC_PINCON->PINMODE3 &= ~(3 << 20);
+
+		/* Wait a moment to avoid false positives */ 
+		int i;
+		for (i = 0; i < 1000; i++) asm volatile("nop");
+
+		pin_held = (LPC_GPIO1->FIOPIN & (1 << 26)) ? 0 : 1;
+	} else {
+		/* On production boards, we use P0[18]. Note that this is also
+		 * MOSI0 for the high-speed serial peripheral - an offboard
+		 * slave is expected to have this pin in a high-impedance mode
+		 * at power-up, but an offboard masters must be sure not to
+		 * drive it low. */
+		LPC_PINCON->PINMODE1 &= ~(3 << 4);
+
+		int i;
+		for (i = 0; i < 1000; i++) asm volatile("nop");
+
+		pin_held = (LPC_GPIO0->FIOPIN & (1 << 18)) ? 0 : 1;
+	}
 
 	outputf("Force bootloader: %d; app integrity: %d", pin_held, app_is_ok);
 
@@ -325,6 +349,14 @@ int main(void)
 	if (!pin_held && app_is_ok) {
 		enter_application();
 	}
+
+	outputf("Entering bootloader");
+
+	/* Disable all interrupts that we don't want */
+	NVIC->ICER[0] = -1;
+	NVIC->ICER[1] = -1;
+	NVIC->ICER[2] = -1;
+	NVIC->ICER[3] = -1;
 
 	/* Move interrupts into RAM */
 	SCB->VTOR = 0x10000000;
