@@ -17,6 +17,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <hardware.h>
 
 #ifndef PC_BUILD
 
@@ -34,6 +35,8 @@ void ATTR_VISIBLE panic_internal(const char *fmt, ...) {
 	va_list va;
 	char buffer[80];
 	int n;
+
+	hw_dac_init();
 
 	va_start(va, fmt);
 	n = vsnprintf(buffer, sizeof(buffer) - 2, fmt, va);
@@ -54,6 +57,7 @@ void ATTR_VISIBLE panic_internal(const char *fmt, ...) {
 void HardFault_Handler_C(uint32_t * stack) ATTR_VISIBLE;
 void HardFault_Handler_C(uint32_t * stack) {
 	outputf("*** HARD FAULT ***");
+	hw_dac_init();
 	outputf("stack: %p", stack);
 	int i;
 	for (i = 0; i < 32; i++) {
@@ -65,6 +69,7 @@ void HardFault_Handler_C(uint32_t * stack) {
 void BusFault_Handler_C(uint32_t * stack) ATTR_VISIBLE;
 void BusFault_Handler_C(uint32_t * stack) {
 	outputf("*** BUS FAULT ***");
+	hw_dac_init();
 	outputf("pc: %p", stack[6]);
 	while (1);
 }
