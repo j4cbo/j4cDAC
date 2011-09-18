@@ -164,6 +164,11 @@ int EzAudDac_convert_data(struct buffer_item *buf, const void *vdata, int bytes)
  */ 
 bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 	ThisDll = hModule;
+	if (reason == DLL_PROCESS_ATTACH) {
+		InitializeCriticalSection(&buffer_lock);
+	} else if (reason == DLL_PROCESS_DETACH) {
+		DeleteCriticalSection(&buffer_lock);
+	}
 	return 1;
 }
 
@@ -425,7 +430,6 @@ EXPORT int __stdcall EzAudDacGetCardNum(void){
 	//free(host);
 
 	// Fire off the worker thread
-	InitializeCriticalSection(&buffer_lock);
 	loop_go = CreateEvent(NULL, FALSE, FALSE, NULL);
 	state = ST_READY;
 
@@ -463,7 +467,11 @@ bool __stdcall EzAudDacClose(void){
 	if (rv != WAIT_OBJECT_0)
 		flog("Exit thread timed out.\n");
 
-	CloseHandle(workerthread);
+	if (state == ST_READY) {
+		CloseHandle(workerthread);
+		WSACleanup();
+	}
+	state = ST_UNINITIALIZED;
 
 	if (fp) {
 		flog("Exiting\n");
