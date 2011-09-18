@@ -34,17 +34,17 @@ typedef int32_t fixed;
 #define FIX_E FIXED(2.718281828)
 
 // use when one of the arguments is known to be |x|  < FIX(1.0)
-static __attribute__((always_inline)) fixed fix_mul_small (const fixed x, const fixed y)
+static __attribute__((always_inline, unused)) fixed fix_mul_small (const fixed x, const fixed y)
 {
   return ((x * y) >> POINT);
 }
 /// general fixed point multiply 
-static __attribute__((always_inline)) fixed fix_mul (const fixed x, const fixed y)
+static __attribute__((always_inline, unused)) fixed fix_mul (const fixed x, const fixed y)
 {
   return ((fixed)((((int64_t) x) * y)>> POINT));
 }
 
-static __attribute__((always_inline)) fixed fix_div (const fixed numerator, const fixed denom)
+static __attribute__((always_inline, unused)) fixed fix_div (const fixed numerator, const fixed denom)
 {
   ASSERT_NOT_EQUAL(denom, 0);
   return ((((int64_t)numerator)<<POINT)/denom);
