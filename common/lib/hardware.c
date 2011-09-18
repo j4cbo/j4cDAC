@@ -17,7 +17,12 @@
  */
 
 #include <hardware.h>
+#include <stdint.h>
 #include <LPC17xx.h>
+
+/* Shutter pin config. */
+#define DAC_SHUTTER_PIN         6
+#define DAC_SHUTTER_EN_PIN      7
 
 enum hw_board_rev hw_get_board_rev(void) {
 
@@ -45,4 +50,36 @@ enum hw_board_rev hw_get_board_rev(void) {
 	} else {
 		return HW_REV_PROTO;
 	}
+}
+
+void hw_dac_init(void) {
+
+	/* Set up the SPI pins: SCLK, SYNC, DIN. */
+	LPC_PINCON->PINSEL0 =
+		  (LPC_PINCON->PINSEL0 & ~((3 << 12) | (3 << 14) | (3 << 18)))
+		| (2 << 12) | (2 << 14) | (2 << 18);
+
+	/* Turn on the SSP peripheral. */
+	LPC_SSP1->CR0 = 0xF | (1 << 6);	/* 16-bit, CPOL = 1; no prescale */
+	LPC_SSP1->CR1 = (1 << 1); /* Enable */
+	LPC_SSP1->CPSR = 4; /* Divide by 4 -> 24 MHz SPI clock */
+
+	/* Set all the DAC channels to zero except for X/Y, which default
+	 * to 0x800 (center). */
+	int i;
+	for (i = 0; i < 6; i++) {
+		hw_dac_write(i << 12);
+	}
+	hw_dac_write(0x6800);
+	hw_dac_write(0x7800);
+
+	/* Force an initial data write, then power up the output buffers */
+	hw_dac_write(0xA002);
+	hw_dac_write(0xC000);
+
+	/* Set up the shutter output. */
+	LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_PIN);
+	LPC_GPIO2->FIODIR |= (1 << DAC_SHUTTER_PIN);
+	LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_EN_PIN);
+	LPC_GPIO2->FIODIR |= (1 << DAC_SHUTTER_EN_PIN);
 }

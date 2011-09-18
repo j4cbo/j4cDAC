@@ -19,11 +19,22 @@
 #ifndef COMMON_HARDWARE_H
 #define COMMON_HARDWARE_H
 
+#include <stdint.h>
+#include <LPC17xx.h>
+#include <LPC17xx_bits.h>
+
 enum hw_board_rev {
 	HW_REV_PROTO = 0,
 	HW_REV_MP1 = 1
 };
 
 enum hw_board_rev hw_get_board_rev();
+void hw_dac_init(void);
+
+static inline void __attribute__((always_inline, unused))
+hw_dac_write(uint16_t word) {
+	while (!(LPC_SSP1->SR & SSPnSR_Transmit_Not_Full));
+	LPC_SSP1->DR = word;
+}
 
 #endif

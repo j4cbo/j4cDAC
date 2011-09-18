@@ -24,6 +24,7 @@
 #include <lpc17xx_timer.h>
 #include <ether.h>
 #include <dac.h>
+#include <hardware.h>
 #include <assert.h>
 #include <attrib.h>
 #include <transform.h>
@@ -211,10 +212,8 @@ void dac_init() {
 	CLKPWR_ConfigPPWR(CLKPWR_PCONP_PCPWM1, ENABLE);
 	CLKPWR_SetPCLKDiv(CLKPWR_PCLKSEL_PWM1, CLKPWR_PCLKSEL_CCLK_DIV_4);
 
-	/* Set up the SPI pins: SCLK, SYNC, DIN */
-	LPC_PINCON->PINSEL0 =
-		  (LPC_PINCON->PINSEL0 & ~((3 << 12) | (3 << 14) | (3 << 18)))
-		| (2 << 12) | (2 << 14) | (2 << 18);
+	/* Set up the SSP to communicate with the DAC, and initialize to 0 */
+	hw_dac_init();
 
 	/* ... and LDAC on the PWM peripheral */
 	LPC_PINCON->PINSEL4 |= (1 << 8);
@@ -222,23 +221,6 @@ void dac_init() {
 	/* Get the pin set up to produce a low LDAC puslse */
 	LPC_GPIO2->FIODIR |= (1 << 4);
 	LPC_GPIO2->FIOCLR = (1 << 4);
-
-	/* Turn on the SSP peripheral. */
-	LPC_SSP1->CR0 = 0xF | (1 << 6);	/* 16-bit, CPOL = 1; no prescale */
-	LPC_SSP1->CR1 = (1 << 1); /* Enable */
-	LPC_SSP1->CPSR = 4; /* Divide by 4 -> 24 MHz SPI clock */
-
-	/* Set all the DAC channels to zero except for X/Y, which default
-	 * to 0x800 (center). */
-	int i;
-	for (i = 0; i < 6; i++) {
-		LPC_SSP1->DR = (i << 12);
-	}
-	LPC_SSP1->DR = 0x6800;
-	LPC_SSP1->DR = 0x7800;
-
-	/* ... and then power it up. */
-	LPC_SSP1->DR = 0xC000;
 
 	/* The PWM peripheral is used to generate LDAC pulses. Set it up,
 	 * but hold it in reset until go time. */
@@ -255,12 +237,6 @@ void dac_init() {
 	/* Enable the write-to-DAC interrupt with the highest priority. */
 	NVIC_SetPriority(PWM1_IRQn, 0);
 	NVIC_EnableIRQ(PWM1_IRQn);
-
-	/* Set up the shutter output. */
-	LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_PIN);
-	LPC_GPIO2->FIODIR |= (1 << DAC_SHUTTER_PIN);
-	LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_EN_PIN);
-	LPC_GPIO2->FIODIR |= (1 << DAC_SHUTTER_EN_PIN);
 
 	dac_state = DAC_IDLE;
 	dac_count = 0;
