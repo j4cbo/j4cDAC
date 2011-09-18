@@ -64,8 +64,14 @@ static err_t do_send_resp(struct tcp_pcb *pcb, char resp, char cmd) {
 	response.command = cmd;
 	fill_status(&response.dac_status);
 
-	return tcp_write(pcb, &response, sizeof(response),
+	err_t ret = tcp_write(pcb, &response, sizeof(response),
 			      TCP_WRITE_FLAG_COPY);
+
+	if (ret != ERR_OK) {
+		return close_conn(pcb, CONNCLOSED_SENDFAIL, ret);
+	}
+
+	return tcp_output(pcb);
 }
 
 static int RV send_resp(struct tcp_pcb *pcb, char resp, char cmd, int len) {
@@ -380,12 +386,6 @@ err_t process_packet_FPV_tcp_recv(struct tcp_pcb * pcb, struct pbuf * pbuf,
 	/* Tell lwIP we're done with this packet. */
 	tcp_recved(pcb, pbuf->tot_len);
 	pbuf_free(pbuf);
-
-	/* We might have some output to send, too? */
-	err_t ret = tcp_output(pcb);
-	if (ret != ERR_OK) {
-		return close_conn(pcb, CONNCLOSED_SENDFAIL, ret);
-	}
 
 	return ERR_OK;
 }
