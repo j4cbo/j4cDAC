@@ -39,11 +39,12 @@
  * and HTTP. Everything else (OSC, ArtNet, status broadcasts...) is UDP.
  */
 #define MEMP_NUM_TCP_PCB_LISTEN	3
+#define MEMP_NUM_TCP_SEG 20
 
 #define TCP_MSS         1460
 #define TCP_WND		7500
 #define TCP_SND_BUF     (2 * TCP_MSS)
-#define TCP_SND_QUEUELEN 8
+#define TCP_SND_QUEUELEN 16
 
 #define LWIP_STATS 1
 #define LWIP_STATS_DISPLAY 1
