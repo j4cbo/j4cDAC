@@ -52,6 +52,28 @@ enum hw_board_rev hw_get_board_rev(void) {
 	}
 }
 
+/* hw_dac_zero_all_channels()
+ *
+ * Set all the DAC channels to zero except for X/Y, which default to 0x800
+ * (center).
+ *
+ * Channels 6 and 7 are the galvo axes on both hardware revs.
+ *
+ */
+void hw_dac_zero_all_channels(void) {
+	int i;
+	for (i = 0; i < 8; i++) {
+		hw_dac_write((i << 12) | (i > 5 ? 0x800 : 0));
+	}
+
+	/* Force an LDAC */
+	hw_dac_write(0xA002);
+}
+
+/* hw_dac_init()
+ *
+ * Initialize the DAC hardware and sets it to output 0.
+ */
 void hw_dac_init(void) {
 
 	/* Set up the SPI pins: SCLK, SYNC, DIN. */
@@ -64,20 +86,12 @@ void hw_dac_init(void) {
 	LPC_SSP1->CR1 = (1 << 1); /* Enable */
 	LPC_SSP1->CPSR = 4; /* Divide by 4 -> 24 MHz SPI clock */
 
-	/* Set all the DAC channels to zero except for X/Y, which default
-	 * to 0x800 (center). */
-	int i;
-	for (i = 0; i < 6; i++) {
-		hw_dac_write(i << 12);
-	}
-	hw_dac_write(0x6800);
-	hw_dac_write(0x7800);
+	hw_dac_zero_all_channels();
 
-	/* Force an initial data write, then power up the output buffers */
-	hw_dac_write(0xA002);
+	/* Power up the output buffers */
 	hw_dac_write(0xC000);
 
-	/* Set up the shutter output. */
+	/* Set up the shutter output */
 	LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_PIN);
 	LPC_GPIO2->FIODIR |= (1 << DAC_SHUTTER_PIN);
 	LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_EN_PIN);

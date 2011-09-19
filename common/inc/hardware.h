@@ -30,6 +30,7 @@ enum hw_board_rev {
 
 enum hw_board_rev hw_get_board_rev();
 void hw_dac_init(void);
+void hw_dac_zero_all_channels(void);
 
 static inline void __attribute__((always_inline, unused))
 hw_dac_write(uint16_t word) {

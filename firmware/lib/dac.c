@@ -294,18 +294,7 @@ void dac_stop(int flags) {
 	LPC_PINCON->PINSEL4 &= ~(3 << 8);
 
 	/* Clear out all the DAC channels. */
-	int i;
-	for (i = 0; i < 8; i++) {
-		while (!(LPC_SSP1->SR & SSP_SR_TFE));
-
-		/* Color channels get 0, but X and Y we write as 0x800, to
-		 * produce 0v out. */
-		LPC_SSP1->DR = (i << 12) | (i > 5 ? 0x800 : 0);
-	}
-
-	while (!(LPC_SSP1->SR & SSP_SR_TFE));
-	LPC_SSP1->DR = 0xA002;
-	while (!(LPC_SSP1->SR & SSP_SR_TFE));
+	hw_dac_zero_all_channels();
 
 	/* Give LDAC back to the PWM hardware */
 	LPC_PINCON->PINSEL4 |= (1 << 8);
