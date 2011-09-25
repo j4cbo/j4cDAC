@@ -50,7 +50,7 @@ CFLAGS += $(INCLUDES)
 # SRCS += net/http/httpd.c net/http/fs.c
 
 # LPCUSB
-BRD_SRCS += lib/lpcusb/usbhw_lpc.c lib/lpcusb/usbinit.c lib/lpcusb/usbstdreq.c \
+BRD_SRCS += lib/lpcusb/usbhw_lpc.c lib/lpcusb/usbinit.c ../common/lib/usbstdreq.c \
 	../common/lib/usbcontrol.c ../common/lib/usbhw_lpc.c lib/lpcusb/usbtest.c net/bpm.c
 
 APP_SRCS += net/point-stream.c net/broadcast.c net/sink.c net/osc.c \

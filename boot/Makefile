@@ -8,14 +8,15 @@ LDFLAGS = -Tlib/lpc17xx/lpc1758.lds -mcpu=cortex-m3 -mthumb -fwhole-program -gdw
 CFLAGS += -Ilib/lpc17xx
 SRCS += ../common/lib/core_cm3.c lib/lpc17xx/system_LPC17xx.c lib/lpc17xx/startup_LPC17xx.s \
 	lib/serial.c ../firmware/drivers/source/lpc17xx_uart.c ../firmware/drivers/source/lpc17xx_clkpwr.c \
-	../common/lib/hardware.c ../common/lib/usbhw_lpc.c
+	../common/lib/hardware.c
 
 # Mach printf. Much more lightweight than newlib's.
 SRCS += ../common/lib/vsnprintf.c minilib.c
 
 # LPCUSB
-SRCS += lib/lpcusb/usbhw_lpc.c lib/lpcusb/usbinit.c lib/lpcusb/usbstdreq.c \
-	../common/lib/usbcontrol.c
+SRCS += ../common/lib/usbstdreq.c ../common/lib/usbcontrol.c \
+	../common/lib/usbhw_lpc.c \
+	lib/lpcusb/usbhw_lpc.c lib/lpcusb/usbinit.c
 
 #SRCS += net/ether.c net/network.c net/mdio.c
 
