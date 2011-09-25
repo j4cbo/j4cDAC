@@ -37,6 +37,7 @@
 volatile uint32_t time;
 volatile uint32_t mtime;
 extern int f0ad_flag;
+extern const char build[];
 
 enum playback_source playback_src;
 int playback_source_flags;
@@ -180,7 +181,10 @@ int main(int argc, char **argv) {
 	LPC_GPIO1->FIOSET = (1 << 28);
 	LPC_GPIO1->FIODIR |= (1 << 29);
 
-	outputf("=== j4cDAC ===");
+	outputf("###############");
+	outputf("# Ether Dream #");
+	outputf("###############");
+	outputf("Firmware: %s", build);
 
 	outputf("skub_init()");
 	skub_init();

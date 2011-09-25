@@ -9,7 +9,7 @@ LDFLAGS = -Tlib/lpc17xx/lpc1758.lds -mcpu=cortex-m3 -mthumb -fwhole-program -Wl,
 CFLAGS += -Ilib/lpc17xx
 BRD_SRCS += ../common/lib/core_cm3.c lib/lpc17xx/system_LPC17xx.c lib/lpc17xx/startup_LPC17xx.s \
 	drivers/source/lpc17xx_clkpwr.c \
-	drivers/source/lpc17xx_uart.c lib/serial.c main.c
+	drivers/source/lpc17xx_uart.c lib/serial.c main.c ../common/lib/build_id.c
 
 # Mach printf. Much more lightweight than newlib's.
 APP_SRCS += ../common/lib/vsnprintf.c
@@ -70,6 +70,9 @@ pc: $(PC_SRCS) $(APP_SRCS)
 
 %.o: %.c
 	$(PREFIX)gcc $(CFLAGS) -c $< -o $@
+
+../common/lib/build_id.o: ../common/lib/build_id.c
+	$(PREFIX)gcc $(CFLAGS) -c $< -o $@ -DBUILDID=\"`git describe --dirty`\"
 
 %.o: %.s
 	$(PREFIX)gcc $(CFLAGS) -c $< -o $@
