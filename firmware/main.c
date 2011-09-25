@@ -170,27 +170,28 @@ char x[160] AHB0;
 
 int main(int argc, char **argv) __attribute__((noreturn));
 int main(int argc, char **argv) {
-	time = 0;
+	__disable_irq();
 
-	SysTick_Config(SystemCoreClock / 10000);
 	serial_init();
-
-	/* LEDs */
-	LPC_GPIO0->FIODIR |= (1 << 0);
-	LPC_GPIO1->FIODIR |= (1 << 28);
-	LPC_GPIO1->FIOSET = (1 << 28);
-	LPC_GPIO1->FIODIR |= (1 << 29);
 
 	outputf("###############");
 	outputf("# Ether Dream #");
 	outputf("###############");
 	outputf("Firmware: %s", build);
 
+	hw_get_board_rev();
+
+	outputf("led_init()");
+	led_init();
+
 	outputf("skub_init()");
 	skub_init();
 
 	outputf("lwip_init()");
 	lwip_init();
+
+	time = 0;
+	SysTick_Config(SystemCoreClock / 10000);
 
 	FPA_init();
 
