@@ -25,17 +25,8 @@
 	THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-// CodeRed - comment out this printf, as will use real one from stdio.h
-// to implement output via semihosting
+#include <serial.h>
 
-//int printf(const char *format, ...);
-//# include <stdio.h>
-
-//#ifdef _DEBUG
-#define DBG	outputf
-#define ASSERT(x)	if(!(x)){DBG("\nAssertion '%s' failed in %s:%s#%d!\n",#x,__FILE__,__FUNCTION__,__LINE__);while(1);}
-//#else
-//#define DBG(x ...)
-//#define ASSERT(x)
-//#endif
-
+//#define ASSERT(x)	if(!(x)){outputf("\nAssertion '%s' failed in %s:%s#%d!\n",#x,__FILE__,__FUNCTION__,__LINE__);while(1);}
+#define ASSERT(x)
+#define DBG(x ...)

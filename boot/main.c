@@ -35,6 +35,7 @@
 #include "usbdebug.h"
 #include "usboot_iap.h"
 #include "usbapi.h"
+#include "usbhw_lpc.h"
 #include "dfu.h"
 
 #define APP_START	0x4000
@@ -67,7 +68,7 @@ void SysTick_Handler(void) {
 #define DFU_GETSTATE	5
 #define DFU_ABORT	6
 
-static uint8_t abClassReqData[8];
+static uint8_t abClassReqData[64];
 
 static const uint8_t abDescriptors[] = {
 	/* Device */

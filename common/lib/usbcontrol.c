@@ -49,7 +49,6 @@
 */
 
 #include "usbdebug.h"
-
 #include "usbstruct.h"
 #include "usbapi.h"
 #include "usbhw_lpc.h"
@@ -85,7 +84,7 @@ static unsigned char				*apbDataStore[4] = {NULL, NULL, NULL, NULL};
 
 	@return TRUE if the request was handles successfully
  */
-int __attribute__((noinline)) FPA_usb_reqhdlr(TSetupPacket *pSetup, int *piLen, unsigned char **ppbData)
+static int /* __attribute__((noinline)) */ FPA_usb_reqhdlr(TSetupPacket *pSetup, int *piLen, unsigned char **ppbData)
 {
 	TFnHandleRequest *pfnHandler;
 	int iType;

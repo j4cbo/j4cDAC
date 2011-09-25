@@ -46,6 +46,7 @@
 #include <minilib.h>
 #include "usbdebug.h"
 #include "usbstruct.h"
+#include "usbhw_lpc.h"
 #include "usbapi.h"
 
 #define MAX_DESC_HANDLERS	4		/**< device, interface, endpoint, other */
@@ -395,7 +396,7 @@ static int HandleStdEndPointReq(TSetupPacket	*pSetup, int *piLen, unsigned char 
 
 	@return TRUE if the request was handled successfully
  */
-int USBHandleStandardRequest(TSetupPacket	*pSetup, int *piLen, unsigned char **ppbData)
+int USBHandleStandardRequest_FPV_usb_reqhdlr(TSetupPacket	*pSetup, int *piLen, unsigned char **ppbData)
 {
 	// try the custom request handler first
 	if ((pfnHandleCustomReq != NULL) && pfnHandleCustomReq(pSetup, piLen, ppbData)) {

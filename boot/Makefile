@@ -1,7 +1,7 @@
 PREFIX = arm-none-eabi-
 
 CFLAGS = -Iinc -Ilib/lpc17xx -I../firmware/drivers/include -I../common/inc -fno-common -mcpu=cortex-m3 -mthumb -Os -g -Inet
-CFLAGS += -Wall -Ilib/lpcusb -ffunction-sections -fdata-sections -fshort-enums -gdwarf-2 -gstrict-dwarf -Wl,--gc-sections -nostdlib -nostdinc -Werror
+CFLAGS += -Wall -ffunction-sections -fdata-sections -fshort-enums -gdwarf-2 -gstrict-dwarf -Wl,--gc-sections -nostdlib -nostdinc -Werror
 LDFLAGS = -Tlib/lpc17xx/lpc1758.lds -mcpu=cortex-m3 -mthumb -fwhole-program -gdwarf-2 -gstrict-dwarf -Wl,-Map=boot.map -Wl,--gc-sections -nostdlib -nostdinc
 
 # Cortex-M3 support code
@@ -15,7 +15,7 @@ SRCS += ../common/lib/vsnprintf.c minilib.c
 
 # LPCUSB
 SRCS += lib/lpcusb/usbhw_lpc.c lib/lpcusb/usbinit.c lib/lpcusb/usbstdreq.c \
-	lib/lpcusb/usbcontrol.c
+	../common/lib/usbcontrol.c
 
 #SRCS += net/ether.c net/network.c net/mdio.c
 
