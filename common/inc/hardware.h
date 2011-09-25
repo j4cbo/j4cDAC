@@ -28,14 +28,23 @@ enum hw_board_rev {
 	HW_REV_MP1 = 1
 };
 
-enum hw_board_rev hw_get_board_rev();
+extern enum hw_board_rev hw_board_rev;
+
+void hw_get_board_rev();
 void hw_dac_init(void);
 void hw_dac_zero_all_channels(void);
+
+void led_set_frontled(int state);
+void led_set_backled(int state);
+void led_init(void);
 
 static inline void __attribute__((always_inline, unused))
 hw_dac_write(uint16_t word) {
 	while (!(LPC_SSP1->SR & SSPnSR_Transmit_Not_Full));
 	LPC_SSP1->DR = word;
 }
+
+#define FORCE_BOOTLOAD_FLAG	(*(volatile uint32_t *)0x20083FFC)
+#define FORCE_BOOTLOAD_VALUE	0xF0ADF0AD
 
 #endif

@@ -30,13 +30,13 @@ void dump_state(char *out, int len) {
 
 		if (osc->slave_multiplier >= 0) {
 			int mul = get_mul(osc->slave_multiplier);
-			seclen = snprintf(out, len, "%s:%d:%d ",
+			seclen = snprintf(out, len, "%s:%d:%lu ",
 				osc->name,
 				osc->slave_multiplier,
 				(osc->pos - (osc_master.pos * mul))
 			);
 		} else {
-			seclen = snprintf(out, len, "%s:%d ",
+			seclen = snprintf(out, len, "%s:%lu ",
 				osc->name,
 				osc->freq
 			);
@@ -52,7 +52,7 @@ void dump_state(char *out, int len) {
 	param_t * const *param = params;
 	while (*param) {
 		param_t *p = *param;
-		int seclen = snprintf(out, len, "%s:%d ", p->name, p->value);
+		int seclen = snprintf(out, len, "%s:%lu ", p->name, p->value);
 		if (seclen >= len) return;
 		len -= seclen;
 		out += seclen;

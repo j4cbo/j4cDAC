@@ -69,5 +69,5 @@ void hexdump(const char *data, int len) {
 }
 
 void serdump(const char *c, int len) {
-	UART_Send(DEBUG_UART, c, len, BLOCKING);
+	UART_Send(DEBUG_UART, (const uint8_t *)c, len, BLOCKING);
 }

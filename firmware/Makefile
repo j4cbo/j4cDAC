@@ -2,7 +2,7 @@ PREFIX = arm-none-eabi-
 
 INCLUDES = -Iinc -I../common/inc -Ilib/lpc17xx -Idrivers/include -I../common
 CFLAGS += -fno-common -mcpu=cortex-m3 -mthumb -Os -g
-CFLAGS += -Wall -Ilib/lpcusb -fdata-sections -fshort-enums
+CFLAGS += -Wall -Werror -Ilib/lpcusb -fdata-sections -fshort-enums
 LDFLAGS = -Tlib/lpc17xx/lpc1758.lds -mcpu=cortex-m3 -mthumb -fwhole-program -Wl,-Map=j4cDAC.map
 
 # Cortex-M3 support code
@@ -51,7 +51,7 @@ CFLAGS += $(INCLUDES)
 
 # LPCUSB
 BRD_SRCS += lib/lpcusb/usbhw_lpc.c lib/lpcusb/usbinit.c lib/lpcusb/usbstdreq.c \
-	lib/lpcusb/usbcontrol.c lib/lpcusb/usbtest.c net/bpm.c
+	lib/lpcusb/usbcontrol.c ../common/lib/usbhw_lpc.c lib/lpcusb/usbtest.c net/bpm.c
 
 APP_SRCS += net/point-stream.c net/broadcast.c net/sink.c net/osc.c \
 	net/ilda-osc.c net/correction-osc.c lib/transform.c

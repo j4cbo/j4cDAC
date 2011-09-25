@@ -513,11 +513,11 @@ uint8_t UART_ReceiveByte(LPC_UART_TypeDef* UARTx)
  * Note: when using UART in BLOCKING mode, a time-out condition is used
  * via defined symbol UART_BLOCKING_TIMEOUT.
  **********************************************************************/
-uint32_t UART_Send(LPC_UART_TypeDef *UARTx, uint8_t *txbuf,
+uint32_t UART_Send(LPC_UART_TypeDef *UARTx, const uint8_t *txbuf,
 		uint32_t buflen, TRANSFER_BLOCK_Type flag)
 {
 	uint32_t bToSend, bSent, timeOut, fifo_cnt;
-	uint8_t *pChar = txbuf;
+	const uint8_t *pChar = txbuf;
 
 	bToSend = buflen;
 

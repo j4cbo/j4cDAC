@@ -62,23 +62,6 @@
 #define INACK_BI		(1<<5)			/**< interrupt on NACK for bulk in */
 #define INACK_BO		(1<<6)			/**< interrupt on NACK for bulk out */
 
-int USBHwInit			(void);
-void USBHwISR			(void);
-
-void USBHwNakIntEnable	(unsigned char bIntBits);
-
-void USBHwConnect		(int fConnect);
-
-void USBHwSetAddress	(unsigned char bAddr);
-void USBHwConfigDevice	(int fConfigured);
-
-// endpoint operations
-void USBHwEPConfig		(unsigned char bEP, unsigned short wMaxPacketSize);
-int  USBHwEPRead		(unsigned char bEP, unsigned char *pbBuf, int iMaxLen);
-int	 USBHwEPWrite		(unsigned char bEP, unsigned char *pbBuf, int iLen);
-void USBHwEPStall		(unsigned char bEP, int fStall);
-unsigned char   USBHwEPGetStatus	(unsigned char bEP);
-
 /** Endpoint interrupt handler callback */
 typedef void (TFnEPIntHandler)	(unsigned char bEP, unsigned char bEPStatus);
 void USBHwRegisterEPIntHandler	(unsigned char bEP, TFnEPIntHandler *pfnHandler);

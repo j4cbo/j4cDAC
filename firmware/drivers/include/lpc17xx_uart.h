@@ -582,7 +582,7 @@ void UART_ConfigStructInit(UART_CFG_Type *UART_InitStruct);
 /* UART Send/Receive functions -------------------------------------------------*/
 void UART_SendByte(LPC_UART_TypeDef* UARTx, uint8_t Data);
 uint8_t UART_ReceiveByte(LPC_UART_TypeDef* UARTx);
-uint32_t UART_Send(LPC_UART_TypeDef *UARTx, uint8_t *txbuf,
+uint32_t UART_Send(LPC_UART_TypeDef *UARTx, const uint8_t *txbuf,
 		uint32_t buflen, TRANSFER_BLOCK_Type flag);
 uint32_t UART_Receive(LPC_UART_TypeDef *UARTx, uint8_t *rxbuf, \
 		uint32_t buflen, TRANSFER_BLOCK_Type flag);

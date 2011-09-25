@@ -30,6 +30,7 @@
 */
 
 #include "usbstruct.h"		// for TSetupPacket
+#include <usbhw_lpc.h>
 
 /*************************************************************************
 	USB configuration
@@ -61,16 +62,6 @@
 #define INACK_IO		(1<<4)			/**< interrupt on NACK for interrupt out */
 #define INACK_BI		(1<<5)			/**< interrupt on NACK for bulk in */
 #define INACK_BO		(1<<6)			/**< interrupt on NACK for bulk out */
-
-int USBHwInit			(void);
-void USBHwISR			(void);
-
-void USBHwNakIntEnable	(unsigned char bIntBits);
-
-void USBHwConnect		(int fConnect);
-
-void USBHwSetAddress	(unsigned char bAddr);
-void USBHwConfigDevice	(int fConfigured);
 
 // endpoint operations
 void USBHwEPConfig		(unsigned char bEP, unsigned short wMaxPacketSize);

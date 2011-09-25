@@ -24,7 +24,9 @@
 #define DAC_SHUTTER_PIN         6
 #define DAC_SHUTTER_EN_PIN      7
 
-enum hw_board_rev hw_get_board_rev(void) {
+enum hw_board_rev hw_board_rev;
+
+void hw_get_board_rev(void) {
 
 	/* On rev. 0 hardware, P1[31] is connected to P2[10]. In rev. 1,
 	 * P1[31] is wired to PHY_RESET instead. This means that we have
@@ -46,9 +48,9 @@ enum hw_board_rev hw_get_board_rev(void) {
 
 	/* P2[10] low = rev. 0 board. P2[10] high = MP board. */
 	if (LPC_GPIO2->FIOPIN & (1 << 10)) {
-		return HW_REV_MP1;
+		hw_board_rev = HW_REV_MP1;
 	} else {
-		return HW_REV_PROTO;
+		hw_board_rev = HW_REV_PROTO;
 	}
 }
 
@@ -96,4 +98,46 @@ void hw_dac_init(void) {
 	LPC_GPIO2->FIODIR |= (1 << DAC_SHUTTER_PIN);
 	LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_EN_PIN);
 	LPC_GPIO2->FIODIR |= (1 << DAC_SHUTTER_EN_PIN);
+}
+
+/* led_set_frontled()
+ *
+ * Set the state of the front (top, on proto) LED.
+ */
+void led_set_frontled(int state) {
+	if (hw_board_rev == HW_REV_PROTO) {
+		if (state) LPC_GPIO1->FIOSET = (1 << 29);
+		else LPC_GPIO1->FIOCLR = (1 << 29);
+	} else {
+		if (state) LPC_GPIO0->FIOSET = (1 << 22);
+		else LPC_GPIO0->FIOCLR = (1 << 22);
+	}
+}
+
+/* led_set_backled()
+ *
+ * Set the state of the back (bottom, on proto) LED.
+ */
+void led_set_backled(int state) {
+	if (hw_board_rev == HW_REV_PROTO) {
+		if (state) LPC_GPIO0->FIOSET = (1 << 0);
+		else LPC_GPIO0->FIOCLR = (1 << 0);
+	} else {
+		if (state) LPC_GPIO2->FIOSET = (1 << 5);
+		else LPC_GPIO2->FIOCLR = (1 << 5);
+	}
+}
+
+/* led_init()
+ *
+ * Initialize the LEDs.
+ */
+void led_init(void) {
+	if (hw_board_rev == HW_REV_PROTO) {
+		LPC_GPIO1->FIODIR |= (1 << 29);
+		LPC_GPIO0->FIODIR |= (1 << 0);
+	} else {
+		LPC_GPIO0->FIODIR |= (1 << 22);
+		LPC_GPIO2->FIODIR |= (1 << 5);
+	}
 }

@@ -51,6 +51,7 @@
 #include <tables.h>
 
 #include "usbapi.h"
+#include "usbhw_lpc.h"
 #include "usbdebug.h"
 #include "usbstruct.h"
 

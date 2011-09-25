@@ -52,6 +52,8 @@
 
 #include "usbstruct.h"
 #include "usbapi.h"
+#include "usbhw_lpc.h"
+#include <serial.h>
 
 
 

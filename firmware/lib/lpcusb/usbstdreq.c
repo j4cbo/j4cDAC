@@ -46,6 +46,8 @@
 #include "usbdebug.h"
 #include "usbstruct.h"
 #include "usbapi.h"
+#include "usbhw_lpc.h"
+#include <serial.h>
 
 #define MAX_DESC_HANDLERS	4		/**< device, interface, endpoint, other */
 
@@ -69,8 +71,6 @@
 
 /** Currently selected configuration */
 static unsigned char				bConfiguration = 0;
-/** Installed custom request handler */
-static TFnHandleRequest	*pfnHandleCustomReq = NULL;
 /** Pointer to registered descriptors */
 static const unsigned char			*pabDescrip = NULL;
 

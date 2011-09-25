@@ -94,7 +94,7 @@ void get_next_point(dac_point_t *p) {
 	case 2:
 		if (osc_blank.freq && osc_blank.pos > 2000000000) blank(p);
 	case 3:
-		if (osc_blank.freq && osc_blank.pos > 3000000000) blank(p);
+		if (osc_blank.freq && osc_blank.pos > 3000000000U) blank(p);
 	default:
 		break;
 	}

@@ -41,15 +41,14 @@
 
 volatile uint32_t time = 0;
 volatile int st_status;
-enum hw_board_rev board_rev;
 
 void SysTick_Handler(void) {
 	if (time % 500 == 0) {
-		LPC_GPIO0->FIOSET = 1;
-		LPC_GPIO1->FIOCLR = (1 << 29);
+		led_set_frontled(1);
+		led_set_backled(0);
 	} else if (time % 500 == 50) {
-		LPC_GPIO0->FIOCLR = 1;
-		LPC_GPIO1->FIOSET = (1 << 29);
+		led_set_frontled(0);
+		led_set_backled(1);
 	}
 	time++;
 }
@@ -282,6 +281,12 @@ void enter_application() {
 
 	outputf("Entering application...");
 
+	__enable_irq();
+
+	/* Delay a bit */
+	uint32_t start_time = time;
+	while (time < (start_time + 10));
+
 	/*
 	 * Return CPU to reset state
 	 */
@@ -310,15 +315,15 @@ int main(void)
 	outputf("# Ether Dream BOOTLOADER #");
 	outputf("##########################");
 
-	board_rev = hw_get_board_rev();
-	outputf("Hardware Revision: %d", board_rev);
+	hw_get_board_rev();
+	outputf("Hardware Revision: %d", hw_board_rev);
 
 	int pin_held;
 
 	int app_is_ok = app_ok();
 
 	/* Determine whether we're in force-bootloader mdoe */
-	if (board_rev == 0) {
+	if (hw_board_rev == 0) {
 		/* On prototype boards, force-bootloader is done by shorting
 		 * P1[26] (pin 7 on the 10-pin expansion header) to ground
 		 * (pin 9). */
@@ -343,14 +348,10 @@ int main(void)
 		pin_held = (LPC_GPIO0->FIOPIN & (1 << 18)) ? 0 : 1;
 	}
 
-	outputf("Force bootloader: %d; app integrity: %d", pin_held, app_is_ok);
+	int force = (FORCE_BOOTLOAD_FLAG == FORCE_BOOTLOAD_VALUE);
+	FORCE_BOOTLOAD_FLAG = 0;
 
-	/* Check whether we need to enter application mode */
-	if (!pin_held && app_is_ok) {
-		enter_application();
-	}
-
-	outputf("Entering bootloader");
+	outputf("Force bootloader: %d/%d; app integrity: %d", force, pin_held, app_is_ok);
 
 	/* Disable all interrupts that we don't want */
 	NVIC->ICER[0] = -1;
@@ -361,10 +362,15 @@ int main(void)
 	/* Move interrupts into RAM */
 	SCB->VTOR = 0x10000000;
 
+	/* Check whether we need to enter application mode */
+	if (!pin_held && !force && app_is_ok) {
+		enter_application();
+	}
+
+	outputf("Entering bootloader");
+
 	/* Set up LEDs */
-	LPC_GPIO0->FIODIR |= (1 << 0);
-	LPC_GPIO1->FIODIR |= (1 << 29);
-	LPC_GPIO1->FIODIR |= (1 << 25);
+	led_init();
 
 	// initialise stack
 	usb_init();
@@ -385,6 +391,10 @@ int main(void)
         NVIC_EnableIRQ( USB_IRQn );
 
 	__enable_irq();
+
+	/* Delay a bit so that the host processes our disconnect */
+	uint32_t start_time = time;
+	while (time < (start_time + 10));
 
 	// connect to bus
 	USBHwConnect(TRUE);

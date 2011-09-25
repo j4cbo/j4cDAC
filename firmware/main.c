@@ -31,6 +31,7 @@
 #include <tables.h>
 #include <playback.h>
 #include <dac.h>
+#include <hardware.h>
 #include <ilda-player.h>
 
 volatile uint32_t time;
@@ -252,8 +253,7 @@ int main(int argc, char **argv) {
 			/* Re-enter the bootloader. */
 			outputf("Reentering bootloader...");
 			dac_stop(0);
-			LPC_GPIO2->FIODIR |= (1 << 10);
-			LPC_GPIO2->FIOPIN |= (1 << 10);
+			FORCE_BOOTLOAD_FLAG = FORCE_BOOTLOAD_VALUE;
 			__disable_irq();
 			reenter_bootloader();
 		}

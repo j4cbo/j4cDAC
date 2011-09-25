@@ -33,8 +33,9 @@
 
 #include "usbdebug.h"
 #include "usbapi.h"
+#include "usbhw_lpc.h"
 #include <tables.h>
-
+#include <serial.h>
 
 /** data storage area for standard requests */
 static unsigned char	abStdReqData[8];
