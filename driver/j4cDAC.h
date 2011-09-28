@@ -35,29 +35,29 @@ J4CDAC_API bool __stdcall DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPV
 
 /* EasyLase API */
 J4CDAC_API int __stdcall EasyLaseGetCardNum(void);
-J4CDAC_API bool __stdcall EasyLaseWriteFrame(const int CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t PPS);
-J4CDAC_API bool __stdcall EasyLaseWriteFrameNR(const int CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t PPS, uint16_t Reps);
-J4CDAC_API int __stdcall EasyLaseGetLastError(const int CardNum);
-J4CDAC_API int __stdcall EasyLaseGetStatus(const int CardNum);
-J4CDAC_API bool __stdcall EasyLaseStop(const int CardNum);
+J4CDAC_API bool __stdcall EasyLaseWriteFrame(const int *CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t PPS);
+J4CDAC_API bool __stdcall EasyLaseWriteFrameNR(const int *CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t PPS, uint16_t Reps);
+J4CDAC_API int __stdcall EasyLaseGetLastError(const int *CardNum);
+J4CDAC_API int __stdcall EasyLaseGetStatus(const int *CardNum);
+J4CDAC_API bool __stdcall EasyLaseStop(const int *CardNum);
 J4CDAC_API bool __stdcall EasyLaseClose(void);
-J4CDAC_API bool __stdcall EasyLaseWriteDMX(const int CardNum, unsigned char * data);
-J4CDAC_API bool __stdcall EasyLaseGetDMX(const int CardNum, unsigned char * data);
-J4CDAC_API bool __stdcall EasyLaseDMXOut(const int CardNum, unsigned char * data, uint16_t Baseaddress, uint16_t ChannelCount);
-J4CDAC_API bool __stdcall EasyLaseDMXIn(const int CardNum, unsigned char * data, uint16_t Baseaddress, uint16_t ChannelCount);
-J4CDAC_API bool __stdcall EasyLaseWriteTTL(const int CardNum, uint16_t TTLValue);
-J4CDAC_API bool __stdcall EasyLaseGetDebugInfo(const int CardNum, void * data, uint16_t count);
+J4CDAC_API bool __stdcall EasyLaseWriteDMX(const int *CardNum, unsigned char * data);
+J4CDAC_API bool __stdcall EasyLaseGetDMX(const int *CardNum, unsigned char * data);
+J4CDAC_API bool __stdcall EasyLaseDMXOut(const int *CardNum, unsigned char * data, uint16_t Baseaddress, uint16_t ChannelCount);
+J4CDAC_API bool __stdcall EasyLaseDMXIn(const int *CardNum, unsigned char * data, uint16_t Baseaddress, uint16_t ChannelCount);
+J4CDAC_API bool __stdcall EasyLaseWriteTTL(const int *CardNum, uint16_t TTLValue);
+J4CDAC_API bool __stdcall EasyLaseGetDebugInfo(const int *CardNum, void * data, uint16_t count);
 
-J4CDAC_API int __stdcall EasyLaseSend(const int CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t KPPS);
-J4CDAC_API int __stdcall EasyLaseWriteFrameUncompressed(const int CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t PPS);
+J4CDAC_API int __stdcall EasyLaseSend(const int *CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t KPPS);
+J4CDAC_API int __stdcall EasyLaseWriteFrameUncompressed(const int *CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t PPS);
 J4CDAC_API int __stdcall EasyLaseReConnect();
 
 /* EzAudDac API */
 J4CDAC_API int __stdcall EzAudDacGetCardNum(void);
-J4CDAC_API bool __stdcall EzAudDacWriteFrame(const int CardNum, const struct EAD_Pnt_s* data, int Bytes, uint16_t PPS);
-J4CDAC_API bool __stdcall EzAudDacWriteFrameNR(const int CardNum, const struct EAD_Pnt_s* data, int Bytes, uint16_t PPS, uint16_t Reps);
-J4CDAC_API int __stdcall EzAudDacGetStatus(const int CardNum);
-J4CDAC_API bool __stdcall EzAudDacStop(const int CardNum);
+J4CDAC_API bool __stdcall EzAudDacWriteFrame(const int *CardNum, const struct EAD_Pnt_s* data, int Bytes, uint16_t PPS);
+J4CDAC_API bool __stdcall EzAudDacWriteFrameNR(const int *CardNum, const struct EAD_Pnt_s* data, int Bytes, uint16_t PPS, uint16_t Reps);
+J4CDAC_API int __stdcall EzAudDacGetStatus(const int *CardNum);
+J4CDAC_API bool __stdcall EzAudDacStop(const int *CardNum);
 J4CDAC_API bool __stdcall EzAudDacClose(void);
 
 /* Common */

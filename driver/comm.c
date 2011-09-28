@@ -29,7 +29,6 @@
 #include "dac.h"
 
 #define DEFAULT_TIMEOUT	2000000
-void flog (char *fmt, ...);
 
 static struct dac_response dac_resp;
 static int dac_num_outstanding_acks;
@@ -292,7 +291,7 @@ int dac_sendall(dac_conn_t *conn, void *data, int len) {
 		if (res < 0) {
 			return -1;
 		} else if (res == 0) {
-			flog("write timed out");
+			flog("write timed out\n");
 		}
 
 		res = send(conn->sock, data, len, 0);
@@ -395,8 +394,6 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 			break;
 		}
 	}
-
-	flog("L: done\n");
 
 	return npoints;
 }

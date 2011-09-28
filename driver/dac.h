@@ -21,12 +21,65 @@
 
 #include <protocol.h>
 
+#define BUFFER_POINTS_PER_FRAME 16000
+#define BUFFER_NFRAMES          2
+
+/* Network connection
+ */
 typedef struct dac_conn_s {
 	SOCKET sock;
 	char buf[1024];
 	int size;
 } dac_conn_t;
 
+/* Double buffer
+ */
+struct buffer_item {
+	struct dac_point data[BUFFER_POINTS_PER_FRAME];
+	int points;
+	int pps;
+	int repeatcount;
+	int idx;
+};
+
+/* DAC
+ */
+typedef struct dac_s {
+	CRITICAL_SECTION buffer_lock;
+	struct buffer_item buffer[BUFFER_NFRAMES];
+	int buffer_read, buffer_fullness;
+
+	HANDLE workerthread;
+	HANDLE loop_go;
+	
+	struct in_addr addr;
+	dac_conn_t conn;
+
+	enum {
+		ST_DISCONNECTED,
+		ST_READY,
+		ST_RUNNING,
+		ST_BROKEN,
+		ST_SHUTDOWN
+	} state;
+
+	struct dac_s * next;
+} dac_t;
+
+void flog (char *fmt, ...);
+
+/* dac.c */
+int dac_init(dac_t *d);
+int dac_open_connection(dac_t *d);
+dac_t *dac_get(int);
+struct buffer_item *buf_get_write(dac_t *d);
+void buf_advance_write(dac_t *d);
+int dac_get_status(dac_t *d);
+int do_write_frame(dac_t *d, const void * data, int bytes, int pps,
+	int reps, int (*convert)(struct buffer_item *, const void *, int));
+
+/* comm.c */
+void log_socket_error(const char *call);
 int dac_connect(dac_conn_t *conn, const char *host, const char *port);
 int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rate);
 const struct dac_status * dac_last_status(void);

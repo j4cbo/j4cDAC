@@ -35,40 +35,47 @@
 #include "dac.h"
 #include <iniparser.h>
 
-#define BUFFER_POINTS_PER_FRAME	16000
-#define BUFFER_NFRAMES		2
-
 #define EXPORT __declspec(dllexport)
-
-/* Double buffer
- */
-struct buffer_item {
-	struct dac_point data[BUFFER_POINTS_PER_FRAME];
-	int points;
-	int pps;
-	int repeatcount;
-	int idx;
-};
-
 
 /* Globals
  */
-enum {
-	ST_UNINITIALIZED,
-	ST_READY,
-	ST_RUNNING,
-	ST_BROKEN,
-	ST_SHUTDOWN
-} state = ST_UNINITIALIZED;
 
-static CRITICAL_SECTION buffer_lock;
-static HANDLE loop_go;
+static CRITICAL_SECTION dac_list_lock;
+dac_t * dac_list = NULL;
 
-struct buffer_item dac_buffer[BUFFER_NFRAMES];
-int dac_buffer_read = 0, dac_buffer_fullness = 0;
-HANDLE ThisDll = NULL, workerthread = NULL;
+HANDLE ThisDll = NULL, workerthread = NULL, watcherthread = NULL;
 FILE* fp = NULL;
-static dac_conn_t conn;
+char dll_fn[MAX_PATH] = { 0 };
+int fucked = 0;
+struct timeval load_time;
+
+
+/* Subtract the struct timeval values x and y, storing the result in result.
+ * Return 1 if the difference is negative, otherwise 0.
+ *
+ * From the glibc manual. */
+     
+int timeval_subtract (struct timeval *res, struct timeval *x,
+		struct timeval *y) {
+	/* Perform the carry for the later subtraction by updating y. */
+	if (x->tv_usec < y->tv_usec) {
+		int nsec = (y->tv_usec - x->tv_usec) / 1000000 + 1;
+		y->tv_usec -= 1000000 * nsec;
+		y->tv_sec += nsec;
+	}
+	if (x->tv_usec - y->tv_usec > 1000000) {
+		int nsec = (x->tv_usec - y->tv_usec) / 1000000;
+		y->tv_usec += 1000000 * nsec;
+		y->tv_sec -= nsec;
+	}
+
+	/* Compute the time remaining. tv_usec is certainly positive. */
+	res->tv_sec = x->tv_sec - y->tv_sec;
+	res->tv_usec = x->tv_usec - y->tv_usec;
+
+	/* Return 1 if result is negative. */
+	return x->tv_sec < y->tv_sec;
+}
 
 /* Logging
  */
@@ -81,28 +88,81 @@ void flog (char *fmt, ...) {
 	fprintf(fp, "[%ld.%06ld] ", tv.tv_sec, tv.tv_usec);
 	vfprintf(fp, fmt, args);
 	va_end(args);
-	//fflush(fp);
+	fflush(fp);
 }
 
-/* Buffer access
- */
-struct buffer_item *buf_get_write() {
-	EnterCriticalSection(&buffer_lock);
-	int write = (dac_buffer_read + dac_buffer_fullness) % BUFFER_NFRAMES;
-	LeaveCriticalSection(&buffer_lock);
-
-	flog("M: Writing to index %d\n", write);
-
-	return &dac_buffer[write];
+void dac_list_insert(dac_t *d) {
+	EnterCriticalSection(&dac_list_lock);
+	d->next = dac_list;
+	dac_list = d;
+	LeaveCriticalSection(&dac_list_lock);
 }
 
-void buf_advance_write() {
-	EnterCriticalSection(&buffer_lock);
-	dac_buffer_fullness++;
-	if (state == ST_READY)
-		SetEvent(loop_go);
-	state = ST_RUNNING;
-	LeaveCriticalSection(&buffer_lock);
+unsigned __stdcall FindDACs(void *_bogus) {
+	SOCKET sock;
+
+	sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sock == INVALID_SOCKET) {
+		log_socket_error("socket");
+		return 1;
+	}
+
+	struct sockaddr_in addr;
+	memset(&addr, 0, sizeof(addr));
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(7654);
+	addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+		log_socket_error("bind");
+		return 1;
+	}
+
+	flog("_: listening for DACs...\n");
+
+	while(1) {
+		struct sockaddr_in src;
+		struct dac_broadcast buf;
+		int srclen = sizeof(src);
+		int len = recvfrom(sock, (char *)&buf, sizeof(buf), 0, (struct sockaddr *)&src, &srclen);
+		if (len < 0) {
+			log_socket_error("recvfrom");
+			return 1;
+		}
+
+		/* See if this is a DAC we already knew about */
+		EnterCriticalSection(&dac_list_lock);
+		dac_t *p = dac_list;
+		while (p) {
+			if (p->addr.s_addr == src.sin_addr.s_addr) break;
+			p = p->next;
+		}
+
+		if (p && (p->addr.s_addr == src.sin_addr.s_addr)) {
+			LeaveCriticalSection(&dac_list_lock);
+			continue;
+		}
+
+		LeaveCriticalSection(&dac_list_lock);
+
+		/* Make a new DAC entry */
+		dac_t * new_dac = malloc(sizeof(dac_t));
+		if (!new_dac) {
+			flog("!! malloc(sizeof(dac_t)) failed\n");
+			continue;
+		}
+		dac_init(new_dac);
+		new_dac->addr = src.sin_addr;
+
+		char host[40];
+		strncpy(host, inet_ntoa(src.sin_addr), sizeof(host) - 1);
+		host[sizeof(host) - 1] = 0;
+
+		flog("_: Found new DAC: %s\n", inet_ntoa(src.sin_addr));
+
+		new_dac->state = ST_DISCONNECTED;
+		dac_list_insert(new_dac);
+	}
 }
 
 /* Data conversion functions
@@ -159,237 +219,52 @@ int EzAudDac_convert_data(struct buffer_item *buf, const void *vdata, int bytes)
 	return points;
 }
 
-
 /* Stub DllMain function.
  */ 
 bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 	ThisDll = hModule;
+
+	fucked = 0;
+
 	if (reason == DLL_PROCESS_ATTACH) {
-		InitializeCriticalSection(&buffer_lock);
-	} else if (reason == DLL_PROCESS_DETACH) {
-		DeleteCriticalSection(&buffer_lock);
-	}
-	return 1;
-}
+		GetModuleFileName((HMODULE)ThisDll, dll_fn, sizeof(dll_fn)-1);
+		PathRemoveFileSpec(dll_fn);
 
-/* Write a frame.
- */
+		char fn[MAX_PATH];
 
-bool do_write_frame(const int card_num, const void * data, int bytes, int pps,
-	int reps, int (*convert)(struct buffer_item *, const void *, int)) {
-
-	int points = convert(NULL, NULL, bytes);
-
-	if (reps == ((uint16_t) -1))
-		reps = -1;
-
-	/* If not ready for a new frame, bail */
-	if (EzAudDacGetStatus(card_num) != GET_STATUS_READY) {
-		flog("M: NOT READY: %d points, %d reps\n", points, reps);
-		return 0;
-	}
-
-	/* Ignore 0-repeat frames */
-	if (!reps)
-		return 1;
-
-	int internal_reps = 250 / points;
-	char * bigdata = NULL;
-	if (internal_reps) {
-		bigdata = malloc(bytes * internal_reps);
-		int i;
-		for (i = 0; i < internal_reps; i++) {
-			memcpy(bigdata + i*bytes, data, bytes);
-		}
-		bytes *= internal_reps;
-		data = bigdata;
-	}
-
-	flog("M: Writing: %d/%d points, %d reps\n",
-		points, convert(NULL, NULL, bytes), reps);
-
-	struct buffer_item *next = buf_get_write();
-	convert(next, data, bytes);
-	next->pps = pps;
-	next->repeatcount = reps;
-
-	buf_advance_write();
-
-	if (bigdata) free(bigdata);
-
-	return 1;
-}
-
-bool __stdcall EzAudDacWriteFrameNR(const int CardNum, const struct EAD_Pnt_s* data, int Bytes, uint16_t PPS, uint16_t Reps){
-	return do_write_frame(CardNum, data, Bytes,
-		PPS, Reps, EzAudDac_convert_data);
-}
-
-bool __stdcall EzAudDacWriteFrame(const int CardNum, const struct EAD_Pnt_s* data, int Bytes, uint16_t PPS){
-	return EzAudDacWriteFrameNR(CardNum, data, Bytes, PPS, -1);
-}
-
-EXPORT bool __stdcall EasyLaseWriteFrameNR(const int CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t PPS, uint16_t Reps){
-	return do_write_frame(CardNum, data, Bytes,
-		PPS, Reps, EasyLase_convert_data);
-}
-
-EXPORT bool __stdcall EasyLaseWriteFrame(const int CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t PPS){
-	return EasyLaseWriteFrameNR(CardNum, data, Bytes, PPS, -1);
-}
-
-/* Get the output status.
- */
-EXPORT int __stdcall EzAudDacGetStatus(const int CardNum){
-	EnterCriticalSection(&buffer_lock);
-	int fullness = dac_buffer_fullness;
-	LeaveCriticalSection(&buffer_lock);
-
-	if (fullness == BUFFER_NFRAMES) {
-		flog("M: bouncing\n");
-		Sleep(1);
-		return GET_STATUS_BUSY;
-	} else {
-		return GET_STATUS_READY;
-	}
-}
-
-#include <locale.h>
-
-// This is the buffer filling thread for WriteFrame() and WriteFrameNR()
-unsigned __stdcall LoopUpdate(void *x){
-
-	SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
-
-	DWORD pc = GetPriorityClass(GetCurrentProcess());
-	flog("Process priority class: %d\n", pc);
-	if (!pc) flog("Error: %d\n", GetLastError());
-
-	int res;
-	res = SetThreadPriority(GetCurrentThread, THREAD_PRIORITY_TIME_CRITICAL);
-	flog("SetThreadPriority ret %d\n");
-
-	EnterCriticalSection(&buffer_lock);
-
-	while (1) {
-		/* Wait for us to have data */
-		while (state == ST_READY) {
-			LeaveCriticalSection(&buffer_lock);
-
-			flog("L: Waiting...\n");
-
-			int res = WaitForSingleObject(loop_go, INFINITE);
-
-			EnterCriticalSection(&buffer_lock);
-			if (res != WAIT_OBJECT_0) {
-				flog("!! WFSO failed: %lu\n",
-					GetLastError());
-				state = ST_BROKEN;
-				return 0;
-			}
+		/* Log file */
+		if (!fp) {
+			snprintf(fn, sizeof(fn), "%s\\j4cDAC.txt", dll_fn);
+			fp = fopen(fn, "a");
+			flog("== DLL Loaded ==\n");
 		}
 
-		if (state != ST_RUNNING) {
-			flog("L: Shutting down.\n");
-			LeaveCriticalSection(&buffer_lock);
-			return 0;
+		// Initialize Winsock
+		WSADATA wsaData;
+		int res = WSAStartup(MAKEWORD(2,2), &wsaData);
+		if (res != 0) {
+			flog("!! WSAStartup failed: %d\n", res);
+			fucked = 1;
 		}
 
-		LeaveCriticalSection(&buffer_lock);
+		InitializeCriticalSection(&dac_list_lock);
 
-		/* Now, see how much data we should write. */
-		int cap = 1798;
-
-		cap -= dac_last_status()->buffer_fullness;
-		if (cap < 0) cap = 1;
-
-		struct buffer_item *b = &dac_buffer[dac_buffer_read];
-
-		if (cap < 100) {
-			Sleep(5);
-			cap += 20;
+		// Start up a thread looking for broadcasts
+		watcherthread = (HANDLE)_beginthreadex(NULL, 0, &FindDACs, NULL, 0, NULL);
+		if (!watcherthread) {
+			flog("!! BeginThreadEx error: %s\n", strerror(errno));
+			fucked = 1;
 		}
 
-		/* How many points can we send? */
-		int b_left = b->points - b->idx;
+		gettimeofday(&load_time, NULL);
 
-		if (cap > b_left)
-			cap = b_left;
-		if (cap > 1000)
-			cap = 1000;
+		SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
 
-
-		int res = dac_send_data(&conn, b->data + b->idx, cap, b->pps);
-
-		if (res < 0) {
-			/* Welp, something's wrong. There's not much we
-			 * can do at an API level other than start throwing
-			 * "error" returns up to the application... */
-			EnterCriticalSection(&buffer_lock);
-			state = ST_BROKEN;
-			LeaveCriticalSection(&buffer_lock);
-			return 1;
-		}
-
-		/* What next? */
-		EnterCriticalSection(&buffer_lock);
-		b->idx += res;
-
-		if (b->idx < b->points) {
-			/* There's more in this frame. */
-			continue;
-		}
-
-		b->idx = 0;
-
-		if (b->repeatcount > 1) {
-			/* Play this frame again? */
-			b->repeatcount--;
-		} else if (dac_buffer_fullness > 1) {
-			/* Move to the next frame */
-			flog("L: advancing frame - buffer fullness %d\n", dac_buffer_fullness);
-			dac_buffer_fullness--;
-			dac_buffer_read++;
-			if (dac_buffer_read >= BUFFER_NFRAMES)
-				dac_buffer_read = 0;
-		} else if (b->repeatcount >= 0) {
-			/* Stop playing until we get a new frame. */
-			flog("L: returning to idle\n");
-			state = ST_READY;
-		} else {
-			flog("L: repeating frame\n");
-		}
-
-		/* If we get here without hitting any of the above cases,
-		 * then repeatcount is negative and there's no new frame -
-		 * so we're just supposed to keep playing this one again
-		 * and again. */ 
-	}
-
-	return 0;
-}
-//============================================================================
-
-EXPORT int __stdcall EzAudDacGetCardNum(void){
-	if (state != ST_UNINITIALIZED) {
-		EzAudDacStop(0);
-		EzAudDacClose();
-	}
-
-	char dll_fn[MAX_PATH] = { 0 };
-	GetModuleFileName((HMODULE)ThisDll, dll_fn, sizeof(dll_fn)-1);
-	PathRemoveFileSpec(dll_fn);
-
+		DWORD pc = GetPriorityClass(GetCurrentProcess());
+		flog("Process priority class: %d\n", pc);
+		if (!pc) flog("Error: %d\n", GetLastError());
+#if 0
 	char fn[MAX_PATH];
-
-	/* Log file */
-	if (!fp) {
-		snprintf(fn, sizeof(fn), "%s\\j4cDAC.txt", dll_fn);
-		fp = fopen(fn, "w");
-	}
-
-	flog("== j4cDAC ==\n");
-
 	/* Load up the INI */
 	snprintf(fn, sizeof(fn), "%s\\j4cDAC.ini", dll_fn);
 	flog("Loading file: %s\n", fn);
@@ -397,14 +272,6 @@ EXPORT int __stdcall EzAudDacGetCardNum(void){
 
 	if (!d) {
 		flog("Failed to open ini file.\n");
-		return 0;
-	}
-
-	// Initialize Winsock
-	WSADATA wsaData;
-	int res = WSAStartup(MAKEWORD(2,2), &wsaData);
-	if (res != 0) {
-		flog("!! WSAStartup failed: %d\n", res);
 		return 0;
 	}
 
@@ -418,45 +285,126 @@ EXPORT int __stdcall EzAudDacGetCardNum(void){
 
 	const char * port = iniparser_getstring(d, "network:port", "7654");
 
-	// Connect to the DAC
-	if (dac_connect(&conn, host, port) < 0) {
-//		free(host);
-		flog("!! DAC connection failed.\n");
+	dac_t * new_dac = malloc(sizeof(dac_t));
+	dac_init(new_dac);
+
+	if (dac_open_connection(new_dac, host, port) < 0) {
 		iniparser_freedict(d);
 		return 0;
 	}
 
 	iniparser_freedict(d);
-	//free(host);
-
-	// Fire off the worker thread
-	loop_go = CreateEvent(NULL, FALSE, FALSE, NULL);
-	state = ST_READY;
-
-	workerthread = (HANDLE)_beginthreadex(NULL, 0, &LoopUpdate, NULL, 0, NULL);
-	if (!workerthread) {
-		flog("!! Begin thread error: %s\n", strerror(errno));
-		return 0;
-	}
 
 	flog("Ready.\n");
 
+#endif
+
+	} else if (reason == DLL_PROCESS_DETACH) {
+		WSACleanup();
+		DeleteCriticalSection(&dac_list_lock);
+
+		if (fp) {
+			flog("== DLL Unloaded ==\n");
+			fclose(fp);
+			fp = NULL;
+		}
+	}
 	return 1;
 }
 
-bool __stdcall EzAudDacStop(const int CardNum){
+bool __stdcall EzAudDacWriteFrameNR(const int *CardNum, const struct EAD_Pnt_s* data,
+		int Bytes, uint16_t PPS, uint16_t Reps) {
+	dac_t *d = dac_get(*CardNum);
+	if (!d) return 0;
+	return do_write_frame(d, data, Bytes, PPS, Reps, EzAudDac_convert_data);
+}
+
+bool __stdcall EzAudDacWriteFrame(const int *CardNum, const struct EAD_Pnt_s* data,
+		int Bytes, uint16_t PPS) {
+	return EzAudDacWriteFrameNR(CardNum, data, Bytes, PPS, -1);
+}
+
+EXPORT bool __stdcall EasyLaseWriteFrameNR(const int *CardNum, const struct EL_Pnt_s* data,
+		int Bytes, uint16_t PPS, uint16_t Reps) {
+	dac_t *d = dac_get(*CardNum);
+	if (!d) return 0;
+	return do_write_frame(d, data, Bytes, PPS, Reps, EasyLase_convert_data);
+}
+
+EXPORT bool __stdcall EasyLaseWriteFrame(const int *CardNum, const struct EL_Pnt_s* data,
+		int Bytes, uint16_t PPS) {
+	return EasyLaseWriteFrameNR(CardNum, data, Bytes, PPS, -1);
+}
+
+/* Get the output status.
+ */
+EXPORT int __stdcall EzAudDacGetStatus(const int *CardNum) {
+	dac_t *d = dac_get(*CardNum);
+	if (!d) return -1;
+	if (dac_get_status(d) == GET_STATUS_BUSY) {
+		flog("M: bouncing\n");
+		Sleep(2);
+		return GET_STATUS_BUSY;
+	} else {
+		return GET_STATUS_READY;
+	}
+}
+
+#include <locale.h>
+
+EXPORT int __stdcall EzAudDacGetCardNum(void){
+
+	/* Clean up any already opened DACs */
+	flog("== GetCardNum ==\n");
+
+	/* Gross-vile-disgusting-sleep for up to a bit over a second to
+	 * catch broadcast packets from DACs */
+	struct timeval tv, tv_diff;
+	gettimeofday(&tv, NULL);
+	timeval_subtract(&tv_diff, &tv, &load_time);
+	int ms_left = 1100 - ((tv_diff.tv_sec * 1000) + 
+	                      (tv_diff.tv_usec / 1000));
+	flog("Waiting %d milliseconds.\n", ms_left);
+	while (ms_left > 0) {
+		if (dac_list) break;
+		Sleep(100);
+		ms_left -= 100;
+	}
+
+	/* Count how many DACs we have. Along the way, open them */
+	dac_t *d = dac_list;
+	int count = 0;
+
+	EnterCriticalSection(&dac_list_lock);
+	while (d) {
+		dac_open_connection(d);
+		d = d->next;
+		count++;
+	}
+	LeaveCriticalSection(&dac_list_lock);
+
+	flog("Found %d DACs.\n", count);
+
+	return count;
+}
+
+bool __stdcall EzAudDacStop(const int *CardNum){
 	flog("STOP!\n");
-	EnterCriticalSection(&buffer_lock);
-	if (state == ST_READY)
-		SetEvent(loop_go);
+	dac_t *d = dac_get(*CardNum);
+	if (!d) return -1;
+	EnterCriticalSection(&d->buffer_lock);
+	if (d->state == ST_READY)
+		SetEvent(d->loop_go);
 	else
-		state = ST_READY;
-	LeaveCriticalSection(&buffer_lock);
+		d->state = ST_READY;
+	LeaveCriticalSection(&d->buffer_lock);
 
 	return 0;
 }
 
 bool __stdcall EzAudDacClose(void){
+/* 
+XXX CLEANUP
 	EnterCriticalSection(&buffer_lock);
 	if (state == ST_READY)
 		SetEvent(loop_go);
@@ -469,15 +417,9 @@ bool __stdcall EzAudDacClose(void){
 
 	if (state == ST_READY) {
 		CloseHandle(workerthread);
-		WSACleanup();
 	}
 	state = ST_UNINITIALIZED;
-
-	if (fp) {
-		flog("Exiting\n");
-		fclose(fp);
-		fp = NULL;
-	}
+*/
 
 	return 0;
 }
@@ -490,13 +432,13 @@ EXPORT int __stdcall EasyLaseGetCardNum(void) {
 	return EzAudDacGetCardNum();
 }
 
-EXPORT int __stdcall EasyLaseSend(const int CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t KPPS) {
-	flog("ELSend called: card %d, %d bytes, %d kpps\n", CardNum, Bytes, KPPS);
+EXPORT int __stdcall EasyLaseSend(const int *CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t KPPS) {
+	flog("ELSend called: card %d, %d bytes, %d kpps\n", *CardNum, Bytes, KPPS);
 	return 1;
 }
 
-EXPORT int __stdcall EasyLaseWriteFrameUncompressed(const int CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t PPS) {
-	flog(" ELWFU called: card %d, %d bytes, %d pps\n", CardNum, Bytes, PPS);
+EXPORT int __stdcall EasyLaseWriteFrameUncompressed(const int *CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t PPS) {
+	flog(" ELWFU called: card %d, %d bytes, %d pps\n", *CardNum, Bytes, PPS);
 	return 1;
 }
 
@@ -505,15 +447,15 @@ EXPORT int __stdcall EasyLaseReConnect() {
 	return 0;
 }
 
-EXPORT int __stdcall EasyLaseGetLastError(const int CardNum) {
+EXPORT int __stdcall EasyLaseGetLastError(const int *CardNum) {
 	return 0;
 }
 
-EXPORT int __stdcall EasyLaseGetStatus(const int CardNum) {
+EXPORT int __stdcall EasyLaseGetStatus(const int *CardNum) {
 	return EzAudDacGetStatus(CardNum);
 }
 
-EXPORT bool __stdcall EasyLaseStop(const int CardNum) {
+EXPORT bool __stdcall EasyLaseStop(const int *CardNum) {
 	return EzAudDacStop(CardNum);
 }
 
@@ -521,26 +463,26 @@ EXPORT bool __stdcall EasyLaseClose(void) {
 	return EzAudDacClose();
 }
 
-EXPORT bool __stdcall EasyLaseWriteDMX(const int CardNum, unsigned char * data) {
+EXPORT bool __stdcall EasyLaseWriteDMX(const int *CardNum, unsigned char * data) {
 	return -1;
 }
 
-EXPORT bool __stdcall EasyLaseGetDMX(const int CardNum, unsigned char * data) {
+EXPORT bool __stdcall EasyLaseGetDMX(const int *CardNum, unsigned char * data) {
 	return -1;
 }
 
-EXPORT bool __stdcall EasyLaseDMXOut(const int CardNum, unsigned char * data, uint16_t Baseaddress, uint16_t ChannelCount) {
+EXPORT bool __stdcall EasyLaseDMXOut(const int *CardNum, unsigned char * data, uint16_t Baseaddress, uint16_t ChannelCount) {
 	return -1;
 }
 
-EXPORT bool __stdcall EasyLaseDMXIn(const int CardNum, unsigned char * data, uint16_t Baseaddress, uint16_t ChannelCount) {
+EXPORT bool __stdcall EasyLaseDMXIn(const int *CardNum, unsigned char * data, uint16_t Baseaddress, uint16_t ChannelCount) {
 	return -1;
 }
 
-EXPORT bool __stdcall EasyLaseWriteTTL(const int CardNum, uint16_t TTLValue) {
+EXPORT bool __stdcall EasyLaseWriteTTL(const int *CardNum, uint16_t TTLValue) {
 	return -1;
 }
 
-EXPORT bool __stdcall EasyLaseGetDebugInfo(const int CardNum, void * data, uint16_t count) {
+EXPORT bool __stdcall EasyLaseGetDebugInfo(const int *CardNum, void * data, uint16_t count) {
 	return -1;
 }
