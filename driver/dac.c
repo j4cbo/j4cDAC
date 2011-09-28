@@ -25,13 +25,6 @@
 #include <time.h>
 #include <string.h>
 
-#include <process.h>
-#include <shlwapi.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <iphlpapi.h>
-
-#include "j4cDAC.h"
 #include "dac.h"
 
 extern dac_t * dac_list;
@@ -42,7 +35,6 @@ unsigned __stdcall LoopUpdate(void *d);
 int dac_init(dac_t *d) {
 	memset(d, 0, sizeof(*d));
 	InitializeCriticalSection(&d->buffer_lock);
-flog("critical section initialized\n");
 	return 0;
 }
 
@@ -71,6 +63,24 @@ int dac_open_connection(dac_t *d) {
 	flog("Ready.\n");
 
 	return 0;
+}
+
+void dac_close_connection(dac_t *d) {
+	EnterCriticalSection(&d->buffer_lock);
+	if (d->state == ST_READY)
+		SetEvent(d->loop_go);
+	d->state = ST_SHUTDOWN;
+	LeaveCriticalSection(&d->buffer_lock);
+
+	int rv = WaitForSingleObject(d->workerthread, 250);
+	if (rv != WAIT_OBJECT_0)
+		flog("Exit thread timed out.\n");
+
+	if (d->state == ST_READY) {
+		CloseHandle(d->workerthread);
+	}
+
+	d->state = ST_DISCONNECTED;
 }
 
 /* Look up a DAC by index or unique-ID

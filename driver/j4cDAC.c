@@ -25,13 +25,6 @@
 #include <time.h>
 #include <string.h>
 
-#include <process.h>
-#include <shlwapi.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <iphlpapi.h>
-
-#include "j4cDAC.h"
 #include "dac.h"
 #include <iniparser.h>
 
@@ -165,60 +158,6 @@ unsigned __stdcall FindDACs(void *_bogus) {
 	}
 }
 
-/* Data conversion functions
-*/
-int EasyLase_convert_data(struct buffer_item *buf, const void *vdata, int bytes) {
-	const struct EL_Pnt_s *data = (const struct EL_Pnt_s *)vdata;
-	int points = bytes / sizeof(*data);
-	int i;
-
-	if (!buf) return points;
-	if (points > BUFFER_POINTS_PER_FRAME) {
-		points = BUFFER_POINTS_PER_FRAME;
-	}
-
-	for (i = 0; i < points; i++) {
-		buf->data[i].x = (data[i].X - 2048) * 16;
-		buf->data[i].y = (data[i].Y - 2048) * 16;
-		buf->data[i].r = data[i].R * 256;
-		buf->data[i].g = data[i].G * 256;
-		buf->data[i].b = data[i].B * 256;
-		buf->data[i].i = data[i].I * 256;
-		buf->data[i].u1 = 0;
-		buf->data[i].u2 = 0;
-		buf->data[i].control = 0;
-	}
-
-	buf->points = points;
-	return points;
-}
-
-int EzAudDac_convert_data(struct buffer_item *buf, const void *vdata, int bytes) {
-	const struct EAD_Pnt_s *data = (const struct EAD_Pnt_s *)vdata;
-	int points = bytes / sizeof(*data);
-	int i;
-
-	if (!buf) return points;
-	if (points > BUFFER_POINTS_PER_FRAME) {
-		points = BUFFER_POINTS_PER_FRAME;
-	}
-
-	for (i = 0; i < points; i++) {
-		buf->data[i].x = data[i].X - 32768;
-		buf->data[i].y = data[i].Y - 32768;
-		buf->data[i].r = data[i].R;
-		buf->data[i].g = data[i].G;
-		buf->data[i].b = data[i].B;
-		buf->data[i].i = data[i].I;
-		buf->data[i].u1 = data[i].AL;
-		buf->data[i].u2 = data[i].AR;
-		buf->data[i].control = 0;
-	}
-
-	buf->points = points;
-	return points;
-}
-
 /* Stub DllMain function.
  */ 
 bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
@@ -312,30 +251,6 @@ bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 	return 1;
 }
 
-bool __stdcall EzAudDacWriteFrameNR(const int *CardNum, const struct EAD_Pnt_s* data,
-		int Bytes, uint16_t PPS, uint16_t Reps) {
-	dac_t *d = dac_get(*CardNum);
-	if (!d) return 0;
-	return do_write_frame(d, data, Bytes, PPS, Reps, EzAudDac_convert_data);
-}
-
-bool __stdcall EzAudDacWriteFrame(const int *CardNum, const struct EAD_Pnt_s* data,
-		int Bytes, uint16_t PPS) {
-	return EzAudDacWriteFrameNR(CardNum, data, Bytes, PPS, -1);
-}
-
-EXPORT bool __stdcall EasyLaseWriteFrameNR(const int *CardNum, const struct EL_Pnt_s* data,
-		int Bytes, uint16_t PPS, uint16_t Reps) {
-	dac_t *d = dac_get(*CardNum);
-	if (!d) return 0;
-	return do_write_frame(d, data, Bytes, PPS, Reps, EasyLase_convert_data);
-}
-
-EXPORT bool __stdcall EasyLaseWriteFrame(const int *CardNum, const struct EL_Pnt_s* data,
-		int Bytes, uint16_t PPS) {
-	return EasyLaseWriteFrameNR(CardNum, data, Bytes, PPS, -1);
-}
-
 /* Get the output status.
  */
 EXPORT int __stdcall EzAudDacGetStatus(const int *CardNum) {
@@ -355,6 +270,8 @@ EXPORT int __stdcall EzAudDacGetStatus(const int *CardNum) {
 EXPORT int __stdcall EzAudDacGetCardNum(void){
 
 	/* Clean up any already opened DACs */
+	EzAudDacClose();
+
 	flog("== GetCardNum ==\n");
 
 	/* Gross-vile-disgusting-sleep for up to a bit over a second to
@@ -372,10 +289,10 @@ EXPORT int __stdcall EzAudDacGetCardNum(void){
 	}
 
 	/* Count how many DACs we have. Along the way, open them */
-	dac_t *d = dac_list;
 	int count = 0;
 
 	EnterCriticalSection(&dac_list_lock);
+	dac_t *d = dac_list;
 	while (d) {
 		dac_open_connection(d);
 		d = d->next;
@@ -403,25 +320,97 @@ bool __stdcall EzAudDacStop(const int *CardNum){
 }
 
 bool __stdcall EzAudDacClose(void){
-/* 
-XXX CLEANUP
-	EnterCriticalSection(&buffer_lock);
-	if (state == ST_READY)
-		SetEvent(loop_go);
-	state = ST_SHUTDOWN;
-	LeaveCriticalSection(&buffer_lock);
-
-	int rv = WaitForSingleObject(workerthread, 250);
-	if (rv != WAIT_OBJECT_0)
-		flog("Exit thread timed out.\n");
-
-	if (state == ST_READY) {
-		CloseHandle(workerthread);
+	EnterCriticalSection(&dac_list_lock);
+	dac_t *d = dac_list;
+	while (d) {
+		if (d->state != ST_DISCONNECTED)
+			dac_close_connection(d);
+		d = d->next;
 	}
-	state = ST_UNINITIALIZED;
-*/
+	LeaveCriticalSection(&dac_list_lock);
 
 	return 0;
+
+}
+
+/****************************************************************************/
+
+/* Data conversion functions
+*/
+int EasyLase_convert_data(struct buffer_item *buf, const void *vdata, int bytes) {
+	const struct EL_Pnt_s *data = (const struct EL_Pnt_s *)vdata;
+	int points = bytes / sizeof(*data);
+	int i;
+
+	if (!buf) return points;
+	if (points > BUFFER_POINTS_PER_FRAME) {
+		points = BUFFER_POINTS_PER_FRAME;
+	}
+
+	for (i = 0; i < points; i++) {
+		buf->data[i].x = (data[i].X - 2048) * 16;
+		buf->data[i].y = (data[i].Y - 2048) * 16;
+		buf->data[i].r = data[i].R * 256;
+		buf->data[i].g = data[i].G * 256;
+		buf->data[i].b = data[i].B * 256;
+		buf->data[i].i = data[i].I * 256;
+		buf->data[i].u1 = 0;
+		buf->data[i].u2 = 0;
+		buf->data[i].control = 0;
+	}
+
+	buf->points = points;
+	return points;
+}
+
+int EzAudDac_convert_data(struct buffer_item *buf, const void *vdata, int bytes) {
+	const struct EAD_Pnt_s *data = (const struct EAD_Pnt_s *)vdata;
+	int points = bytes / sizeof(*data);
+	int i;
+
+	if (!buf) return points;
+	if (points > BUFFER_POINTS_PER_FRAME) {
+		points = BUFFER_POINTS_PER_FRAME;
+	}
+
+	for (i = 0; i < points; i++) {
+		buf->data[i].x = data[i].X - 32768;
+		buf->data[i].y = data[i].Y - 32768;
+		buf->data[i].r = data[i].R;
+		buf->data[i].g = data[i].G;
+		buf->data[i].b = data[i].B;
+		buf->data[i].i = data[i].I;
+		buf->data[i].u1 = data[i].AL;
+		buf->data[i].u2 = data[i].AR;
+		buf->data[i].control = 0;
+	}
+
+	buf->points = points;
+	return points;
+}
+
+EXPORT bool __stdcall EzAudDacWriteFrameNR(const int *CardNum, const struct EAD_Pnt_s* data,
+		int Bytes, uint16_t PPS, uint16_t Reps) {
+	dac_t *d = dac_get(*CardNum);
+	if (!d) return 0;
+	return do_write_frame(d, data, Bytes, PPS, Reps, EzAudDac_convert_data);
+}
+
+EXPORT bool __stdcall EzAudDacWriteFrame(const int *CardNum, const struct EAD_Pnt_s* data,
+		int Bytes, uint16_t PPS) {
+	return EzAudDacWriteFrameNR(CardNum, data, Bytes, PPS, -1);
+}
+
+EXPORT bool __stdcall EasyLaseWriteFrameNR(const int *CardNum, const struct EL_Pnt_s* data,
+		int Bytes, uint16_t PPS, uint16_t Reps) {
+	dac_t *d = dac_get(*CardNum);
+	if (!d) return 0;
+	return do_write_frame(d, data, Bytes, PPS, Reps, EasyLase_convert_data);
+}
+
+EXPORT bool __stdcall EasyLaseWriteFrame(const int *CardNum, const struct EL_Pnt_s* data,
+		int Bytes, uint16_t PPS) {
+	return EasyLaseWriteFrameNR(CardNum, data, Bytes, PPS, -1);
 }
 
 /****************************************************************************/

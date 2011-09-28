@@ -19,7 +19,14 @@
 #ifndef DAC_H
 #define DAC_H
 
+#include <shlwapi.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <iphlpapi.h>
+#include <process.h>
+
 #include <protocol.h>
+#include "j4cDAC.h"
 
 #define BUFFER_POINTS_PER_FRAME 16000
 #define BUFFER_NFRAMES          2
@@ -71,6 +78,7 @@ void flog (char *fmt, ...);
 /* dac.c */
 int dac_init(dac_t *d);
 int dac_open_connection(dac_t *d);
+void dac_close_connection(dac_t *d);
 dac_t *dac_get(int);
 struct buffer_item *buf_get_write(dac_t *d);
 void buf_advance_write(dac_t *d);
