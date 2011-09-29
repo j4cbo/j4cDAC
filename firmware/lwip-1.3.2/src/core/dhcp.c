@@ -519,15 +519,15 @@ dhcp_handle_ack(struct netif *netif, struct pbuf *p)
   /* subnet mask */
   uint32_t temp = 0;
   if (dhcp_get_option(p, DHCP_OPTION_SUBNET_MASK, 4, &temp))
-    dhcp->offered_sn_mask.addr = htonl(temp);
+    dhcp->offered_sn_mask.addr = temp;
 
   /* gateway router */
   if (dhcp_get_option(p, DHCP_OPTION_ROUTER, 4, &temp))
-    dhcp->offered_gw_addr.addr = htonl(temp);
+    dhcp->offered_gw_addr.addr = temp;
 
   /* broadcast address */
   if (dhcp_get_option(p, DHCP_OPTION_BROADCAST, 4, &temp))
-    dhcp->offered_bc_addr.addr = htonl(temp);
+    dhcp->offered_bc_addr.addr = temp;
 
   /* DNS servers */
   int i = 0;
