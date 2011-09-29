@@ -146,6 +146,9 @@ unsigned __stdcall FindDACs(void *_bogus) {
 		}
 		dac_init(new_dac);
 		new_dac->addr = src.sin_addr;
+		memcpy(new_dac->mac_address, buf.mac_address, 6);
+		new_dac->dac_id = (1 << 31) | (buf.mac_address[3] << 16) \
+			| (buf.mac_address[4] << 8) | buf.mac_address[5];
 
 		char host[40];
 		strncpy(host, inet_ntoa(src.sin_addr), sizeof(host) - 1);
@@ -253,7 +256,7 @@ bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 
 /* Get the output status.
  */
-EXPORT int __stdcall EzAudDacGetStatus(const int *CardNum) {
+EXPORT int __stdcall EtherDreamGetStatus(const int *CardNum) {
 	dac_t *d = dac_get(*CardNum);
 	if (!d) return -1;
 	if (dac_get_status(d) == GET_STATUS_BUSY) {
@@ -267,7 +270,7 @@ EXPORT int __stdcall EzAudDacGetStatus(const int *CardNum) {
 
 #include <locale.h>
 
-EXPORT int __stdcall EzAudDacGetCardNum(void){
+EXPORT int __stdcall EtherDreamGetCardNum(void){
 
 	/* Clean up any already opened DACs */
 	EzAudDacClose();
@@ -305,10 +308,10 @@ EXPORT int __stdcall EzAudDacGetCardNum(void){
 	return count;
 }
 
-bool __stdcall EzAudDacStop(const int *CardNum){
+EXPORT bool __stdcall EtherDreamStop(const int *CardNum){
 	flog("STOP!\n");
 	dac_t *d = dac_get(*CardNum);
-	if (!d) return -1;
+	if (!d) return 0;
 	EnterCriticalSection(&d->buffer_lock);
 	if (d->state == ST_READY)
 		SetEvent(d->loop_go);
@@ -319,7 +322,8 @@ bool __stdcall EzAudDacStop(const int *CardNum){
 	return 0;
 }
 
-bool __stdcall EzAudDacClose(void){
+EXPORT bool __stdcall EtherDreamClose(void){
+	flog("M: Closing...\n");
 	EnterCriticalSection(&dac_list_lock);
 	dac_t *d = dac_list;
 	while (d) {
@@ -331,6 +335,20 @@ bool __stdcall EzAudDacClose(void){
 
 	return 0;
 
+}
+
+EXPORT bool __stdcall EtherDreamOpenDevice(const int *CardNum) {
+	dac_t *d = dac_get(*CardNum);
+	if (!d) return 0;
+	if (dac_open_connection(d) < 0) return 0;
+	return 1;
+}
+
+EXPORT bool __stdcall EtherDreamCloseDevice(const int *CardNum) {
+	dac_t *d = dac_get(*CardNum);
+	if (!d) return 0;
+	dac_close_connection(d);
+	return 1;
 }
 
 /****************************************************************************/
@@ -389,6 +407,11 @@ int EzAudDac_convert_data(struct buffer_item *buf, const void *vdata, int bytes)
 	return points;
 }
 
+EXPORT bool __stdcall EtherDreamWriteFrame(const int *CardNum, const struct EAD_Pnt_s* data,
+		int Bytes, uint16_t PPS, uint16_t Reps) {
+	return EzAudDacWriteFrameNR(CardNum, data, Bytes, PPS, Reps);
+}
+
 EXPORT bool __stdcall EzAudDacWriteFrameNR(const int *CardNum, const struct EAD_Pnt_s* data,
 		int Bytes, uint16_t PPS, uint16_t Reps) {
 	dac_t *d = dac_get(*CardNum);
@@ -413,12 +436,24 @@ EXPORT bool __stdcall EasyLaseWriteFrame(const int *CardNum, const struct EL_Pnt
 	return EasyLaseWriteFrameNR(CardNum, data, Bytes, PPS, -1);
 }
 
+EXPORT void __stdcall EtherDreamGetDeviceName(const int *CardNum, char *buf, int max) {
+	if (max <= 0) return;
+	buf[0] = 0;
+	dac_t *d = dac_get(*CardNum);
+	if (!d) return;
+	dac_get_name(d, buf, max);
+}
+
 /****************************************************************************/
 
 /* Wrappers and stubs
  */
+EXPORT int __stdcall EzAudDacGetCardNum(void) {
+	return EtherDreamGetCardNum();
+}
+
 EXPORT int __stdcall EasyLaseGetCardNum(void) {
-	return EzAudDacGetCardNum();
+	return EtherDreamGetCardNum();
 }
 
 EXPORT int __stdcall EasyLaseSend(const int *CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t KPPS) {
@@ -440,16 +475,28 @@ EXPORT int __stdcall EasyLaseGetLastError(const int *CardNum) {
 	return 0;
 }
 
+EXPORT int __stdcall EzAudDacGetStatus(const int *CardNum) {
+	return EtherDreamGetStatus(CardNum);
+}
+
 EXPORT int __stdcall EasyLaseGetStatus(const int *CardNum) {
-	return EzAudDacGetStatus(CardNum);
+	return EtherDreamGetStatus(CardNum);
+}
+
+EXPORT bool __stdcall EzAudDacStop(const int *CardNum) {
+	return EtherDreamStop(CardNum);
 }
 
 EXPORT bool __stdcall EasyLaseStop(const int *CardNum) {
-	return EzAudDacStop(CardNum);
+	return EtherDreamStop(CardNum);
+}
+
+EXPORT bool __stdcall EzAudDacClose(void) {
+	return EtherDreamClose();
 }
 
 EXPORT bool __stdcall EasyLaseClose(void) {
-	return EzAudDacClose();
+	return EtherDreamClose();
 }
 
 EXPORT bool __stdcall EasyLaseWriteDMX(const int *CardNum, unsigned char * data) {

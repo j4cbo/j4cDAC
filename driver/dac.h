@@ -61,6 +61,8 @@ typedef struct dac_s {
 	
 	struct in_addr addr;
 	dac_conn_t conn;
+	int32_t dac_id;
+	char mac_address[6];
 
 	enum {
 		ST_DISCONNECTED,
@@ -85,6 +87,7 @@ void buf_advance_write(dac_t *d);
 int dac_get_status(dac_t *d);
 int do_write_frame(dac_t *d, const void * data, int bytes, int pps,
 	int reps, int (*convert)(struct buffer_item *, const void *, int));
+void dac_get_name(dac_t *d, char *buf, int max);
 
 /* comm.c */
 void log_socket_error(const char *call);

@@ -86,15 +86,25 @@ void dac_close_connection(dac_t *d) {
 /* Look up a DAC by index or unique-ID
  */
 dac_t * dac_get(int num) {
+	dac_t *d = dac_list;
 	if (num >= 0) {
-		dac_t *d = dac_list;
 		while (num--) {
 			d = d->next;
 			if (!d) break;
 		}
-		return d;
+	} else {
+		while (d) {
+			if (num == d->dac_id) break;
+			d = d->next;
+		}
 	}
-	return NULL;
+
+	return d;
+}
+
+void dac_get_name(dac_t *d, char *buf, int max) {
+	snprintf(buf, max, "Ether Dream %02x%02x%02x",
+		d->mac_address[3], d->mac_address[4], d->mac_address[5]);
 }
 
 /* Buffer access
