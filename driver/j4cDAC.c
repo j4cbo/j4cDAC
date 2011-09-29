@@ -268,14 +268,23 @@ EXPORT int __stdcall EtherDreamGetStatus(const int *CardNum) {
 	}
 }
 
-#include <locale.h>
+static void do_close(void) {
+	EnterCriticalSection(&dac_list_lock);
+	dac_t *d = dac_list;
+	while (d) {
+		if (d->state != ST_DISCONNECTED)
+			dac_close_connection(d);
+		d = d->next;
+	}
+	LeaveCriticalSection(&dac_list_lock);
+}
 
 EXPORT int __stdcall EtherDreamGetCardNum(void){
 
-	/* Clean up any already opened DACs */
-	EzAudDacClose();
-
 	flog("== GetCardNum ==\n");
+
+	/* Clean up any already opened DACs */
+	do_close();
 
 	/* Gross-vile-disgusting-sleep for up to a bit over a second to
 	 * catch broadcast packets from DACs */
@@ -309,7 +318,7 @@ EXPORT int __stdcall EtherDreamGetCardNum(void){
 }
 
 EXPORT bool __stdcall EtherDreamStop(const int *CardNum){
-	flog("STOP!\n");
+	flog("== Stop ==\n");
 	dac_t *d = dac_get(*CardNum);
 	if (!d) return 0;
 	EnterCriticalSection(&d->buffer_lock);
@@ -323,16 +332,8 @@ EXPORT bool __stdcall EtherDreamStop(const int *CardNum){
 }
 
 EXPORT bool __stdcall EtherDreamClose(void){
-	flog("M: Closing...\n");
-	EnterCriticalSection(&dac_list_lock);
-	dac_t *d = dac_list;
-	while (d) {
-		if (d->state != ST_DISCONNECTED)
-			dac_close_connection(d);
-		d = d->next;
-	}
-	LeaveCriticalSection(&dac_list_lock);
-
+	flog("== Close ==\n");
+	do_close();
 	return 0;
 
 }

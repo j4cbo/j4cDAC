@@ -44,6 +44,11 @@ int dac_open_connection(dac_t *d) {
 	strncpy(host, inet_ntoa(d->addr), sizeof(host) - 1);
 	host[sizeof(host) - 1] = 0;
 
+	// Initialize buffer
+	d->buffer_read = 0;
+	d->buffer_fullness = 0;
+	memset(d->buffer, sizeof(d->buffer), 0);
+
 	// Connect to the DAC
 	if (dac_connect(&d->conn, host, "7765") < 0) {
 		flog("!! DAC connection failed.\n");
