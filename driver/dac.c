@@ -85,6 +85,7 @@ void dac_close_connection(dac_t *d) {
 		CloseHandle(d->workerthread);
 	}
 
+	dac_disconnect(&d->conn);
 	d->state = ST_DISCONNECTED;
 }
 
@@ -235,15 +236,16 @@ unsigned __stdcall LoopUpdate(void *dv){
 		int cap = 1798;
 
 		cap -= dac_last_status()->buffer_fullness;
-		if (cap < 0) cap = 1;
+		if (cap <= 0) cap = 1;
 
 		struct buffer_item *b = &d->buffer[d->buffer_read];
-
+/*
 		if (cap < 100) {
 			Sleep(5);
+			flog("L: Sleeping.\n");
 			cap += 20;
 		}
-
+*/
 		/* How many points can we send? */
 		int b_left = b->points - b->idx;
 

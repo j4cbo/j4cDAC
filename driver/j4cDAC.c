@@ -40,6 +40,7 @@ HANDLE ThisDll = NULL, workerthread = NULL, watcherthread = NULL;
 FILE* fp = NULL;
 char dll_fn[MAX_PATH] = { 0 };
 int fucked = 0;
+int time_to_go = 0;
 struct timeval load_time;
 
 
@@ -100,6 +101,12 @@ unsigned __stdcall FindDACs(void *_bogus) {
 		return 1;
 	}
 
+	int opt = 1;
+	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt)) < 0) {
+		log_socket_error("setsockopt");
+		return 1;
+	}
+
 	struct sockaddr_in addr;
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
@@ -113,7 +120,7 @@ unsigned __stdcall FindDACs(void *_bogus) {
 
 	flog("_: listening for DACs...\n");
 
-	while(1) {
+	while(!time_to_go) {
 		struct sockaddr_in src;
 		struct dac_broadcast buf;
 		int srclen = sizeof(src);
@@ -159,6 +166,10 @@ unsigned __stdcall FindDACs(void *_bogus) {
 		new_dac->state = ST_DISCONNECTED;
 		dac_list_insert(new_dac);
 	}
+
+	flog("_: Exiting\n");
+
+	return 0;
 }
 
 /* Stub DllMain function.
@@ -181,6 +192,12 @@ bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 			flog("== DLL Loaded ==\n");
 		}
 
+		if (timeBeginPeriod(1) == TIMERR_NOERROR) {
+			flog("== Timer set to 1ms ==\n");
+		} else {
+			flog("== Timer error ==\n");
+		}
+
 		// Initialize Winsock
 		WSADATA wsaData;
 		int res = WSAStartup(MAKEWORD(2,2), &wsaData);
@@ -190,6 +207,7 @@ bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 		}
 
 		InitializeCriticalSection(&dac_list_lock);
+		time_to_go = 0;
 
 		// Start up a thread looking for broadcasts
 		watcherthread = (HANDLE)_beginthreadex(NULL, 0, &FindDACs, NULL, 0, NULL);
@@ -244,6 +262,8 @@ bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 	} else if (reason == DLL_PROCESS_DETACH) {
 		WSACleanup();
 		DeleteCriticalSection(&dac_list_lock);
+
+		timeEndPeriod(1);
 
 		if (fp) {
 			flog("== DLL Unloaded ==\n");
@@ -333,6 +353,11 @@ EXPORT bool __stdcall EtherDreamStop(const int *CardNum){
 
 EXPORT bool __stdcall EtherDreamClose(void){
 	flog("== Close ==\n");
+	time_to_go = 1;
+	WSACancelBlockingCall();
+	if (WaitForSingleObject(watcherthread, 1000) == WAIT_TIMEOUT) {
+		flog("!! watcher thread timed out\n");
+	}
 	do_close();
 	return 0;
 

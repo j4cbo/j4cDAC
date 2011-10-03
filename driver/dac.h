@@ -92,6 +92,7 @@ void dac_get_name(dac_t *d, char *buf, int max);
 /* comm.c */
 void log_socket_error(const char *call);
 int dac_connect(dac_conn_t *conn, const char *host, const char *port);
+int dac_disconnect(dac_conn_t *conn);
 int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rate);
 const struct dac_status * dac_last_status(void);
 int dac_outstanding_acks(void);

@@ -285,6 +285,12 @@ int dac_connect(dac_conn_t *conn, const char *host, const char *port) {
 	return 0;
 }
 
+int dac_disconnect(dac_conn_t *conn) {
+	closesocket(conn->sock);
+	conn->sock = INVALID_SOCKET;
+	return 0;
+}
+
 int dac_sendall(dac_conn_t *conn, void *data, int len) {
 	do {
 		int res = wait_for_write(conn->sock, 1500000);
