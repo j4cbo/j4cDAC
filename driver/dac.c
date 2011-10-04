@@ -204,6 +204,12 @@ unsigned __stdcall LoopUpdate(void *dv){
 	res = SetThreadPriority(GetCurrentThread, THREAD_PRIORITY_TIME_CRITICAL);
 	flog("SetThreadPriority ret %d\n");
 
+	if (timeBeginPeriod(1) == TIMERR_NOERROR) {
+		flog("== Timer set to 1ms ==\n");
+	} else {
+		flog("== Timer error ==\n");
+	}
+
 	EnterCriticalSection(&d->buffer_lock);
 
 	while (1) {
@@ -220,6 +226,7 @@ unsigned __stdcall LoopUpdate(void *dv){
 				flog("!! WFSO failed: %lu\n",
 					GetLastError());
 				d->state = ST_BROKEN;
+				timeEndPeriod(1);
 				return 0;
 			}
 		}
@@ -227,6 +234,7 @@ unsigned __stdcall LoopUpdate(void *dv){
 		if (d->state != ST_RUNNING) {
 			flog("L: Shutting down.\n");
 			LeaveCriticalSection(&d->buffer_lock);
+			timeEndPeriod(1);
 			return 0;
 		}
 
@@ -264,6 +272,7 @@ unsigned __stdcall LoopUpdate(void *dv){
 			EnterCriticalSection(&d->buffer_lock);
 			d->state = ST_BROKEN;
 			LeaveCriticalSection(&d->buffer_lock);
+			timeEndPeriod(1);
 			return 1;
 		}
 
@@ -302,5 +311,6 @@ unsigned __stdcall LoopUpdate(void *dv){
 		 * and again. */ 
 	}
 
+	timeEndPeriod(1);
 	return 0;
 }

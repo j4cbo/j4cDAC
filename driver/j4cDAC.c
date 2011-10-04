@@ -42,6 +42,7 @@ char dll_fn[MAX_PATH] = { 0 };
 int fucked = 0;
 int time_to_go = 0;
 struct timeval load_time;
+LARGE_INTEGER timer_start, timer_freq;
 
 
 /* Subtract the struct timeval values x and y, storing the result in result.
@@ -77,9 +78,13 @@ void flog (char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	fprintf(fp, "[%ld.%06ld] ", tv.tv_sec, tv.tv_usec);
+	LARGE_INTEGER time;
+	QueryPerformanceCounter(&time);
+
+	LONGLONG time_diff = time.QuadPart - timer_start.QuadPart;
+	LONGLONG v = (time_diff * 1000000) / timer_freq.QuadPart;
+
+	fprintf(fp, "[%d.%06d] ", (int)(v / 1000000), (int)(v % 1000000));
 	vfprintf(fp, fmt, args);
 	va_end(args);
 	fflush(fp);
@@ -185,17 +190,14 @@ bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 
 		char fn[MAX_PATH];
 
+		QueryPerformanceFrequency(&timer_freq);
+		QueryPerformanceCounter(&timer_start);
+
 		/* Log file */
 		if (!fp) {
 			snprintf(fn, sizeof(fn), "%s\\j4cDAC.txt", dll_fn);
 			fp = fopen(fn, "a");
 			flog("== DLL Loaded ==\n");
-		}
-
-		if (timeBeginPeriod(1) == TIMERR_NOERROR) {
-			flog("== Timer set to 1ms ==\n");
-		} else {
-			flog("== Timer error ==\n");
 		}
 
 		// Initialize Winsock
