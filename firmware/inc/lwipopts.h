@@ -44,7 +44,7 @@
 #define TCP_MSS         1460
 #define TCP_WND		7500
 #define TCP_SND_BUF     (2 * TCP_MSS)
-#define TCP_SND_QUEUELEN 16
+#define TCP_SND_QUEUELEN 14
 
 #define LWIP_STATS 1
 #define LWIP_STATS_DISPLAY 1

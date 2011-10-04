@@ -29,7 +29,7 @@
 #include <ether_private.h>
 #include <attrib.h>
 
-#define NUM_TX_DESC	12
+#define NUM_TX_DESC	16
 #define NUM_RX_BUF	12
 #define RX_BUF_SIZE	1520
 
