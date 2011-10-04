@@ -99,6 +99,8 @@ flash: j4cDAC-full.hex
 	~/lpc21isp/lpc21isp -debug3 j4cDAC-full.hex /dev/ttyUSB0 230400 14746
 
 bl:
+	sudo ../tools/f0ad/f0ad
+	sleep 3
 	sudo dfu-util -D j4cDAC.bin -R
 
 size:
