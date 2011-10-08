@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include "sdcard.h"
 
+#include <hardware.h>
 #include <serial.h>
 
 #define ERR_READY_TIMEOUT	-1
@@ -415,7 +416,8 @@ int sdcard_get_sd_status(uint8_t * buf) {
 	return 0;
 }
 
-#define SS_P0_PIN	(1 << 22)
+#define SS_PROTO_P0_PIN	(1 << 22)
+#define SS_PROD_P1_PIN	(1 << 25)
 
 void sdcard_spi_init(void) {
 	int dummy;
@@ -425,14 +427,21 @@ void sdcard_spi_init(void) {
 
 	/* Configure I/O pins */
 	/* SSEL is GPIO, output set to high. */
-	LPC_GPIO0->FIODIR |= SS_P0_PIN;
+	if (hw_board_rev == HW_REV_PROTO)
+		LPC_GPIO0->FIODIR |= SS_PROTO_P0_PIN;
+	else
+		LPC_GPIO1->FIODIR |= SS_PROD_P1_PIN;
 	sdcard_spi_deselect();
 
 	/* SCK, MISO, MOSI are SSP pins. */
-	LPC_PINCON->PINSEL0 &= ~(3 << 30);
-	LPC_PINCON->PINSEL0 |= (2 << 30);
-	LPC_PINCON->PINSEL1 &= ~((3 << 2) | (3 << 4));
-	LPC_PINCON->PINSEL1 |= ((2 << 2) | (2 << 4));
+	if (hw_board_rev == HW_REV_PROTO) {
+		LPC_PINCON->PINSEL0 &= ~(3 << 30);
+		LPC_PINCON->PINSEL0 |= (2 << 30);
+		LPC_PINCON->PINSEL1 &= ~((3 << 2) | (3 << 4));
+		LPC_PINCON->PINSEL1 |= ((2 << 2) | (2 << 4));
+	} else {
+		LPC_PINCON->PINSEL3 |= ((3 << 8) | (3 << 14) | (3 << 16));
+	}
 
 	/* PCLK_SSP0=CCLK */
 	LPC_SC->PCLKSEL1 &= ~(3 << 10);	/* PCLKSP0 = CCLK/4 (18MHz) */
@@ -464,11 +473,17 @@ void sdcard_spi_set_speed(int speed) {
 }
 
 static void sdcard_spi_select(void) {
-	LPC_GPIO0->FIOCLR = SS_P0_PIN;
+	if (hw_board_rev == HW_REV_PROTO)
+		LPC_GPIO0->FIOCLR = SS_PROTO_P0_PIN;
+	else
+		LPC_GPIO1->FIOCLR = SS_PROD_P1_PIN;
 }
 
 static void sdcard_spi_deselect(void) {
-	LPC_GPIO0->FIOSET = SS_P0_PIN;
+	if (hw_board_rev == HW_REV_PROTO)
+		LPC_GPIO0->FIOSET = SS_PROTO_P0_PIN;
+	else
+		LPC_GPIO1->FIOSET = SS_PROD_P1_PIN;
 }
 
 static uint8_t sdcard_spi_exchange_byte(uint8_t send) {

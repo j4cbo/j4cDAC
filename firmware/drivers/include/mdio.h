@@ -22,11 +22,6 @@ typedef unsigned int       BOOL;
  #define __FALSE       0
 #endif
 
-#define MDIO    0x00000200
-#define MDC     0x00000100
-
-
-
 U32 mdio_read(int PhyReg);
 void mdio_write(int PhyReg, int Value);
 

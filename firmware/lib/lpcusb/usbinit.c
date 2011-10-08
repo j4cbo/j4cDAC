@@ -58,7 +58,7 @@ static void HandleUsbReset(unsigned char bDevStatus)
 	Initialises the USB hardware and sets up the USB stack by
 	installing default callbacks.
  */
-void usb_init(void)
+void a_usb_init(void)
 {
 	// init hardware
 	USBHwInit();
@@ -78,4 +78,4 @@ void usb_init(void)
 	USBRegisterRequestHandler(REQTYPE_TYPE_STANDARD, USBHandleStandardRequest_FPV_usb_reqhdlr, abStdReqData);
 }
 
-INITIALIZER(hardware, usb_init)
+INITIALIZER(hardware, a_usb_init)

@@ -1,10 +1,51 @@
 #include "mdio.h"
 #include <LPC17xx.h>                    /* LPC17xx definitions               */
 #include <lpc17xx_pinsel.h>
+#include <hardware.h>
 
 #define DP83848C_DEF_ADR    0x0100      /* Default PHY device address        */
 
-static void delay (void) { __NOP(); };
+static void delay (void) { __NOP(); __NOP(); __NOP(); __NOP(); };
+
+#define MDIO    0
+#define MDC     1
+
+#define PROTO_MDIO	(1 << 9)
+#define PROTO_MDC	(1 << 8)
+#define PROD_MDIO	(1 << 28)
+#define PROD_MDC	(1 << 29)
+
+static inline void mdio_set(U32 val) {
+	if (hw_board_rev == HW_REV_PROTO) {
+		if (val == MDC) LPC_GPIO2->FIOSET = PROTO_MDC;
+		else LPC_GPIO2->FIOSET = PROTO_MDIO;
+	} else {
+		if (val == MDC) LPC_GPIO4->FIOSET = PROD_MDC;
+		else LPC_GPIO4->FIOSET = PROD_MDIO;
+	}
+}
+
+static inline void mdio_clear(U32 val) {
+	if (hw_board_rev == HW_REV_PROTO) {
+		if (val == MDC) LPC_GPIO2->FIOCLR = PROTO_MDC;
+		else LPC_GPIO2->FIOCLR = PROTO_MDIO;
+	} else {
+		if (val == MDC) LPC_GPIO4->FIOCLR = PROD_MDC;
+		else LPC_GPIO4->FIOCLR = PROD_MDIO;
+	}
+}
+
+static inline void mdio_set_dir(int state) {
+	if (hw_board_rev == HW_REV_PROTO) {
+		if (state) LPC_GPIO2->FIODIR |= PROTO_MDIO;
+		else LPC_GPIO2->FIODIR &= ~PROTO_MDIO;
+	} else {
+		if (state) LPC_GPIO4->FIODIR |= PROD_MDIO;
+		else LPC_GPIO4->FIODIR &= ~PROD_MDIO;
+	}
+}
+
+/*--------------------------- output_MDIO -----------------------------------*/
 
 /*--------------------------- output_MDIO -----------------------------------*/
 
@@ -13,15 +54,15 @@ static void output_MDIO (U32 val, U32 n) {
    /* Output a value to the MII PHY management interface. */
    for (val <<= (32 - n); n; val <<= 1, n--) {
       if (val & 0x80000000) {
-         LPC_GPIO2->FIOSET = MDIO;
+         mdio_set(MDIO);
       }
       else {
-         LPC_GPIO2->FIOCLR = MDIO;
+         mdio_clear(MDIO);
       }
       delay ();
-      LPC_GPIO2->FIOSET = MDC;
+      mdio_set(MDC);
       delay ();
-      LPC_GPIO2->FIOCLR = MDC;
+      mdio_clear(MDC);
       delay ();
    }
 }
@@ -29,12 +70,11 @@ static void output_MDIO (U32 val, U32 n) {
 /*--------------------------- turnaround_MDIO -------------------------------*/
 
 static void turnaround_MDIO (void) {
-
    /* Turnaround MDO is tristated. */
-   LPC_GPIO2->FIODIR &= ~MDIO;
-   LPC_GPIO2->FIOSET  = MDC;
+   mdio_set_dir(0);
+   mdio_set(MDC);
    delay ();
-   LPC_GPIO2->FIOCLR  = MDC;
+   mdio_clear(MDC);
    delay ();
 }
 
@@ -47,11 +87,17 @@ static U32 input_MDIO (void) {
 
    for (i = 0; i < 16; i++) {
       val <<= 1;
-      LPC_GPIO2->FIOSET = MDC;
+      mdio_set(MDC);
       delay ();
-      LPC_GPIO2->FIOCLR = MDC;
-      if (LPC_GPIO2->FIOPIN & MDIO) {
-         val |= 1;
+      mdio_clear(MDC);
+      if (hw_board_rev == HW_REV_PROTO) {
+         if (LPC_GPIO2->FIOPIN & PROTO_MDIO) {
+            val |= 1;
+         }
+      } else {
+         if (LPC_GPIO4->FIOPIN & PROD_MDIO) {
+            val |= 1;
+         }
       }
    }
    return (val);
@@ -62,7 +108,7 @@ U32 mdio_read(int PhyReg) {
    U32 val;
 
    /* Configuring MDC on P2.8 and MDIO on P2.9 */
-   LPC_GPIO2->FIODIR |= MDIO;
+   mdio_set_dir(1);
 
    /* 32 consecutive ones on MDO to establish sync */
    output_MDIO (0xFFFFFFFF, 32);
@@ -92,7 +138,12 @@ U32 mdio_read(int PhyReg) {
 void mdio_write(int PhyReg, int Value) {
 
   /* Configuring MDC on P2.8 and MDIO on P2.9 */
-  LPC_GPIO2->FIODIR |= MDIO;
+  if (hw_board_rev == HW_REV_PROTO) {
+    LPC_GPIO2->FIODIR |= PROTO_MDC;
+  } else {
+    LPC_GPIO4->FIODIR |= PROD_MDC;
+  }
+  mdio_set_dir(1);
 
   /* 32 consecutive ones on MDO to establish sync */
   output_MDIO (0xFFFFFFFF, 32);

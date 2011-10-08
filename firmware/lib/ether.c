@@ -804,8 +804,6 @@ void eth_hardware_init(uint8_t *macaddr) {
 		LPC_PINCON->PINSEL2 = (LPC_PINCON->PINSEL2 & ~(3 << shift)) | (1 << shift);
 	}
 
-	LPC_GPIO2->FIODIR |= MDC;
-
 	/* Set up Ethernet in autosense mode */
 	EMAC_CFG_Type Emac_Config;
 	Emac_Config.Mode = EMAC_MODE_AUTO;
