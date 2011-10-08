@@ -49,6 +49,8 @@ void hw_get_board_rev(void) {
 	/* P2[10] low = rev. 0 board. P2[10] high = MP board. */
 	if (LPC_GPIO2->FIOPIN & (1 << 10)) {
 		hw_board_rev = HW_REV_MP1;
+		/* Put P1[31] back */
+		LPC_GPIO1->FIODIR &= ~(1 << 31);
 	} else {
 		hw_board_rev = HW_REV_PROTO;
 	}
