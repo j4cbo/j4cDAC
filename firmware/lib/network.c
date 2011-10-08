@@ -32,7 +32,7 @@
 static struct netif ether_netif;
 static struct dhcp dhcp_state;
 
-static const uint8_t default_mac[] = { 0x10, 0x1f, 0xe0, 0x12, 0x1d, 0x0c };
+extern uint8_t mac_address[6];
 
 void EINT3_IRQHandler(void) {
 	if (!(LPC_GPIOINT->IO0IntStatF & (1 << 8))) {
@@ -66,9 +66,7 @@ void eth_init() {
 	ether_netif.flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_LINK_UP;
 	ether_netif.mtu = 1500;
 
-	/* XXX I should have put a serial EEPROM on the board for MAC
-	 * address storage. Oops. */
-	memcpy(ether_netif.hwaddr, default_mac, 6);
+	memcpy(ether_netif.hwaddr, mac_address, 6);
 
 	eth_hardware_init(ether_netif.hwaddr);
 

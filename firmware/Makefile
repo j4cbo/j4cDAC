@@ -37,7 +37,7 @@ APP_SRCS += lib/skub.c ild-player.c lib/fixpoint.c
 APP_SRCS += abstract/render.c abstract/io.c
 
 # Ethernet driver
-BRD_SRCS += lib/ether.c lib/network.c drivers/source/mdio.c
+BRD_SRCS += lib/ether.c lib/network.c drivers/source/mdio.c lib/eeprom.c
 
 # FAT
 APP_SRCS += lib/fatfs/ff.c lib/fatfs/ccsbcs.c lib/fatfs/diskio.c lib/fatfs/fatfs.c
