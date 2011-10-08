@@ -5,6 +5,7 @@
 #define NULL 0
 #endif
 
+void debugf(const char *fmt, ...);
 void outputf(const char *fmt, ...);
 void hexdump(const char * data, int len);
 void serial_init();

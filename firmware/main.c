@@ -140,17 +140,17 @@ void playback_refill() {
 void FPA_init() {
 	int i;
 
-	outputf("== hardware ==");
+	debugf("### Initializing Hardware ###\r\n");
 
 	for (i = 0; i < TABLE_LENGTH(hardware); i++) {
-		outputf("%s()", hardware_table[i].name);
+		outputf("- %s()", hardware_table[i].name);
 		hardware_table[i].f();
 	}
 
-	outputf("== protocol ==");
+	debugf("### Initializing Protocols ###\r\n");
 
 	for (i = 0; i < TABLE_LENGTH(protocol); i++) {
-		outputf("%s()", protocol_table[i].name);
+		outputf("- %s()", protocol_table[i].name);
 		protocol_table[i].f();
 	}
 }
@@ -174,20 +174,20 @@ int main(int argc, char **argv) {
 
 	serial_init();
 
-	outputf("###############");
-	outputf("# Ether Dream #");
-	outputf("###############");
-	outputf("Firmware: %s", build);
+	debugf("\r\n###############\r\n");
+	debugf("# Ether Dream #\r\n");
+	debugf("###############\r\n");
+	debugf("Firmware: %s\r\n", build);
 
 	hw_get_board_rev();
 
-	outputf("led_init()");
+	debugf("Starting up: led");
 	led_init();
 
-	outputf("skub_init()");
+	debugf(" skub");
 	skub_init();
 
-	outputf("lwip_init()");
+	debugf(" lwip\r\n");
 	lwip_init();
 
 	time = 0;

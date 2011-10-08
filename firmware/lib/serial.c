@@ -23,6 +23,20 @@ void serial_init() {
 	UART_TxCmd(DEBUG_UART, ENABLE);
 }
 
+void debugf(const char *fmt, ...) {
+	va_list va;
+	char buffer[80];
+	int n;
+
+	va_start(va, fmt);
+	n = vsnprintf(buffer, sizeof(buffer), fmt, va);
+
+	if (n > sizeof(buffer))
+		n = sizeof(buffer);
+
+	UART_Send(DEBUG_UART, (uint8_t *) buffer, n, BLOCKING);
+}
+
 void outputf(const char *fmt, ...) {
 	va_list va;
 	char buffer[80];
