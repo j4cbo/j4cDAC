@@ -19,6 +19,9 @@
 #include <hardware.h>
 #include <stdint.h>
 #include <LPC17xx.h>
+#include <serial.h>
+
+uint32_t SystemCoreClock = 4000000;
 
 /* Shutter pin config. */
 #define DAC_SHUTTER_PIN         6
@@ -143,3 +146,84 @@ void led_init(void) {
 		LPC_GPIO2->FIODIR |= (1 << 5);
 	}
 }
+
+#define PLL_M			48
+#define PLL_N			5
+#define PLL0CFG_Val		(((PLL_N - 1) << 16) | (PLL_M - 1))
+#define CLOCK_TIMEOUT		50000
+
+/* clock_init()
+ *
+ * Initialize the external clock and PLL.
+ */
+int clock_init(void) {
+	/* Start up main oscillator */
+	LPC_SC->SCS = SCS_OSCRANGE | SCS_OSCEN;
+
+	int i = CLOCK_TIMEOUT;
+	while (i-- && !(LPC_SC->SCS & SCS_OSCSTAT));
+	if (!i) return -1;
+
+	/* Flash accelerator config */
+	LPC_SC->FLASHCFG = 0x403A;
+
+	/* Divide pllclk by 5 (4 + 1) to produce CPU clock */
+	LPC_SC->CCLKCFG = 4;
+
+	/* Configure PLL0 */
+	LPC_SC->PLL0CFG = (((PLL_N - 1) << 16) | (PLL_M - 1));
+	LPC_SC->PLL0FEED = 0xAA;
+	LPC_SC->PLL0FEED = 0x55;
+	LPC_SC->PLL0CON = PLLnCON_Enable;
+	LPC_SC->PLL0FEED = 0xAA;
+	LPC_SC->PLL0FEED = 0x55;
+
+	/* Wait for lock */
+	i = CLOCK_TIMEOUT;
+	while (i-- && !(LPC_SC->PLL0STAT & (1<<26)));
+	if (!i) return -1;
+
+	/* Set clock source as PLL0 */
+	LPC_SC->CLKSRCSEL = 1;
+
+	/* Connect PLL0 */
+	LPC_SC->PLL0CON = PLLnCON_Enable | PLLnCON_Connect;
+	LPC_SC->PLL0FEED = 0xAA;
+	LPC_SC->PLL0FEED = 0x55;
+
+	/* Wait for connect to go through */
+	while (i-- && !(LPC_SC->PLL0STAT & ((1<<25) | (1<<24))));
+	if (!i) return -1;
+
+	/* pllck is 480 MHz, so divide by 10 to get USB clock */
+	LPC_SC->USBCLKCFG = 9;
+
+	/* No CLKOUT */
+	LPC_SC->CLKOUTCFG = 0;
+
+	SystemCoreClock = 96000000;
+
+	return 0;
+}
+
+/* Open the interlock and then stop forever.
+ *
+ * This is intended to be called at the end of panic() or similar.
+ */
+void __attribute__((noreturn)) hw_open_interlock_forever(void) {
+
+	if (hw_board_rev == HW_REV_PROTO) {
+		/* Just do nothing */
+		while (1);
+	} else {
+		/* Square wave */
+		int i;
+		LPC_GPIO2->FIODIR |= (1 << 8);
+		while (1) {
+			for (i = 0; i < 1000; i++) __NOP();
+			LPC_GPIO2->FIOSET = (1 << 8);
+			for (i = 0; i < 1000; i++) __NOP();
+			LPC_GPIO2->FIOCLR = (1 << 8);
+		}
+	}
+}	

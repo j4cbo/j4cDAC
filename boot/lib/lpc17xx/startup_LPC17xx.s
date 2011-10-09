@@ -103,8 +103,6 @@ _reset:
 	cmp r1, r2		/* check whether we're done, */
 	bne .L2			/* if so, keep going. */
 
-	LDR	 R0, =SystemInit
-	BLX	 R0
 	LDR	 R0, =main
 	BX	  R0
 	.pool

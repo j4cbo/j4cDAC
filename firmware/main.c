@@ -171,7 +171,7 @@ char x[160] AHB0;
 int main(int argc, char **argv) __attribute__((noreturn));
 int main(int argc, char **argv) {
 	__disable_irq();
-
+	clock_init();
 	serial_init();
 
 	debugf("\r\n###############\r\n");

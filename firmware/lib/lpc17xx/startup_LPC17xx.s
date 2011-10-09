@@ -121,8 +121,6 @@ __cs3_interrupt_vector_cortex_m:
     .type   __cs3_reset_cortex_m, %function
 __cs3_reset_cortex_m:
     .fnstart
-    LDR     R0, =SystemInit
-    BLX     R0
     LDR     R0,=_start
     BX      R0
     .pool

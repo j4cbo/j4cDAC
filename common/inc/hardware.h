@@ -33,6 +33,9 @@ extern enum hw_board_rev hw_board_rev;
 void hw_get_board_rev();
 void hw_dac_init(void);
 void hw_dac_zero_all_channels(void);
+void hw_open_interlock_forever(void) __attribute__((noreturn));
+
+int clock_init(void);
 
 void led_set_frontled(int state);
 void led_set_backled(int state);
@@ -46,5 +49,9 @@ hw_dac_write(uint16_t word) {
 
 #define FORCE_BOOTLOAD_FLAG	(*(volatile uint32_t *)0x20083FFC)
 #define FORCE_BOOTLOAD_VALUE	0xF0ADF0AD
+
+#define PCLKSEL0_INIT_VALUE	PCLK_UART0(PCLK_CCLK)
+#define PCLKSEL1_INIT_VALUE	0
+#define PCONP_INIT_VALUE	0xE7A884DE
 
 #endif

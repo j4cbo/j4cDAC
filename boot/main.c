@@ -308,16 +308,31 @@ void enter_application() {
 **************************************************************************/
 int main(void)
 {
-	SysTick_Config(SystemCoreClock / 1000);
+	/* Turn on peripherals */
+	LPC_SC->PCLKSEL0 = PCLKSEL0_INIT_VALUE;
+	LPC_SC->PCLKSEL1 = PCLKSEL1_INIT_VALUE;
+	LPC_SC->PCONP = PCONP_INIT_VALUE;
+
+	/* Before we do *anything* else, turn off the DAC */
+	hw_dac_init();
+
+	int clock_res = clock_init();
 
         serial_init();
 
-	outputf("##########################");
+	outputf("\r\n##########################");
 	outputf("# Ether Dream BOOTLOADER #");
 	outputf("##########################");
 
+	if (clock_res < 0) {
+		outputf("CLOCK SETUP FAILED");
+	}
+
 	hw_get_board_rev();
 	outputf("Hardware Revision: %d", hw_board_rev);
+
+	if (clock_res < 0)
+		hw_open_interlock_forever();
 
 	int pin_held;
 
@@ -363,15 +378,17 @@ int main(void)
 	/* Move interrupts into RAM */
 	SCB->VTOR = 0x10000000;
 
+	/* Set up LEDs */
+	led_init();
+
+	SysTick_Config(SystemCoreClock / 1000);
+
 	/* Check whether we need to enter application mode */
 	if (!pin_held && !force && app_is_ok) {
 		enter_application();
 	}
 
 	outputf("Entering bootloader");
-
-	/* Set up LEDs */
-	led_init();
 
 	// initialise stack
 	usb_init();
