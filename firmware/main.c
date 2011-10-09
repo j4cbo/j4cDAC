@@ -161,6 +161,7 @@ void check_periodic_timers() {
 		if (time > events_last[i] + events[i].period) {
 			events[i].f();
 			events_last[i] += events[i].period;
+			watchdog_feed();
 		}
 	}
 }
@@ -199,6 +200,7 @@ int main(int argc, char **argv) {
 	ilda_open("ildatest.ild");
 
 	outputf("Entering main loop...");
+	watchdog_init();
 
 	playback_src = SRC_NETWORK;
 
@@ -222,6 +224,8 @@ int main(int argc, char **argv) {
 	dac_prepare();
 	dac_start();
 	while (1) {
+		watchdog_feed();
+
 		/* If we're playing from something other than the network,
 		 * refill the point buffer. */
 		playback_refill();
@@ -260,7 +264,9 @@ int main(int argc, char **argv) {
 			dac_stop(0);
 			FORCE_BOOTLOAD_FLAG = FORCE_BOOTLOAD_VALUE;
 			__disable_irq();
-			reenter_bootloader();
+
+			/* The watchdog timer will kick us soon... */
+			while(1);
 		}
 	}
 }

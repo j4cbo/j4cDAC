@@ -226,4 +226,29 @@ void __attribute__((noreturn)) hw_open_interlock_forever(void) {
 			LPC_GPIO2->FIOCLR = (1 << 8);
 		}
 	}
-}	
+}
+
+#define WDT_MILLISECONDS	5
+#define WDT_RC_FREQ		4000000
+
+/* Set up the watchdog timer.
+ *
+ * Once this is called, watchdog_feed() must be called at least once
+ * every WDT_MILLISECONDS ms, or the system will reset.
+ */
+void watchdog_init(void) {
+	LPC_WDT->WDTC = (WDT_MILLISECONDS * WDT_RC_FREQ) / 1000;
+	LPC_WDT->WDMOD = (WDMOD_WDEN | WDMOD_WDRESET);
+	/* WD clock source defaults to 0, the RC oscillator. Keep that and
+	 * lock the input. */
+	LPC_WDT->WDCLKSEL = WDSEL_WDLOCK;
+}
+
+/* Feed the watchdog.
+ *
+ * Om nom nom.
+ */
+void watchdog_feed(void) {
+	LPC_WDT->WDFEED = 0xAA;
+	LPC_WDT->WDFEED = 0x55;
+}

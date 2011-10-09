@@ -27,4 +27,10 @@
 #define UARTnLCR_DLAB			(1 << 7)
 #define UARTnLSR_THR_Empty		(1 << 5)
 
+#define WDMOD_WDEN			(1 << 0)
+#define WDMOD_WDRESET			(1 << 1)
+#define WDMOD_WDTOF			(1 << 2)
+#define WDMOD_WDINT			(1 << 3)
+#define WDSEL_WDLOCK			(1 << 31)
+
 #endif

@@ -47,6 +47,9 @@ hw_dac_write(uint16_t word) {
 	LPC_SSP1->DR = word;
 }
 
+void watchdog_init(void);
+void watchdog_feed(void);
+
 #define FORCE_BOOTLOAD_FLAG	(*(volatile uint32_t *)0x20083FFC)
 #define FORCE_BOOTLOAD_VALUE	0xF0ADF0AD
 
