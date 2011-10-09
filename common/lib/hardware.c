@@ -212,6 +212,9 @@ int clock_init(void) {
  */
 void __attribute__((noreturn)) hw_open_interlock_forever(void) {
 
+	/* Turn off all DAC channels. */
+	hw_dac_init();
+
 	if (hw_board_rev == HW_REV_PROTO) {
 		/* Just do nothing */
 		while (1);
