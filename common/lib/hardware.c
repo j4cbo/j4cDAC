@@ -222,8 +222,10 @@ void __attribute__((noreturn)) hw_open_interlock_forever(void) {
 		while (1) {
 			for (i = 0; i < 1000; i++) __NOP();
 			LPC_GPIO2->FIOSET = (1 << 8);
+			feed_watchdog();
 			for (i = 0; i < 1000; i++) __NOP();
 			LPC_GPIO2->FIOCLR = (1 << 8);
+			feed_watchdog();
 		}
 	}
 }
