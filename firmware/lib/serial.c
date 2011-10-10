@@ -48,6 +48,9 @@ void outputf(const char *fmt, ...) {
 	if (n > (sizeof(buffer) - 2))
 		n = sizeof(buffer) - 2;
 
+	if (n > 0 && buffer[n-1] == '\n')
+		n--;
+
 	buffer[n] = '\r';
 	buffer[n + 1] = '\n';
 
