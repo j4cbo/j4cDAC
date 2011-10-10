@@ -172,6 +172,9 @@ char x[160] AHB0;
 int main(int argc, char **argv) __attribute__((noreturn));
 int main(int argc, char **argv) {
 	__disable_irq();
+	LPC_SC->PCLKSEL0 = PCLKSEL0_INIT_VALUE;
+	LPC_SC->PCLKSEL1 = PCLKSEL1_INIT_VALUE;
+	LPC_SC->PCONP = PCONP_INIT_VALUE;
 	clock_init();
 	serial_init();
 
@@ -223,6 +226,7 @@ int main(int argc, char **argv) {
 
 	dac_prepare();
 	dac_start();
+
 	while (1) {
 		watchdog_feed();
 
