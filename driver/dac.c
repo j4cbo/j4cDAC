@@ -240,31 +240,42 @@ unsigned __stdcall LoopUpdate(void *dv){
 
 		LeaveCriticalSection(&d->buffer_lock);
 
-
 		struct buffer_item *b = &d->buffer[d->buffer_read];
+		int cap;
+		int iters = 0;
 
-		/* Estimate how much data has been consumed since the last
-		 * time we got an ACK. */
-		LARGE_INTEGER time;
-		QueryPerformanceCounter(&time);
-		LONGLONG time_diff = time.QuadPart - d->conn.last_ack_time.QuadPart;
-		LONGLONG points_used = (time_diff * b->pps) / timer_freq.QuadPart;
-		int iu = points_used;
+		while (1) {
+			/* Estimate how much data has been consumed since the last
+			 * time we got an ACK. */
+			LARGE_INTEGER time;
+			QueryPerformanceCounter(&time);
+			LONGLONG time_diff = time.QuadPart - d->conn.last_ack_time.QuadPart;
+			LONGLONG points_used = (time_diff * b->pps) / timer_freq.QuadPart;
+			int iu = points_used;
+			if (d->conn.resp.dac_status.playback_state != 2) iu = 0;
 
-		int expected_fullness = d->conn.resp.dac_status.buffer_fullness \
-			- iu + d->conn.written_since_last_ack;
+			int expected_fullness = d->conn.resp.dac_status.buffer_fullness \
+				- iu + d->conn.unacked_points;
 
-		/* Now, see how much data we should write. */
-		int cap = 1750;
-		cap -= expected_fullness;
-		if (cap <= 0) cap = 1;
+			/* Now, see how much data we should write. */
+			cap = 1750 - expected_fullness;
 
-		flog("L: b %d + %d - %d = %d, w %d oa %d st %d\n",
-			d->conn.resp.dac_status.buffer_fullness,
-			d->conn.written_since_last_ack,
-			iu, expected_fullness, cap,
-			d->conn.outstanding_acks,
-			d->conn.resp.dac_status.playback_state);
+			flog("L: b %d + %d - %d = %d, w %d om %d st %d\n",
+				d->conn.resp.dac_status.buffer_fullness,
+				d->conn.unacked_points,
+				iu, expected_fullness, cap,
+				d->conn.pending_meta_acks,
+				d->conn.resp.dac_status.playback_state);
+
+			if (cap > 50) break;
+			if (iters++ > 1) break;
+
+			/* Wait a little. */
+			int diff = 50 - cap;
+			int sleeptime = 1 + (1000 * diff / b->pps);
+			flog("L: sleeping %d\n", sleeptime);
+			Sleep(sleeptime);
+		}
 
 		/* How many points can we send? */
 		int b_left = b->points - b->idx;
@@ -273,6 +284,8 @@ unsigned __stdcall LoopUpdate(void *dv){
 			cap = b_left;
 		if (cap > 80)
 			cap = 80;
+		if (cap < 0)
+			cap = 1;
 
 		int res = dac_send_data(&d->conn, b->data + b->idx, cap, b->pps);
 

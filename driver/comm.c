@@ -313,6 +313,17 @@ int dac_sendall(dac_conn_t *conn, void *data, int len) {
 }
 
 int check_data_response(dac_conn_t *conn) {
+	if (conn->resp.command == 'd') {
+		if (conn->ackbuf_prod == conn->ackbuf_cons) {
+			flog("!! Protocol error: didn't expect data ack");
+			return -1;
+		}
+		conn->unacked_points -= conn->ackbuf[conn->ackbuf_cons];
+		conn->ackbuf_cons = (conn->ackbuf_cons + 1) % MAX_LATE_ACKS;
+	} else {
+		conn->pending_meta_acks--;
+	}
+
 	if (conn->resp.response != 'a' && conn->resp.response != 'I') {
 		flog("!! Protocol error: ACK for '%c' got '%c' (%d)\n",
 			conn->resp.command,
@@ -342,7 +353,7 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 			return res;
 
 		/* Read ACK */
-		conn->outstanding_acks++;
+		conn->pending_meta_acks++;
 	}
 
 	if (st->buffer_fullness > 1700 && st->playback_state == 1) {
@@ -355,7 +366,7 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 		if ((res = dac_sendall(conn, &b, sizeof(b))) < 0)
 			return res;
 
-		conn->outstanding_acks++;
+		conn->pending_meta_acks++;
 	}
 
 	dac_local_buffer.queue.command = 'q';
@@ -377,26 +388,32 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 		return res;
 
 	/* Expect two ACKs */
-	conn->outstanding_acks += 2;
+	conn->pending_meta_acks++;
+	conn->ackbuf[conn->ackbuf_prod] = npoints;
+	conn->ackbuf_prod = (conn->ackbuf_prod + 1) % MAX_LATE_ACKS;
+	conn->unacked_points += npoints;
 
+	if ((res = dac_get_acks(conn)) < 0)
+		return res;
+
+	return npoints;
+}
+
+int dac_get_acks(dac_conn_t *conn) {
 	/* Read any ACKs we are owed */
-	while (conn->outstanding_acks) {
-		if (wait_for_activity(conn->sock, 1500)) { 
+	while (conn->pending_meta_acks
+	       || (conn->ackbuf_prod != conn->ackbuf_cons)) {
+		int res;
+		if (wait_for_activity(conn->sock, 0)) { 
 			if ((res = dac_read_resp(conn, 1)) < 0)
 				return res;
 			if ((res = check_data_response(conn)) < 0)
 				return res;
-
-			conn->outstanding_acks--;
 		} else {
 			break;
 		}
 	}
-
-	if (conn->outstanding_acks)
-		conn->written_since_last_ack += npoints;
-
-	return npoints;
+	return 0;
 }
 
 int loop(dac_conn_t *conn) {

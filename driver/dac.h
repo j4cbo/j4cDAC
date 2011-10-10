@@ -31,6 +31,8 @@
 #define BUFFER_POINTS_PER_FRAME 16000
 #define BUFFER_NFRAMES          2
 
+#define MAX_LATE_ACKS		64
+
 /* Network connection
  */
 typedef struct dac_conn_s {
@@ -40,7 +42,12 @@ typedef struct dac_conn_s {
 	struct dac_response resp;
 	int written_since_last_ack;
 	LARGE_INTEGER last_ack_time;
-	int outstanding_acks;
+
+	int ackbuf[MAX_LATE_ACKS];
+	int ackbuf_prod;
+	int ackbuf_cons;
+	int unacked_points;
+	int pending_meta_acks;
 } dac_conn_t;
 
 /* Double buffer
@@ -92,6 +99,7 @@ int dac_get_status(dac_t *d);
 int do_write_frame(dac_t *d, const void * data, int bytes, int pps,
 	int reps, int (*convert)(struct buffer_item *, const void *, int));
 void dac_get_name(dac_t *d, char *buf, int max);
+int dac_get_acks(dac_conn_t *conn);
 
 /* comm.c */
 void log_socket_error(const char *call);
