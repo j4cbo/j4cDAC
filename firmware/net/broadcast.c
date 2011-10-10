@@ -23,6 +23,7 @@
 #include <assert.h>
 #include <ether.h>
 #include <playback.h>
+#include <hardware.h>
 
 #define BROADCAST_PORT	7654
 
@@ -83,7 +84,7 @@ void broadcast_send(void) {
 	pkt->buffer_capacity = DAC_BUFFER_POINTS - 1;
 	pkt->max_point_rate = DAC_MAX_POINT_RATE;
 
-	pkt->hw_revision = 0;	// XXX TODO
+	pkt->hw_revision = hw_board_rev;
 	pkt->sw_revision = 1;	// XXX TODO - integrate into build system
 
 	udp_send(&broadcast_pcb, p);
