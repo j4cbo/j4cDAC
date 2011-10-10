@@ -6,6 +6,7 @@
 #define PCLK_CCLK2			2
 #define PCLK_CCLK8			3
 #define PCLK_UART0(n)			((n) << 6)
+#define PCLK_SSP1(n)			((n) << 20)
 
 #define SCS_OSCRANGE			(1 << 4)
 #define SCS_OSCEN			(1 << 5)
