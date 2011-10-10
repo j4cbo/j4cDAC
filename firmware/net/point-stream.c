@@ -235,9 +235,13 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 
 		/* On the other hand, if the DAC isn't ready for *any* data,
 		 * then ignore the rest of this write command and NAK when
-		 * it's over. The FSM will  */
+		 * it's over. The FSM will take care of us... */
 		if (nready <= 0) {
-			outputf("underflow: pl %d np %d", ps_pointsleft, npoints);
+			if (nready == 0) {
+				outputf("overflow: wanted to write %d", npoints);
+			} else {
+				outputf("underflow: pl %d np %d r %d", ps_pointsleft, npoints, nready);
+			}
 			ps_state = DATA_ABORTING;
 
 			/* Danger: goto. This could probably be structured
