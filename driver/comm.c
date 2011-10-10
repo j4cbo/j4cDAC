@@ -30,9 +30,6 @@
 
 #define DEFAULT_TIMEOUT	2000000
 
-static struct dac_response dac_resp;
-static int dac_num_outstanding_acks;
-
 /* Compile-time assert macro.
  *
  * Source: http://www.pixelbeat.org/programming/gcc/static_assert.html
@@ -148,16 +145,19 @@ int dac_read_bytes(dac_conn_t *conn, char *buf, int len) {
  * have been called.
  */
 int dac_read_resp(dac_conn_t *conn, int timeout) {
-	int res = dac_read_bytes(conn, (char *)&dac_resp, sizeof(dac_resp));
+	int res = dac_read_bytes(conn, (char *)&conn->resp, sizeof(conn->resp));
 	if (res < 0)
 		return res;
+
+	conn->written_since_last_ack = 0;
+	QueryPerformanceCounter(&conn->last_ack_time);
 
 	return 0;
 }
 
 
-void dac_dump_resp(void) {
-	struct dac_status *st = &dac_resp.dac_status;
+void dac_dump_resp(dac_conn_t *conn) {
+	struct dac_status *st = &conn->resp.dac_status;
 	flog("Protocol %d / LE %d / playback %d / source %d\n",
 		0 /* st->protocol */, st->light_engine_state,
 		st->playback_state, st->source);
@@ -175,8 +175,6 @@ void dac_dump_resp(void) {
  */
 int dac_connect(dac_conn_t *conn, const char *host, const char *port) {
 	ZeroMemory(conn, sizeof(*conn));
-
-	dac_num_outstanding_acks = 0;
 
 	// Look up the server address
 	struct addrinfo *result = NULL, *ptr = NULL, hints;
@@ -273,12 +271,12 @@ int dac_connect(dac_conn_t *conn, const char *host, const char *port) {
 
 	// After we connect, the host will send an initial status response. 
 	dac_read_resp(conn, DEFAULT_TIMEOUT);
-	dac_dump_resp();
+	dac_dump_resp(conn);
 
 	char c = 'p';
 	dac_sendall(conn, &c, 1);
 	dac_read_resp(conn, DEFAULT_TIMEOUT);
-	dac_dump_resp();
+	dac_dump_resp(conn);
 
 	flog("Sent.\n");
 
@@ -314,11 +312,11 @@ int dac_sendall(dac_conn_t *conn, void *data, int len) {
 	return 0;
 }
 
-int check_data_response(void) {
-	if (dac_resp.response != 'a' && dac_resp.response != 'I') {
+int check_data_response(dac_conn_t *conn) {
+	if (conn->resp.response != 'a' && conn->resp.response != 'I') {
 		flog("!! Protocol error: ACK for '%c' got '%c' (%d)\n",
-			dac_resp.command,
-			dac_resp.response, dac_resp.response);
+			conn->resp.command,
+			conn->resp.response, conn->resp.response);
 		return -1;
 	}
 
@@ -333,11 +331,9 @@ struct {
 
 int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rate) { 
 	int res;
-	const struct dac_status *st = dac_last_status();
+	const struct dac_status *st = &conn->resp.dac_status;
 
 	/* Write the header */
-
-	if (npoints > 80) npoints = 80;
 
 	if (st->playback_state == 0) {
 		flog("L: Sending prepare command...\n");
@@ -346,7 +342,7 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 			return res;
 
 		/* Read ACK */
-		dac_num_outstanding_acks++;
+		conn->outstanding_acks++;
 	}
 
 	if (st->buffer_fullness > 1700 && st->playback_state == 1) {
@@ -359,11 +355,8 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 		if ((res = dac_sendall(conn, &b, sizeof(b))) < 0)
 			return res;
 
-		dac_num_outstanding_acks++;
+		conn->outstanding_acks++;
 	}
-
-	flog("L: Writing %d points (buf has %d, oa %d, st %d)\n", npoints,
-		st->buffer_fullness, dac_num_outstanding_acks, st->playback_state);
 
 	dac_local_buffer.queue.command = 'q';
 	dac_local_buffer.queue.point_rate = rate;
@@ -384,34 +377,28 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 		return res;
 
 	/* Expect two ACKs */
-	dac_num_outstanding_acks += 2;
+	conn->outstanding_acks += 2;
 
 	/* Read any ACKs we are owed */
-	while (dac_num_outstanding_acks) {
+	while (conn->outstanding_acks) {
 		if (wait_for_activity(conn->sock, 1500)) { 
 			if ((res = dac_read_resp(conn, 1)) < 0)
 				return res;
-			if ((res = check_data_response()) < 0)
+			if ((res = check_data_response(conn)) < 0)
 				return res;
 
-			dac_num_outstanding_acks--;
+			conn->outstanding_acks--;
 		} else {
-			flog("L: timed out waiting for ACK\n");
 			break;
 		}
 	}
+
+	if (conn->outstanding_acks)
+		conn->written_since_last_ack += npoints;
 
 	return npoints;
 }
 
 int loop(dac_conn_t *conn) {
 	return 0;
-}
-
-const struct dac_status * dac_last_status(void) {
-	return &dac_resp.dac_status;
-}
-
-int dac_outstanding_acks(void) {
-	return dac_num_outstanding_acks;
 }

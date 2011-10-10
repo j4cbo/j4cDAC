@@ -240,28 +240,39 @@ unsigned __stdcall LoopUpdate(void *dv){
 
 		LeaveCriticalSection(&d->buffer_lock);
 
-		/* Now, see how much data we should write. */
-		int cap = 1798;
-
-		cap -= dac_last_status()->buffer_fullness;
-		if (cap <= 0) cap = 1;
 
 		struct buffer_item *b = &d->buffer[d->buffer_read];
-/*
-		if (cap < 100) {
-			Sleep(5);
-			flog("L: Sleeping.\n");
-			cap += 20;
-		}
-*/
+
+		/* Estimate how much data has been consumed since the last
+		 * time we got an ACK. */
+		LARGE_INTEGER time;
+		QueryPerformanceCounter(&time);
+		LONGLONG time_diff = time.QuadPart - d->conn.last_ack_time.QuadPart;
+		LONGLONG points_used = (time_diff * b->pps) / timer_freq.QuadPart;
+		int iu = points_used;
+
+		int expected_fullness = d->conn.resp.dac_status.buffer_fullness \
+			- iu + d->conn.written_since_last_ack;
+
+		/* Now, see how much data we should write. */
+		int cap = 1750;
+		cap -= expected_fullness;
+		if (cap <= 0) cap = 1;
+
+		flog("L: b %d + %d - %d = %d, w %d oa %d st %d\n",
+			d->conn.resp.dac_status.buffer_fullness,
+			d->conn.written_since_last_ack,
+			iu, expected_fullness, cap,
+			d->conn.outstanding_acks,
+			d->conn.resp.dac_status.playback_state);
+
 		/* How many points can we send? */
 		int b_left = b->points - b->idx;
 
 		if (cap > b_left)
 			cap = b_left;
-		if (cap > 1000)
-			cap = 1000;
-
+		if (cap > 80)
+			cap = 80;
 
 		int res = dac_send_data(&d->conn, b->data + b->idx, cap, b->pps);
 

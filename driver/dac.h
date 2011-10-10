@@ -37,6 +37,10 @@ typedef struct dac_conn_s {
 	SOCKET sock;
 	char buf[1024];
 	int size;
+	struct dac_response resp;
+	int written_since_last_ack;
+	LARGE_INTEGER last_ack_time;
+	int outstanding_acks;
 } dac_conn_t;
 
 /* Double buffer
@@ -94,7 +98,6 @@ void log_socket_error(const char *call);
 int dac_connect(dac_conn_t *conn, const char *host, const char *port);
 int dac_disconnect(dac_conn_t *conn);
 int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rate);
-const struct dac_status * dac_last_status(void);
-int dac_outstanding_acks(void);
 
+extern LARGE_INTEGER timer_freq;
 #endif
