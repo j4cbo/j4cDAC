@@ -149,7 +149,6 @@ int dac_read_resp(dac_conn_t *conn, int timeout) {
 	if (res < 0)
 		return res;
 
-	conn->written_since_last_ack = 0;
 	QueryPerformanceCounter(&conn->last_ack_time);
 
 	return 0;
@@ -313,6 +312,9 @@ int dac_sendall(dac_conn_t *conn, void *data, int len) {
 }
 
 int check_data_response(dac_conn_t *conn) {
+	if (conn->resp.dac_status.playback_state != 2)
+		conn->begin_sent = 0;
+
 	if (conn->resp.command == 'd') {
 		if (conn->ackbuf_prod == conn->ackbuf_cons) {
 			flog("!! Protocol error: didn't expect data ack");
@@ -354,9 +356,15 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 
 		/* Read ACK */
 		conn->pending_meta_acks++;
+
+		/* Block here until all ACKs received... */
+		while (conn->pending_meta_acks)
+			dac_get_acks(conn, 1500);
+
+		flog("L: prepare ACKed\n");
 	}
 
-	if (st->buffer_fullness > 1700 && st->playback_state == 1) {
+	if (st->buffer_fullness > 1600 && st->playback_state == 1 && !conn->begin_sent) {
 		flog("L: Sending begin command...\n");
 
 		struct begin_command b;
@@ -366,6 +374,7 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 		if ((res = dac_sendall(conn, &b, sizeof(b))) < 0)
 			return res;
 
+		conn->begin_sent = 1;
 		conn->pending_meta_acks++;
 	}
 
@@ -393,18 +402,18 @@ int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rat
 	conn->ackbuf_prod = (conn->ackbuf_prod + 1) % MAX_LATE_ACKS;
 	conn->unacked_points += npoints;
 
-	if ((res = dac_get_acks(conn)) < 0)
+	if ((res = dac_get_acks(conn, 0)) < 0)
 		return res;
 
 	return npoints;
 }
 
-int dac_get_acks(dac_conn_t *conn) {
+int dac_get_acks(dac_conn_t *conn, int wait) {
 	/* Read any ACKs we are owed */
 	while (conn->pending_meta_acks
 	       || (conn->ackbuf_prod != conn->ackbuf_cons)) {
 		int res;
-		if (wait_for_activity(conn->sock, 0)) { 
+		if (wait_for_activity(conn->sock, wait)) { 
 			if ((res = dac_read_resp(conn, 1)) < 0)
 				return res;
 			if ((res = check_data_response(conn)) < 0)

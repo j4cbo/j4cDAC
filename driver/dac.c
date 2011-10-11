@@ -27,6 +27,8 @@
 
 #include "dac.h"
 
+#define DEBUG_THRESHOLD		800
+
 extern dac_t * dac_list;
 
 unsigned __stdcall LoopUpdate(void *d);
@@ -258,22 +260,23 @@ unsigned __stdcall LoopUpdate(void *dv){
 				- iu + d->conn.unacked_points;
 
 			/* Now, see how much data we should write. */
-			cap = 1750 - expected_fullness;
+			cap = 1700 - expected_fullness;
 
-			flog("L: b %d + %d - %d = %d, w %d om %d st %d\n",
-				d->conn.resp.dac_status.buffer_fullness,
-				d->conn.unacked_points,
-				iu, expected_fullness, cap,
-				d->conn.pending_meta_acks,
-				d->conn.resp.dac_status.playback_state);
+			if (d->conn.resp.dac_status.buffer_fullness < DEBUG_THRESHOLD
+			    || expected_fullness < DEBUG_THRESHOLD)
+				flog("L: b %d + %d - %d = %d, w %d om %d st %d\n",
+					d->conn.resp.dac_status.buffer_fullness,
+					d->conn.unacked_points,
+					iu, expected_fullness, cap,
+					d->conn.pending_meta_acks,
+					d->conn.resp.dac_status.playback_state);
 
-			if (cap > 50) break;
+			if (cap > DAC_MIN_SEND) break;
 			if (iters++ > 1) break;
 
 			/* Wait a little. */
-			int diff = 50 - cap;
+			int diff = DAC_MIN_SEND - cap;
 			int sleeptime = 1 + (1000 * diff / b->pps);
-			flog("L: sleeping %d\n", sleeptime);
 			Sleep(sleeptime);
 		}
 
@@ -326,7 +329,7 @@ unsigned __stdcall LoopUpdate(void *dv){
 			flog("L: returning to idle\n");
 			d->state = ST_READY;
 		} else {
-			flog("L: repeating frame\n");
+			/* Repeat this frame */
 		}
 
 		/* If we get here without hitting any of the above cases,

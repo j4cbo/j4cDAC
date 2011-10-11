@@ -33,6 +33,8 @@
 
 #define MAX_LATE_ACKS		64
 
+#define DAC_MIN_SEND		10
+
 /* Network connection
  */
 typedef struct dac_conn_s {
@@ -40,9 +42,9 @@ typedef struct dac_conn_s {
 	char buf[1024];
 	int size;
 	struct dac_response resp;
-	int written_since_last_ack;
 	LARGE_INTEGER last_ack_time;
 
+	int begin_sent;
 	int ackbuf[MAX_LATE_ACKS];
 	int ackbuf_prod;
 	int ackbuf_cons;
@@ -99,7 +101,7 @@ int dac_get_status(dac_t *d);
 int do_write_frame(dac_t *d, const void * data, int bytes, int pps,
 	int reps, int (*convert)(struct buffer_item *, const void *, int));
 void dac_get_name(dac_t *d, char *buf, int max);
-int dac_get_acks(dac_conn_t *conn);
+int dac_get_acks(dac_conn_t *conn, int wait);
 
 /* comm.c */
 void log_socket_error(const char *call);
