@@ -95,6 +95,9 @@ void hw_dac_init(void) {
 
 	hw_dac_zero_all_channels();
 
+	/* Set Vref in buffered mode */
+	hw_dac_write(0x800C);
+
 	/* Power up the output buffers */
 	hw_dac_write(0xC000);
 
