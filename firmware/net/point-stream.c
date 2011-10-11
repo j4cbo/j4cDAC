@@ -23,6 +23,16 @@ static enum {
 
 static int ps_pointsleft;
 
+#define PS_DEFERRED_ACK_MAX	24
+
+static struct {
+	char cmd;
+	char resp;
+} ps_deferred_ack_queue[PS_DEFERRED_ACK_MAX];
+
+static uint8_t ps_deferred_ack_produce;
+static uint8_t ps_deferred_ack_consume;
+
 /* Set PS_BUFFER_SIZE to the largest contiguous amount of data that the
  * recv_fsm may need. Currently, this is 18 bytes, sizeof(struct dac_point).
  */
@@ -43,6 +53,60 @@ static int close_conn(struct tcp_pcb *pcb, uint16_t reason, int k) {
 	return k;
 }
 
+
+static int ps_defer_ack(char cmd, char resp) {
+	if ((ps_deferred_ack_produce + 1) % PS_DEFERRED_ACK_MAX
+	     == ps_deferred_ack_consume) {
+		return -1;
+	}
+
+	ps_deferred_ack_queue[ps_deferred_ack_produce].cmd = cmd;
+	ps_deferred_ack_queue[ps_deferred_ack_produce].resp = resp;
+	ps_deferred_ack_produce = (ps_deferred_ack_produce + 1) % \
+		PS_DEFERRED_ACK_MAX;
+
+	return 0;
+}
+
+static int ps_send_deferred_acks(struct tcp_pcb *pcb) {
+
+	int num = (ps_deferred_ack_produce + PS_DEFERRED_ACK_MAX
+	           - ps_deferred_ack_consume) % PS_DEFERRED_ACK_MAX;
+	if (num) {
+		outputf("%d deferred acks\n", num);
+	}
+
+	int count = 0;
+	int consume = ps_deferred_ack_consume;
+	err_t err = 0;
+
+	while (consume != ps_deferred_ack_produce) {
+		struct dac_response response;
+		response.response = ps_deferred_ack_queue[consume].resp;
+		response.command = ps_deferred_ack_queue[consume].cmd;
+		fill_status(&response.dac_status);
+
+		err = tcp_write(pcb, &response, sizeof(response),
+			TCP_WRITE_FLAG_COPY);
+
+		if (err < 0)
+			break;
+
+		count++;
+		consume = (consume + 1) % PS_DEFERRED_ACK_MAX;
+	}
+
+	ps_deferred_ack_consume = consume;
+
+	if (err == ERR_MEM)
+		err = 0;
+
+	if (num)
+		outputf("sent %d deferred acks, err %d", count, err);
+
+	return err;
+}
+
 /* send_resp
  *
  * Send a response back to the user.
@@ -52,35 +116,32 @@ static int close_conn(struct tcp_pcb *pcb, uint16_t reason, int k) {
  * for use by recv_fsm, which can tail-call send_resp with the number of
  * bytes that were consumed from the input. If the send succeeds, then that
  * value is returned; otherwise, the error is propagated up.
- *
- * This is split into two functions to aid tail-call optimization and
- * reduce stack usage.
  */
-static err_t do_send_resp(struct tcp_pcb *pcb, char resp, char cmd)
-	__attribute__((noinline));
-static err_t do_send_resp(struct tcp_pcb *pcb, char resp, char cmd) {
+static int RV send_resp(struct tcp_pcb *pcb, char resp, char cmd, int len) {
 	struct dac_response response;
 	response.response = resp;
 	response.command = cmd;
 	fill_status(&response.dac_status);
 
-	err_t ret = tcp_write(pcb, &response, sizeof(response),
+	err_t err = tcp_write(pcb, &response, sizeof(response),
 			      TCP_WRITE_FLAG_COPY);
 
-	if (ret != ERR_OK) {
-		return close_conn(pcb, CONNCLOSED_SENDFAIL, ret);
+	if (err == ERR_MEM) {
+		if (ps_defer_ack(cmd, resp) < 0) {
+			outputf("!!! DROPPING ACK !!!");
+		} else {
+			outputf("deferring ACK");
+		}
+	} else if (err != ERR_OK) {
+		outputf("tcp_write returned %d", err);
+		return close_conn(pcb, CONNCLOSED_SENDFAIL, len);
 	}
 
-	return tcp_output(pcb);
-}
+	err = tcp_output(pcb);
 
-static int RV send_resp(struct tcp_pcb *pcb, char resp, char cmd, int len) {
-	err_t err = do_send_resp(pcb, resp, cmd);
-
-	/* If we can't send the response, then close the connection. */
 	if (err != ERR_OK) {
-		outputf("do_send_resp returned %d", err);
-		return close_conn(pcb, CONNCLOSED_SENDFAIL, -1);
+		outputf("tcp_output returned %d", err);
+		return close_conn(pcb, CONNCLOSED_SENDFAIL, len);
 	}
 
 	return len;
@@ -386,6 +447,8 @@ err_t process_packet_FPV_tcp_recv(struct tcp_pcb * pcb, struct pbuf * pbuf,
 		/* Move on to the next pbuf. */
 		p = p->next;
 	}
+
+	ps_send_deferred_acks(pcb);
 
 	/* Tell lwIP we're done with this packet. */
 	tcp_recved(pcb, pbuf->tot_len);
