@@ -312,12 +312,12 @@ int dac_sendall(dac_conn_t *conn, void *data, int len) {
 }
 
 int check_data_response(dac_conn_t *conn) {
-	if (conn->resp.dac_status.playback_state != 2)
+	if (conn->resp.dac_status.playback_state == 0)
 		conn->begin_sent = 0;
 
 	if (conn->resp.command == 'd') {
 		if (conn->ackbuf_prod == conn->ackbuf_cons) {
-			flog("!! Protocol error: didn't expect data ack");
+			flog("!! Protocol error: didn't expect data ack\n");
 			return -1;
 		}
 		conn->unacked_points -= conn->ackbuf[conn->ackbuf_cons];
