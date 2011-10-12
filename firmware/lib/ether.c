@@ -69,7 +69,7 @@ static int eth_init_descriptors() {
 		}
 
 		eth_rx_desc[i].Packet = (uint32_t)p->payload;
-		eth_rx_desc[i].Ctrl = p->len;
+		eth_rx_desc[i].Ctrl = p->len - 1;
 		eth_rx_pbufs[i] = p;
 	}
 
@@ -783,7 +783,7 @@ void eth_poll_2(void) {
 		}
 
 		eth_rx_desc[consume].Packet = (uint32_t)p->payload;
-		eth_rx_desc[consume].Ctrl = p->len;
+		eth_rx_desc[consume].Ctrl = p->len - 1;
 		eth_rx_pbufs[consume] = p;
 
 		consume = (consume + 1) % NUM_RX_BUF;
