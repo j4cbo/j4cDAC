@@ -46,6 +46,7 @@ static int ps_buffered;
  * Close the current connection, and record why.
  */
 static int close_conn(struct tcp_pcb *pcb, uint16_t reason, int k) {
+	outputf("close_conn: %d", reason);
 	tcp_arg(pcb, NULL);
 	tcp_sent(pcb, NULL);
 	tcp_recv(pcb, NULL);
