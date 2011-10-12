@@ -72,7 +72,7 @@ static inline void dump_stack(uint32_t * stack) {
 }
 
 void HardFault_Handler_C(uint32_t * stack) ATTR_VISIBLE;
-void HardFault_Handler_C(uint32_t * stack, uint32_t r4) {
+void HardFault_Handler_C(uint32_t * stack) {
 	outputf("*** HARD FAULT ***");
 	hw_dac_init();
 	dump_stack(stack);
