@@ -178,6 +178,12 @@ int main(int argc, char **argv) {
 	clock_init();
 	serial_init();
 
+	/* Enable bus, usage, and mem faults. */
+	SCB->SHCSR |= (1<<18) | (1<<17) | (1<<16);
+
+	/* Disable write buffers */
+	*((uint32_t *)0xE000E008) |= (1<<1);
+
 	debugf("\r\n###############\r\n");
 	debugf("# Ether Dream #\r\n");
 	debugf("###############\r\n");
