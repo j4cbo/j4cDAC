@@ -265,6 +265,8 @@ int dac_prepare(void) {
 
 	dac_produce = 0;
 	dac_consume = 0;
+	dac_rate_produce = 0;
+	dac_rate_consume = 0;
 	dac_flags &= ~DAC_FLAG_STOP_ALL;
 	dac_state = DAC_PREPARED;
 	dac_shutter_req = 0;
