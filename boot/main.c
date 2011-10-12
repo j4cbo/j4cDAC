@@ -44,12 +44,11 @@ volatile uint32_t time = 0;
 volatile int st_status;
 
 void SysTick_Handler(void) {
-	if (time % 500 == 0) {
+	led_set_backled(0);
+	if (time % 100 == 0) {
 		led_set_frontled(1);
-		led_set_backled(0);
-	} else if (time % 500 == 50) {
+	} else if (time % 100 == 50) {
 		led_set_frontled(0);
-		led_set_backled(1);
 	}
 	time++;
 }

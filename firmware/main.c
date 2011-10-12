@@ -193,6 +193,7 @@ int main(int argc, char **argv) {
 
 	debugf("Starting up: led");
 	led_init();
+	led_set_frontled(1);
 
 	debugf(" skub");
 	skub_init();
