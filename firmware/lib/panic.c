@@ -56,18 +56,23 @@ void ATTR_VISIBLE panic_internal(const char *fmt, ...) {
 
 static inline void dump_stack(uint32_t * stack) {
 	outputf("stack: %p", stack);
+	outputf("hfsr %08x cfsr %08x", SCB->HFSR, SCB->CFSR);
+	outputf("mmfar %08x bfar %08x", SCB->MMFAR, SCB->BFAR);
 	outputf("r0 %08x r1 %08x r2 %08x r3 0x%08x",
 		stack[0], stack[1], stack[2], stack[3]);
+	outputf("r4 %08x r5 %08x r6 %08x r7 0x%08x",
+		stack[-4], stack[-3], stack[-2], stack[-1]);
 	outputf("r12 %08x lr %08x pc %08x psr 0x%08x",
 		stack[4], stack[5], stack[6], stack[7]);
 	int i;
 	for (i = 8; i < 32; i++) {
+		if (&stack[i] >= (uint32_t *)0x10008000) break;
 		outputf("stack[%d]: %p", i, stack[i]);
 	}
 }
 
 void HardFault_Handler_C(uint32_t * stack) ATTR_VISIBLE;
-void HardFault_Handler_C(uint32_t * stack) {
+void HardFault_Handler_C(uint32_t * stack, uint32_t r4) {
 	outputf("*** HARD FAULT ***");
 	hw_dac_init();
 	dump_stack(stack);
@@ -82,6 +87,21 @@ void BusFault_Handler_C(uint32_t * stack) {
 	hw_open_interlock_forever();
 }
 
+void MemFault_Handler_C(uint32_t * stack) ATTR_VISIBLE;
+void MemFault_Handler_C(uint32_t * stack) {
+	outputf("*** MEM FAULT ***");
+	hw_dac_init();
+	dump_stack(stack);
+	hw_open_interlock_forever();
+}
+
+void UsageFault_Handler_C(uint32_t * stack) ATTR_VISIBLE;
+void UsageFault_Handler_C(uint32_t * stack) {
+	outputf("*** USAGE FAULT ***");
+	hw_dac_init();
+	dump_stack(stack);
+	hw_open_interlock_forever();
+}
 #else
 
 #include <stdlib.h>

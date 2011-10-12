@@ -169,6 +169,8 @@ NMI_Handler:
     .type   HardFault_Handler, %function
 HardFault_Handler:
     MOV     R0, SP
+    mov r1, r4
+    push   { r4, r5, r6, r7 }
     BL      HardFault_Handler_C
     B       .
     .size   HardFault_Handler, . - HardFault_Handler
@@ -177,6 +179,9 @@ HardFault_Handler:
     .weak   MemManage_Handler
     .type   MemManage_Handler, %function
 MemManage_Handler:
+    MOV     R0, SP
+    push   { r4, r5, r6, r7 }
+    BL      MemFault_Handler_C
     B       .
     .size   MemManage_Handler, . - MemManage_Handler
 
@@ -184,13 +189,17 @@ MemManage_Handler:
     .type   BusFault_Handler, %function
 BusFault_Handler:
     MOV     R0, SP
-    BL      HardFault_Handler_C
+    push   { r4, r5, r6, r7 }
+    BL      BusFault_Handler_C
     B       .
     .size   BusFault_Handler, . - BusFault_Handler
 
     .weak   UsageFault_Handler
     .type   UsageFault_Handler, %function
 UsageFault_Handler:
+    MOV     R0, SP
+    push   { r4, r5, r6, r7 }
+    BL     UsageFault_Handler_C
     B       .
     .size   UsageFault_Handler, . - UsageFault_Handler
 
