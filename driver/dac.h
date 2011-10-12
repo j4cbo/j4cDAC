@@ -33,7 +33,7 @@
 
 #define MAX_LATE_ACKS		64
 
-#define DAC_MIN_SEND		10
+#define DAC_MIN_SEND		40
 
 /* Network connection
  */
