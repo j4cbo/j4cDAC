@@ -75,6 +75,8 @@ void hw_dac_zero_all_channels(void) {
 
 	/* Force an LDAC */
 	hw_dac_write(0xA002);
+
+	led_set_backled(0);
 }
 
 /* hw_dac_init()

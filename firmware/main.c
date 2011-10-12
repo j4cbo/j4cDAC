@@ -221,7 +221,8 @@ int main(int argc, char **argv) {
 	playback_source_flags = ILDA_PLAYER_PLAYING | ILDA_PLAYER_REPEAT;
 */
 	__enable_irq();
-	int i, status = 0;
+	int i;
+
 	/* This might have taken some time... */
 	for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
 		events_last[i] = events[i].start + time;
@@ -244,21 +245,6 @@ int main(int argc, char **argv) {
 			outputf("Blocking...");
 			while (!(LPC_GPIO1->FIOPIN & (1 << 26)));
 		}
-
-
-//		LPC_GPIO1->FIOCLR = (1 << 28);
-
-		if (status) {
-			LPC_GPIO0->FIOSET = 1;
-			LPC_GPIO1->FIOCLR = (1 << 29);
-			status = 0;
-		} else {
-			LPC_GPIO0->FIOCLR = 1;
-			LPC_GPIO1->FIOSET = (1 << 29);
-			status = 1;
-		}
-
-//		LPC_GPIO1->FIOSET = (1 << 28);
 
 		/* Check the stuff we check on each loop iteration. */
 		for (i = 0; i < TABLE_LENGTH(poll); i++) {

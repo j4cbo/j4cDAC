@@ -113,6 +113,8 @@ int dac_start(void) {
 
 	dac_state = DAC_PLAYING;
 
+	led_set_backled(1);
+
 	return 0;
 }
 
