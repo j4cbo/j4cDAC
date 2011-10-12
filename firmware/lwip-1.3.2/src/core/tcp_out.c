@@ -351,7 +351,7 @@ outputf("tcp_enq: tcp hdr");
 
   /* If there is room in the last pbuf on the unsent queue,
   chain the first pbuf on the queue together with that. */
-  if (useg != NULL &&
+  if (0 && useg != NULL &&
     TCP_TCPLEN(useg) != 0 &&
     !(TCPH_FLAGS(useg->tcphdr) & (TCP_SYN | TCP_FIN)) &&
     (!(flags & (TCP_SYN | TCP_FIN)) || (flags == TCP_FIN)) &&
