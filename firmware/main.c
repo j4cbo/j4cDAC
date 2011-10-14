@@ -42,8 +42,6 @@ extern const char build[];
 enum playback_source playback_src;
 int playback_source_flags;
 
-extern void tp_trianglewave_run(void);
-
 void SysTick_Handler(void) {
 	mtime++;
 	if (mtime % 10 == 0) time++;
@@ -70,7 +68,7 @@ TABLE(initializer_t, protocol);
 TABLE(initializer_t, hardware);
 TABLE(initializer_t, poll);
 
-void playback_refill() {
+static void playback_refill(void) {
 	int i;
 
 	if (playback_src != SRC_ILDAPLAYER)
@@ -96,40 +94,33 @@ void playback_refill() {
 		return;
 	}
 
-	switch (playback_src) {
-	case SRC_ILDAPLAYER:
-		if (!(playback_source_flags & ILDA_PLAYER_PLAYING))
-			break;
+	if (!(playback_source_flags & ILDA_PLAYER_PLAYING))
+		return;
 
-		if (dlen > 50)
-			outputf("[!] %d", dlen);
+	if (dlen > 50)
+		outputf("[!] %d", dlen);
 
-		i = ilda_read_points(dlen, ptr);
+	i = ilda_read_points(dlen, ptr);
 
-		if (i < 0) {
-			outputf("err: %d", i);
-			playback_source_flags &= ~ILDA_PLAYER_PLAYING;
-		} else if (i == 0) {
-			ilda_reset_file();
+	if (i < 0) {
+		outputf("err: %d", i);
+		playback_source_flags &= ~ILDA_PLAYER_PLAYING;
+	} else if (i == 0) {
+		ilda_reset_file();
 
-			if (playback_source_flags & ILDA_PLAYER_REPEAT) {
-				outputf("rep");
-			} else {
-				outputf("done");
-
-				/* If the whole file didn't fit in the
-				 * buffer, we may have to start it now. */
-				dlen = 0;
-
-				playback_source_flags &= ~ILDA_PLAYER_PLAYING;
-			}
+		if (playback_source_flags & ILDA_PLAYER_REPEAT) {
+			outputf("rep");
 		} else {
-			dac_advance(i);
-		}
+			outputf("done");
 
-		break;
-	default:
-		panic("bad playback source");
+			/* If the whole file didn't fit in the
+			 * buffer, we may have to start it now. */
+			dlen = 0;
+
+			playback_source_flags &= ~ILDA_PLAYER_PLAYING;
+		}
+	} else {
+		dac_advance(i);
 	}
 
 	/* If the buffer is nearly full, start it up */
@@ -137,7 +128,9 @@ void playback_refill() {
 		dac_start();
 }
 
-void FPA_init() {
+INITIALIZER(poll, playback_refill)
+
+static void NOINLINE FPA_init() {
 	int i;
 
 	debugf("### Initializing Hardware ###\r\n");
@@ -181,8 +174,13 @@ int main(int argc, char **argv) {
 	/* Enable bus, usage, and mem faults. */
 	SCB->SHCSR |= (1<<18) | (1<<17) | (1<<16);
 
-	/* Disable write buffers */
+#if 0
+	/* Disable write buffers. This is useful for debugging - wild writes
+	 * are imprecise exceptions unless the Cortex's write buffering is
+	 * disabled. However, this has a significant performance hit, so it
+	 * should only be enabled if necessary. */
 	*((uint32_t *)0xE000E008) |= (1<<1);
+#endif
 
 	debugf("\r\n###############\r\n");
 	debugf("# Ether Dream #\r\n");
@@ -204,48 +202,29 @@ int main(int argc, char **argv) {
 	time = 0;
 	SysTick_Config(SystemCoreClock / 10000);
 
+	/* Initialize hardware */
 	FPA_init();
-
-	outputf("ilda player");
-	ilda_open("ildatest.ild");
 
 	outputf("Entering main loop...");
 	watchdog_init();
 
 	playback_src = SRC_NETWORK;
 
-	strcpy(x, "master:6553600 x:6555056 y:6540519 z:6532004 red:3:-1352240273 green:3:4424000 blue:3:1442897174 blank:13097162 xrot:-253403070 yrot:0");
-//	strcpy(x, "master:6848512 x:6878360 y:6848512 z:6832121 red:11:-1355104273 green:11:51536146 blue:11:1438473174 blank:34355770 xrot:-730144440 yrot:605590389");
-//	strcpy(x, "master:4554752 x:18218925 y:27338551 z:4554236 red:3:1075470120 green:3:-1787841411 blue:3:-356185646 blank:6:731705883 xrot:-554050781 yrot:382252089");
-	abs_parse_line(x);
-/*
-	playback_source_flags = ILDA_PLAYER_PLAYING | ILDA_PLAYER_REPEAT;
-*/
-	__enable_irq();
+	/* Startup might have taken some time, so reset the periodic event
+	 * timers. */
 	int i;
-
-	/* This might have taken some time... */
 	for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
 		events_last[i] = events[i].start + time;
 	}
 
+	__enable_irq();
+
+	/* Default values */
 	dac_set_rate(30000);
 	ilda_set_fps_limit(30);
 
-	dac_prepare();
-	dac_start();
-
 	while (1) {
 		watchdog_feed();
-
-		/* If we're playing from something other than the network,
-		 * refill the point buffer. */
-		playback_refill();
-
-		if (!(LPC_GPIO1->FIOPIN & (1 << 26))) {
-			outputf("Blocking...");
-			while (!(LPC_GPIO1->FIOPIN & (1 << 26)));
-		}
 
 		/* Check the stuff we check on each loop iteration. */
 		for (i = 0; i < TABLE_LENGTH(poll); i++) {

@@ -37,6 +37,12 @@
  */
 #define AHB0 __attribute__((section(".ahb_sram_0")))
 
+/* NOINLINE
+ *
+ * Prevent this function from being inlined.
+ */
+#define NOINLINE __attribute__((noinline))
+
 /* ARRAY_NELEMS(arr)
  *
  * Return the number of elements in an array.

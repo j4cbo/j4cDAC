@@ -107,4 +107,4 @@ size:
 	$(PREFIX)nm -anS --size-sort -t d j4cDAC.elf | grep ^2 | tail -20
 
 term:
-	../tools/miniterm/miniterm.py -b 230400 -p /dev/ttyUSB0
+	../tools/miniterm/miniterm.py -b 230400 -p /dev/ttyUSB0 --rts=0
