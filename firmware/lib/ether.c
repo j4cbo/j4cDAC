@@ -48,8 +48,6 @@ void handle_packet(struct pbuf *p);
 
 /* Private Functions ---------------------------------------------------------- */
 
-static int32_t emac_CRCCalc(uint8_t frame_no_fcs[], int32_t frame_len);
-
 /* void eth_init_descriptors(void)
  *
  * Set up the transmit and receive descriptors. Tx generally lives in main
@@ -92,7 +90,6 @@ static int eth_init_descriptors() {
 	return 0;
 }
 
-
 /* void eth_set_mac(uint8_t *addr)
  *
  * Set the MAC address of the system.
@@ -103,58 +100,12 @@ static void eth_set_mac(uint8_t * addr) {
 	LPC_EMAC->SA2 = ((uint32_t) addr[1] << 8) | (uint32_t) addr[0];
 }
 
-
-/*********************************************************************//**
- * @brief		Calculates CRC code for number of bytes in the frame
- * @param[in]	frame_no_fcs	Pointer to the first byte of the frame
- * @param[in]	frame_len		length of the frame without the FCS
- * @return		the CRC as a 32 bit integer
- **********************************************************************/
-static int32_t emac_CRCCalc(uint8_t frame_no_fcs[], int32_t frame_len)
-{
-	int i; 		// iterator
-	int j; 		// another iterator
-	char byte; 	// current byte
-	int crc; 	// CRC result
-	int q0, q1, q2, q3; // temporary variables
-	crc = 0xFFFFFFFF;
-	for (i = 0; i < frame_len; i++) {
-		byte = *frame_no_fcs++;
-		for (j = 0; j < 2; j++) {
-			if (((crc >> 28) ^ (byte >> 3)) & 0x00000001) {
-				q3 = 0x04C11DB7;
-			} else {
-				q3 = 0x00000000;
-			}
-			if (((crc >> 29) ^ (byte >> 2)) & 0x00000001) {
-				q2 = 0x09823B6E;
-			} else {
-				q2 = 0x00000000;
-			}
-			if (((crc >> 30) ^ (byte >> 1)) & 0x00000001) {
-				q1 = 0x130476DC;
-			} else {
-				q1 = 0x00000000;
-			}
-			if (((crc >> 31) ^ (byte >> 0)) & 0x00000001) {
-				q0 = 0x2608EDB8;
-			} else {
-				q0 = 0x00000000;
-			}
-			crc = (crc << 4) ^ q3 ^ q2 ^ q1 ^ q0;
-			byte >>= 4;
-		}
-	}
-	return crc;
-}
 /* End of Private Functions --------------------------------------------------- */
-
 
 /* Public Functions ----------------------------------------------------------- */
 /** @addtogroup EMAC_Public_Functions
  * @{
  */
-
 
 /*********************************************************************//**
  * @brief		Initializes the EMAC peripheral according to the specified
@@ -247,21 +198,14 @@ int EMAC_Init(EMAC_CFG_Type *EMAC_ConfigStruct) {
 	/* Initialize Tx and Rx DMA Descriptors */
 	if (eth_init_descriptors() < 0) return ERROR;
 
-
-	outputf("-- filters");
-
 	// Set Receive Filter register: enable broadcast and multicast
 	LPC_EMAC->RxFilterCtrl = EMAC_RFC_MCAST_EN | EMAC_RFC_BCAST_EN | EMAC_RFC_PERFECT_EN;
 
 	/* Enable Rx Done and Tx Done interrupt for EMAC */
 	LPC_EMAC->IntEnable = EMAC_INT_RX_DONE | EMAC_INT_TX_DONE;
 
-	outputf("-- interrupts");
-
 	/* Reset all interrupts */
 	LPC_EMAC->IntClear  = 0xFFFF;
-
-	outputf("-- txrx");
 
 	/* Enable receive and transmit mode of MAC Ethernet core */
 	LPC_EMAC->Command  |= (EMAC_CR_RX_EN | EMAC_CR_TX_EN);
@@ -439,7 +383,7 @@ int32_t EMAC_UpdatePHYStatus(void)
 		LPC_EMAC->IPGT = EMAC_IPGT_HALF_DUP;
 	}
 	if (regv & EMAC_PHY_SR_SPEED) {
-	/* 10MBit mode. */
+		/* 10MBit mode. */
 		LPC_EMAC->SUPP = 0;
 	} else {
 		/* 100MBit mode. */
@@ -448,208 +392,6 @@ int32_t EMAC_UpdatePHYStatus(void)
 
 	// Complete
 	return (0);
-}
-
-
-/*********************************************************************//**
- * @brief		Enable/Disable hash filter functionality for specified destination
- * 				MAC address in EMAC module
- * @param[in]	dstMAC_addr		Pointer to the first MAC destination address, should
- * 								be 6-bytes length, in order LSB to the MSB
- * @param[in]	NewState		New State of this command, should be:
- *									- ENABLE.
- *									- DISABLE.
- * @return		None
- *
- * Note:
- * The standard Ethernet cyclic redundancy check (CRC) function is calculated from
- * the 6 byte destination address in the Ethernet frame (this CRC is calculated
- * anyway as part of calculating the CRC of the whole frame), then bits [28:23] out of
- * the 32 bits CRC result are taken to form the hash. The 6 bit hash is used to access
- * the hash table: it is used as an index in the 64 bit HashFilter register that has been
- * programmed with accept values. If the selected accept value is 1, the frame is
- * accepted.
- **********************************************************************/
-void EMAC_SetHashFilter(uint8_t dstMAC_addr[], FunctionalState NewState)
-{
-	uint32_t *pReg;
-	uint32_t tmp;
-	int32_t crc;
-
-	// Calculate the CRC from the destination MAC address
-	crc = emac_CRCCalc(dstMAC_addr, 6);
-	// Extract the value from CRC to get index value for hash filter table
-	crc = (crc >> 23) & 0x3F;
-
-	pReg = (crc > 31) ? ((uint32_t *)&LPC_EMAC->HashFilterH) \
-								: ((uint32_t *)&LPC_EMAC->HashFilterL);
-	tmp = (crc > 31) ? (crc - 32) : crc;
-	if (NewState == ENABLE) {
-		(*pReg) |= (1UL << tmp);
-	} else {
-		(*pReg) &= ~(1UL << tmp);
-	}
-	// Enable Rx Filter
-	LPC_EMAC->Command &= ~EMAC_CR_PASS_RX_FILT;
-}
-
-/*********************************************************************//**
- * @brief		Enable/Disable Filter mode for each specified type EMAC peripheral
- * @param[in]	ulFilterMode	Filter mode, should be:
- * 		- EMAC_RFC_UCAST_EN: all frames of unicast types will be accepted
- * 		- EMAC_RFC_BCAST_EN: broadcast frame will be accepted
- * 		- EMAC_RFC_MCAST_EN: all frames of multicast types will be accepted
- * 		- EMAC_RFC_UCAST_HASH_EN: The imperfect hash filter will be
- *		  applied to unicast addresses
- * 		- EMAC_RFC_MCAST_HASH_EN: The imperfect hash filter will be
- *		  applied to multicast addresses
- *		- EMAC_RFC_PERFECT_EN: the destination address will be compared with the
- *		  6 byte station address programmed in the station address by the filter
- * 		- EMAC_RFC_MAGP_WOL_EN: the result of the magic	packet filter will
- *		  generate a WoL interrupt when there is a match
- * 		- EMAC_RFC_PFILT_WOL_EN: the result of the perfect address matching filter and
- *		  the imperfect hash filter will generate a WoL interrupt when there is a match
- * @param[in]	NewState	New State of this command, should be:
- * 		- ENABLE
- * 		- DISABLE
- * @return		None
- **********************************************************************/
-void EMAC_SetFilterMode(uint32_t ulFilterMode, FunctionalState NewState)
-{
-	if (NewState == ENABLE){
-		LPC_EMAC->RxFilterCtrl |= ulFilterMode;
-	} else {
-		LPC_EMAC->RxFilterCtrl &= ~ulFilterMode;
-	}
-}
-
-/*********************************************************************//**
- * @brief		Get status of Wake On LAN Filter for each specified
- * 				type in EMAC peripheral, clear this status if it is set
- * @param[in]	ulWoLMode	WoL Filter mode, should be:
- * 		- EMAC_WOL_UCAST: unicast frames caused WoL
- * 		- EMAC_WOL_UCAST: broadcast frame caused WoL
- * 		- EMAC_WOL_MCAST: multicast frame caused WoL
- * 		- EMAC_WOL_UCAST_HASH: unicast frame that passes the imperfect hash filter caused WoL
- * 		- EMAC_WOL_MCAST_HASH: multicast frame that passes the imperfect hash filter caused WoL
- * 		- EMAC_WOL_PERFECT:perfect address matching filter caused WoL
- * 		- EMAC_WOL_RX_FILTER: the receive filter caused WoL
- * 		- EMAC_WOL_MAG_PACKET: the magic packet filter caused WoL
- * @return		SET/RESET
- **********************************************************************/
-FlagStatus EMAC_GetWoLStatus(uint32_t ulWoLMode)
-{
-	if (LPC_EMAC->RxFilterWoLStatus & ulWoLMode) {
-		LPC_EMAC->RxFilterWoLClear = ulWoLMode;
-		return SET;
-	} else {
-		return RESET;
-	}
-}
-
-/*********************************************************************//**
- * @brief		Read data from Rx packet data buffer at current index due
- * 				to RxConsumeIndex
- * @param[in]	pDataStruct		Pointer to a EMAC_PACKETBUF_Type structure
- * 							data that contain specified information about
- * 							Packet data buffer.
- * @return		None
- **********************************************************************/
-void EMAC_ReadPacketBuffer(EMAC_PACKETBUF_Type *pDataStruct)
-{
-	uint32_t idx, len;
-	uint32_t *dp, *sp;
-
-	idx = LPC_EMAC->RxConsumeIndex;
-	dp = (uint32_t *)pDataStruct->pbDataBuf;
-	sp = (uint32_t *)eth_rx_desc[idx].Packet;
-
-	if (pDataStruct->pbDataBuf != NULL) {
-		for (len = (pDataStruct->ulDataLen + 3) >> 2; len; len--) {
-			*dp++ = *sp++;
-		}
-	}
-}
-
-/*********************************************************************//**
- * @brief 		Enable/Disable interrupt for each type in EMAC
- * @param[in]	ulIntType	Interrupt Type, should be:
- * 							- EMAC_INT_RX_OVERRUN: Receive Overrun
- * 							- EMAC_INT_RX_ERR: Receive Error
- * 							- EMAC_INT_RX_FIN: Receive Descriptor Finish
- * 							- EMAC_INT_RX_DONE: Receive Done
- * 							- EMAC_INT_TX_UNDERRUN: Transmit Under-run
- * 							- EMAC_INT_TX_ERR: Transmit Error
- * 							- EMAC_INT_TX_FIN: Transmit descriptor finish
- * 							- EMAC_INT_TX_DONE: Transmit Done
- * 							- EMAC_INT_SOFT_INT: Software interrupt
- * 							- EMAC_INT_WAKEUP: Wakeup interrupt
- * @param[in]	NewState	New State of this function, should be:
- * 							- ENABLE.
- * 							- DISABLE.
- * @return		None
- **********************************************************************/
-void EMAC_IntCmd(uint32_t ulIntType, FunctionalState NewState)
-{
-	if (NewState == ENABLE) {
-		LPC_EMAC->IntEnable |= ulIntType;
-	} else {
-		LPC_EMAC->IntEnable &= ~(ulIntType);
-	}
-}
-
-/*********************************************************************//**
- * @brief 		Check whether if specified interrupt flag is set or not
- * 				for each interrupt type in EMAC and clear interrupt pending
- * 				if it is set.
- * @param[in]	ulIntType	Interrupt Type, should be:
- * 							- EMAC_INT_RX_OVERRUN: Receive Overrun
- * 							- EMAC_INT_RX_ERR: Receive Error
- * 							- EMAC_INT_RX_FIN: Receive Descriptor Finish
- * 							- EMAC_INT_RX_DONE: Receive Done
- * 							- EMAC_INT_TX_UNDERRUN: Transmit Under-run
- * 							- EMAC_INT_TX_ERR: Transmit Error
- * 							- EMAC_INT_TX_FIN: Transmit descriptor finish
- * 							- EMAC_INT_TX_DONE: Transmit Done
- * 							- EMAC_INT_SOFT_INT: Software interrupt
- * 							- EMAC_INT_WAKEUP: Wakeup interrupt
- * @return		New state of specified interrupt (SET or RESET)
- **********************************************************************/
-IntStatus EMAC_IntGetStatus(uint32_t ulIntType)
-{
-	if (LPC_EMAC->IntStatus & ulIntType) {
-		LPC_EMAC->IntClear = ulIntType;
-		return SET;
-	} else {
-		return RESET;
-	}
-}
-
-
-/*********************************************************************//**
- * @brief		Get current status value of receive data (due to RxConsumeIndex)
- * @param[in]	ulRxStatType	Received Status type, should be one of following:
- * 							- EMAC_RINFO_CTRL_FRAME: Control Frame
- * 							- EMAC_RINFO_VLAN: VLAN Frame
- * 							- EMAC_RINFO_FAIL_FILT: RX Filter Failed
- * 							- EMAC_RINFO_MCAST: Multicast Frame
- * 							- EMAC_RINFO_BCAST: Broadcast Frame
- * 							- EMAC_RINFO_CRC_ERR: CRC Error in Frame
- * 							- EMAC_RINFO_SYM_ERR: Symbol Error from PHY
- * 							- EMAC_RINFO_LEN_ERR: Length Error
- * 							- EMAC_RINFO_RANGE_ERR: Range error(exceeded max size)
- * 							- EMAC_RINFO_ALIGN_ERR: Alignment error
- * 							- EMAC_RINFO_OVERRUN: Receive overrun
- * 							- EMAC_RINFO_NO_DESCR: No new Descriptor available
- * 							- EMAC_RINFO_LAST_FLAG: last Fragment in Frame
- * 							- EMAC_RINFO_ERR: Error Occurred (OR of all error)
- * @return		Current value of receive data (due to RxConsumeIndex)
- **********************************************************************/
-FlagStatus EMAC_CheckReceiveDataStatus(uint32_t ulRxStatType)
-{
-	uint32_t idx;
-	idx = LPC_EMAC->RxConsumeIndex;
-	return (((eth_rx_stat[idx].Info) & ulRxStatType) ? SET : RESET);
 }
 
 #include <serial.h>
