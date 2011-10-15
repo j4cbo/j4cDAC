@@ -33,6 +33,8 @@
 #define NUM_RX_BUF	12
 #define RX_BUF_SIZE	1520
 
+extern uint8_t mac_address[6];
+
 /* Transmit descriptors, receive descriptors, and receive buffers */
 static struct pbuf *eth_tx_pbufs[NUM_TX_DESC];
 static TX_Desc eth_tx_desc[NUM_TX_DESC] AHB0;
@@ -127,9 +129,9 @@ static void eth_set_mac(uint8_t * addr) {
  *  (Ref. from LPC17xx UM)
  **********************************************************************/
 
-int EMAC_Init(EMAC_CFG_Type *EMAC_ConfigStruct) {
+int EMAC_Init(void) {
 	/* Initialize the EMAC Ethernet controller. */
-	int32_t regv,tout;
+	int32_t regv, tout;
 
 	/* Set up clock and power for Ethernet module */
 	CLKPWR_ConfigPPWR (CLKPWR_PCONP_PCENET, ENABLE);
@@ -157,13 +159,10 @@ int EMAC_Init(EMAC_CFG_Type *EMAC_ConfigStruct) {
 	LPC_EMAC->SUPP = EMAC_SUPP_RES_RMII;
 	LPC_EMAC->SUPP = 0;
 
-	/* Start talking to the PHY */
-	outputf("-- reset phy");
-
 	/* Put the DP83848C in reset mode */
 	mdio_write(EMAC_PHY_REG_BMCR, EMAC_PHY_BMCR_RESET);
 
-	outputf("-- wait for hw rst");
+	debugf("  - PHY: ");
 
 	/* Wait for hardware reset to end. */
 	for (tout = EMAC_PHY_RESP_TOUT; tout; tout--) {
@@ -174,42 +173,24 @@ int EMAC_Init(EMAC_CFG_Type *EMAC_ConfigStruct) {
 		}
 		if (tout == 0){
 			// Time out, return ERROR
+			debugf("timed out\r\n");
 			return (ERROR);
 		}
 	}
-
-	outputf("-- phy mode");
 
 	/* Put the PHY in RMII mode */
 	mdio_write(DP83848_RBR, 0x21);
 
 	// Set PHY mode
-	if (EMAC_SetPHYMode(EMAC_ConfigStruct->Mode) < 0){
+	if (EMAC_SetPHYMode(EMAC_MODE_AUTO) < 0) {
 		return (ERROR);
 	}
 
-	outputf("-- mac address");
-
 	// Set EMAC address
-	eth_set_mac(EMAC_ConfigStruct->pbEMAC_Addr);
-
-	outputf("-- descriptor init");
+	eth_set_mac(mac_address);
 
 	/* Initialize Tx and Rx DMA Descriptors */
 	if (eth_init_descriptors() < 0) return ERROR;
-
-	// Set Receive Filter register: enable broadcast and multicast
-	LPC_EMAC->RxFilterCtrl = EMAC_RFC_MCAST_EN | EMAC_RFC_BCAST_EN | EMAC_RFC_PERFECT_EN;
-
-	/* Enable Rx Done and Tx Done interrupt for EMAC */
-	LPC_EMAC->IntEnable = EMAC_INT_RX_DONE | EMAC_INT_TX_DONE;
-
-	/* Reset all interrupts */
-	LPC_EMAC->IntClear  = 0xFFFF;
-
-	/* Enable receive and transmit mode of MAC Ethernet core */
-	LPC_EMAC->Command  |= (EMAC_CR_RX_EN | EMAC_CR_TX_EN);
-	LPC_EMAC->MAC1     |= EMAC_MAC1_REC_EN;
 
 	return SUCCESS;
 }
@@ -231,44 +212,6 @@ void EMAC_DeInit(void)
 	CLKPWR_ConfigPPWR (CLKPWR_PCONP_PCENET, DISABLE);
 }
 
-
-/*********************************************************************//**
- * @brief		Check specified PHY status in EMAC peripheral
- * @param[in]	ulPHYState	Specified PHY Status Type, should be:
- * 							- EMAC_PHY_STAT_LINK: Link Status
- * 							- EMAC_PHY_STAT_SPEED: Speed Status
- * 							- EMAC_PHY_STAT_DUP: Duplex Status
- * @return		Status of specified PHY status (0 or 1).
- * 				(-1) if error.
- *
- * Note:
- * For EMAC_PHY_STAT_LINK, return value:
- * - 0: Link Down
- * - 1: Link Up
- * For EMAC_PHY_STAT_SPEED, return value:
- * - 0: 10Mbps
- * - 1: 100Mbps
- * For EMAC_PHY_STAT_DUP, return value:
- * - 0: Half-Duplex
- * - 1: Full-Duplex
- **********************************************************************/
-int32_t EMAC_CheckPHYStatus(uint32_t ulPHYState)
-{
-	int32_t regv = mdio_read(EMAC_PHY_REG_STS);
-
-	switch(ulPHYState){
-	case EMAC_PHY_STAT_LINK:
-		return (regv & EMAC_PHY_SR_LINK) ? 1 : 0;
-	case EMAC_PHY_STAT_SPEED:
-		return (regv & EMAC_PHY_SR_SPEED) ? 0 : 1;
-	case EMAC_PHY_STAT_DUP:
-		return (regv & EMAC_PHY_SR_FULL_DUP) ? 1 : 0;
-	default:
-		return -1;
-	}
-}
-
-
 /*********************************************************************//**
  * @brief		Set specified PHY mode in EMAC peripheral
  * @param[in]	ulPHYMode	Specified PHY mode, should be:
@@ -281,32 +224,18 @@ int32_t EMAC_CheckPHYStatus(uint32_t ulPHYState)
  **********************************************************************/
 int32_t EMAC_SetPHYMode(uint32_t ulPHYMode)
 {
-	int32_t id1 = 0, id2, tout, regv;
+	int32_t id1, id2;
 
 	/* Check if this is a DP83848C PHY. */
 	id1 = mdio_read(EMAC_PHY_REG_IDR1);
 	id2 = mdio_read(EMAC_PHY_REG_IDR2);
 
-	outputf("PHY id: %08x %08x", id1, id2);
+	outputf("%08x %08x", id1, id2);
 
 	if (((id1 << 16) | (id2 & 0xFFF0)) == EMAC_DP83848C_ID) {
 		switch(ulPHYMode){
 		case EMAC_MODE_AUTO:
 			mdio_write(EMAC_PHY_REG_BMCR, EMAC_PHY_AUTO_NEG);
-
-			/* Wait to complete Auto_Negotiation */
-			for (tout = EMAC_PHY_RESP_TOUT; tout; tout--) {
-				regv = mdio_read(EMAC_PHY_REG_BMSR);
-				if (regv & EMAC_PHY_BMSR_AUTO_DONE) {
-					/* Auto-negotiation Complete. */
-					break;
-				}
-				if (tout == 0){
-					// Time out, return error
-					outputf("PHY timeout");
-					return (-1);
-				}
-			}
 			break;
 		case EMAC_MODE_10M_FULL:
 			/* Connect at 10MBit full-duplex */
@@ -332,17 +261,13 @@ int32_t EMAC_SetPHYMode(uint32_t ulPHYMode)
 	// It's not correct module ID
 	else {
 		outputf("bad module id");
-		return (-1);
+		return -1;
 	}
 
-	// Update EMAC configuration with current PHY status
-	if (EMAC_UpdatePHYStatus() < 0){
-		outputf("update status fail");
-		return (-1);
-	}
+	EMAC_UpdatePHYStatus();
 
 	// Complete
-	return (0);
+	return 0;
 }
 
 
@@ -358,20 +283,18 @@ int32_t EMAC_SetPHYMode(uint32_t ulPHYMode)
  **********************************************************************/
 int32_t EMAC_UpdatePHYStatus(void)
 {
-	int32_t regv, tout;
+	int32_t regv;
 
 	/* Check the link status. */
-	for (tout = EMAC_PHY_RESP_TOUT; tout; tout--) {
-		regv = mdio_read(EMAC_PHY_REG_STS);
-		if (regv & EMAC_PHY_SR_LINK) {
-			/* Link is on. */
-			break;
-		}
-		if (tout == 0){
-			// time out
-			return (-1);
-		}
+	regv = mdio_read(EMAC_PHY_REG_STS);
+	if (regv == 0xffff) return -1;
+	if (!(regv & EMAC_PHY_SR_LINK)) {
+		return -1;
 	}
+	if (!(regv & EMAC_PHY_SR_AUTO_DONE)) {
+		return -1;
+	}
+
 	/* Configure Full/Half Duplex mode. */
 	if (regv & EMAC_PHY_SR_DUP) {
 	/* Full duplex is enabled. */
@@ -390,8 +313,21 @@ int32_t EMAC_UpdatePHYStatus(void)
 		LPC_EMAC->SUPP = EMAC_SUPP_SPEED;
 	}
 
+	// Set Receive Filter register: enable broadcast and multicast
+	LPC_EMAC->RxFilterCtrl = EMAC_RFC_MCAST_EN | EMAC_RFC_BCAST_EN | EMAC_RFC_PERFECT_EN;
+
+	/* Enable Rx Done and Tx Done interrupt for EMAC */
+	LPC_EMAC->IntEnable = EMAC_INT_RX_DONE | EMAC_INT_TX_DONE;
+
+	/* Reset all interrupts */
+	LPC_EMAC->IntClear  = 0xFFFF;
+
+	/* Enable receive and transmit mode of MAC Ethernet core */
+	LPC_EMAC->Command  |= (EMAC_CR_RX_EN | EMAC_CR_TX_EN);
+	LPC_EMAC->MAC1     |= EMAC_MAC1_REC_EN;
+
 	// Complete
-	return (0);
+	return 0;
 }
 
 #include <serial.h>
@@ -480,6 +416,7 @@ err_t eth_transmit_FPV_netif_linkoutput(struct netif * _info, struct pbuf * p) {
 }
 
 void eth_poll_1(void) {
+
 	/* Clean up old Tx records */
 	eth_tx_cleanup();
 
@@ -535,11 +472,9 @@ void eth_poll_2(void) {
 	eth_rx_read_index = readpos;
 }
 
-void eth_hardware_init(uint8_t *macaddr) {
+void eth_hardware_init(void) {
 
 	/* Set up pins */
-	outputf("Setting pins");
-
 	int i;
 	for (i = 0; i < (sizeof(ether_pins) / sizeof(ether_pins[0])); i++) {
 		int shift = 2 * ether_pins[i];
@@ -547,15 +482,10 @@ void eth_hardware_init(uint8_t *macaddr) {
 	}
 
 	/* Set up Ethernet in autosense mode */
-	EMAC_CFG_Type Emac_Config;
-	Emac_Config.Mode = EMAC_MODE_AUTO;
-	Emac_Config.pbEMAC_Addr = macaddr;
-
-	outputf("EMAC_Init");
-	while (EMAC_Init(&Emac_Config) == ERROR){
+	while (EMAC_Init() == ERROR){
                  // Delay for a while then continue initializing EMAC module
                  outputf("Error during initializing EMAC, restart after a while");
 		int delay;
-                 for (delay = 0x100000; delay; delay--);
+		for (delay = 0x100000; delay; delay--);
          }
 }

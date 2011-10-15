@@ -59,7 +59,8 @@ struct periodic_event {
 	{ dhcp_coarse_tmr, 60000, "dhcp c", 35 },
 	{ dhcp_fine_tmr, 500, "dhcp f", 25 },
 	{ autoip_tmr, AUTOIP_TMR_INTERVAL, "autoip", 10 },
-	{ broadcast_send, 1000, "broadcast", 10 }
+	{ broadcast_send, 1000, "broadcast", 10 },
+	{ eth_check_link, 100, "eth_check_link", 2 }
 };
 
 int events_last[sizeof(events) / sizeof(events[0])];

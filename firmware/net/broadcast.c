@@ -24,6 +24,7 @@
 #include <ether.h>
 #include <playback.h>
 #include <hardware.h>
+#include <string.h>
 
 #define BROADCAST_PORT	7654
 
@@ -79,7 +80,7 @@ void broadcast_send(void) {
 
 	struct dac_broadcast *pkt = (struct dac_broadcast *) p->payload;
 
-	eth_get_mac(pkt->mac_address);
+	memcpy(pkt->mac_address, mac_address, sizeof(mac_address));
 	fill_status(&pkt->status);
 	pkt->buffer_capacity = DAC_BUFFER_POINTS - 1;
 	pkt->max_point_rate = DAC_MAX_POINT_RATE;

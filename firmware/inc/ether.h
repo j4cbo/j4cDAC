@@ -42,19 +42,6 @@
 /* EMAC Memory Buffer configuration for 16K Ethernet RAM */
 #define EMAC_TX_FRAME_TOUT       0x00100000  /**< Frame Transmit timeout count      */
 
-typedef struct {
-	uint32_t	Mode;	
-	uint8_t 	*pbEMAC_Addr;
-} EMAC_CFG_Type;
-
-/* Public Functions ----------------------------------------------------------- */
-/** @defgroup EMAC_Public_Functions EMAC Public Functions
- * @{
- */
-/* Init/DeInit EMAC peripheral */
-int EMAC_Init(EMAC_CFG_Type *EMAC_ConfigStruct);
-void EMAC_DeInit(void);
-
 /* PHY functions --------------*/
 int32_t EMAC_CheckPHYStatus(uint32_t ulPHYState);
 int32_t EMAC_SetPHYMode(uint32_t ulPHYMode);
@@ -68,14 +55,12 @@ void EMAC_SetFilterMode(uint32_t ulFilterMode, FunctionalState NewState);
 void EMAC_IntCmd(uint32_t ulIntType, FunctionalState NewState);
 IntStatus EMAC_IntGetStatus(uint32_t ulIntType);
 
-FlagStatus EMAC_CheckReceiveDataStatus(uint32_t ulRxStatType);
-uint32_t EMAC_GetReceiveDataSize(void);
-FlagStatus EMAC_GetWoLStatus(uint32_t ulWoLMode);
-
 err_t eth_transmit_FPV_netif_linkoutput(struct netif * _info, struct pbuf * p);
-void eth_hardware_init(uint8_t *macaddr);
+void eth_hardware_init(void);
 void eth_poll_1(void);
 void eth_poll_2(void);
-void eth_get_mac(uint8_t *mac);
+void eth_check_link(void);
+
+extern uint8_t mac_address[6];
 
 #endif

@@ -106,6 +106,7 @@ static U32 input_MDIO (void) {
 
 U32 mdio_read(int PhyReg) {
    U32 val;
+   __disable_irq();
 
    /* Configuring MDC on P2.8 and MDIO on P2.9 */
    mdio_set_dir(1);
@@ -131,11 +132,13 @@ U32 mdio_read(int PhyReg) {
    /* turnaround MDIO is tristated */
    turnaround_MDIO ();
 
+   __enable_irq();
    return (val);
 }
 
 
 void mdio_write(int PhyReg, int Value) {
+  __disable_irq();
 
   /* Configuring MDC on P2.8 and MDIO on P2.9 */
   if (hw_board_rev == HW_REV_PROTO) {
@@ -165,4 +168,5 @@ void mdio_write(int PhyReg, int Value) {
 
   /* turnaround MDO is tristated */
   turnaround_MDIO ();
+  __enable_irq();
 }

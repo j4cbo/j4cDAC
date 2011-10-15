@@ -34,6 +34,12 @@ static struct dhcp dhcp_state;
 
 extern uint8_t mac_address[6];
 
+static enum {
+	LINK_DOWN,
+	LINK_UP,
+	LINK_GOING_DOWN
+} eth_link_state;
+
 void EINT3_IRQHandler(void) {
 	if (!(LPC_GPIOINT->IO0IntStatF & (1 << 8))) {
 		panic("Unexpected EINT3");
@@ -51,6 +57,7 @@ void EINT3_IRQHandler(void) {
 
 	if (!(mdio_read(DP83848_PHYSTS) & (1 << 0))) {
 		le_estop(ESTOP_LINKLOST);
+		eth_link_state = LINK_GOING_DOWN;
 	}
 }
 
@@ -68,7 +75,8 @@ void eth_init() {
 
 	memcpy(ether_netif.hwaddr, mac_address, 6);
 
-	eth_hardware_init(ether_netif.hwaddr);
+	eth_link_state = LINK_DOWN;
+	eth_hardware_init();
 
 	/* Enable PHY interrupts */
 	mdio_write(DP83848_MICR, 0x3);
@@ -83,10 +91,8 @@ void eth_init() {
 	/* Hand it over to lwIP */
 	netif_add(&ether_netif, &ipa, &netmask, &gw, NULL, ethernet_input);
 	netif_set_default(&ether_netif);
-	netif_set_up(&ether_netif);
 
-	outputf("starting DHCP");
-	dhcp_start(&ether_netif, &dhcp_state);
+	/* When the link comes up, we'l start DHCP. */
 }
 
 void handle_packet(struct pbuf *p) {
@@ -114,6 +120,34 @@ void handle_packet(struct pbuf *p) {
 		outputf("ethertype %04x", ntohs(ethhdr->type));
 		pbuf_free(p);
 		break;
+	}
+}
+
+/* eth_check_link
+ *
+ * Manage the Ethernet link state - we need to tell LWIP when the link
+ * goes up (so that it can start DHCP, etc) and when it goes down.
+ */
+void eth_check_link(void) {
+	if (eth_link_state == LINK_UP) {
+		return;
+	} else if (eth_link_state == LINK_GOING_DOWN) {
+		outputf("Ethernet link down");
+		dhcp_stop(&ether_netif);
+		netif_set_down(&ether_netif);
+		eth_link_state = LINK_DOWN;
+	} else {
+		/* Is it up yet? */
+		if (EMAC_UpdatePHYStatus() < 0) {
+			/* Still no link. */
+			return;
+		}
+
+		eth_link_state = LINK_UP;
+		outputf("Ethernet link up");
+
+		netif_set_up(&ether_netif);
+		dhcp_start(&ether_netif, &dhcp_state);
 	}
 }
 
