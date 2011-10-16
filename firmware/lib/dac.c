@@ -17,11 +17,8 @@
 
 #include <serial.h>
 #include <string.h>
-#include <lpc17xx_gpdma.h>
-#include <lpc17xx_ssp.h>
 #include <lpc17xx_pwm.h>
 #include <lpc17xx_clkpwr.h>
-#include <lpc17xx_timer.h>
 #include <ether.h>
 #include <dac.h>
 #include <hardware.h>
