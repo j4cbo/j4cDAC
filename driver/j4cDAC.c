@@ -87,7 +87,6 @@ void flog (char *fmt, ...) {
 	fprintf(fp, "[%d.%06d] ", (int)(v / 1000000), (int)(v % 1000000));
 	vfprintf(fp, fmt, args);
 	va_end(args);
-	fflush(fp);
 }
 
 void dac_list_insert(dac_t *d) {
@@ -280,14 +279,18 @@ bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
  */
 EXPORT int __stdcall EtherDreamGetStatus(const int *CardNum) {
 	dac_t *d = dac_get(*CardNum);
-	if (!d) return -1;
-	if (dac_get_status(d) == GET_STATUS_BUSY) {
+	if (!d) {
+		flog("M: GetStatus(%d) return -1\n", *CardNum);
+		return -1;
+	}
+
+	int st = dac_get_status(d);
+	if (st == GET_STATUS_BUSY) {
 		flog("M: bouncing\n");
 		Sleep(2);
-		return GET_STATUS_BUSY;
-	} else {
-		return GET_STATUS_READY;
 	}
+
+	return st;
 }
 
 static void do_close(void) {
@@ -420,12 +423,12 @@ int EzAudDac_convert_data(struct buffer_item *buf, const void *vdata, int bytes)
 	}
 
 	for (i = 0; i < points; i++) {
-		buf->data[i].x = data[i].X - 32768;
-		buf->data[i].y = data[i].Y - 32768;
-		buf->data[i].r = data[i].R;
-		buf->data[i].g = data[i].G;
-		buf->data[i].b = data[i].B;
-		buf->data[i].i = data[i].I;
+		buf->data[i].x = data[i].X; //  - 32768;
+		buf->data[i].y = data[i].Y; //  - 32768;
+		buf->data[i].r = data[i].R << 1;
+		buf->data[i].g = data[i].G << 1;
+		buf->data[i].b = data[i].B << 1;
+		buf->data[i].i = data[i].I << 1;
 		buf->data[i].u1 = data[i].AL;
 		buf->data[i].u2 = data[i].AR;
 		buf->data[i].control = 0;

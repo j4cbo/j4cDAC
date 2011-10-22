@@ -181,8 +181,8 @@ int do_write_frame(dac_t *d, const void * data, int bytes, int pps,
 		data = bigdata;
 	}
 
-	flog("M: Writing: %d/%d points, %d reps\n",
-		points, convert(NULL, NULL, bytes), reps);
+	flog("M: Writing: %d/%d points, %d reps, %d pps\n",
+		points, convert(NULL, NULL, bytes), reps, pps);
 
 	struct buffer_item *next = buf_get_write(d);
 	convert(next, data, bytes);
