@@ -42,10 +42,11 @@ class Status(object):
 
 	def __init__(self, data):
 		"""Initialize from a chunk of data."""
-		self.le_state, self.playback_state, self.le_flags, \
-		  self.playback_flags, self.fullness, self.point_rate, \
-		  self.point_count, self.source, self.source_flags = \
-			struct.unpack("<BBHHHIIBH", data)
+		self.protocol_version, self.le_state, self.playback_state, \
+		  self.source, self.le_flags, self.playback_flags, \
+		  self.source_flags, self.fullness, self.point_rate, \
+		  self.point_count = \
+			struct.unpack("<BBBBHHHHII", data)
 
 	def dump(self, prefix = " - "):
 		"""Dump to a string."""
@@ -73,7 +74,7 @@ class BroadcastPacket(object):
 		self.mac = st[:6]
 		self.hw_rev, self.sw_rev, self.buffer_capacity, \
 		self.max_point_rate = struct.unpack("<HHHI", st[6:16])
-		self.status = Status(st[16:35])
+		self.status = Status(st[16:36])
 
 	def dump(self, prefix = " - "):
 		"""Dump to a string."""
