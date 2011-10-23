@@ -338,12 +338,21 @@ static void __attribute__((always_inline)) dac_write_point(dac_point_t *p) {
 	int32_t y = translate_y(xi, yi);
 
 	#define MASK_XY(v)	((((v) >> 4) + 0x800) & 0xFFF)
-	LPC_SSP1->DR = MASK_XY(x) | 0x6000;
-	LPC_SSP1->DR = MASK_XY(y) | 0x7000;
+	if (hw_board_rev == HW_REV_PROTO) {
+		LPC_SSP1->DR = MASK_XY(x) | 0x6000;
+		LPC_SSP1->DR = MASK_XY(y) | 0x7000;
 
-	delay_line_write(&red_delay, (p->r >> 4) | 0x4000);
-	delay_line_write(&green_delay, (p->g >> 4)| 0x3000);
-	delay_line_write(&blue_delay, (p->b >> 4) | 0x2000);
+		delay_line_write(&red_delay, (p->r >> 4) | 0x4000);
+		delay_line_write(&green_delay, (p->g >> 4)| 0x3000);
+		delay_line_write(&blue_delay, (p->b >> 4) | 0x2000);
+	} else {
+		LPC_SSP1->DR = MASK_XY(x) | 0x7000;
+		LPC_SSP1->DR = MASK_XY(y) | 0x6000;
+
+		delay_line_write(&red_delay, (p->r >> 4) | 0x4000);
+		delay_line_write(&green_delay, (p->g >> 4)| 0x2000);
+		delay_line_write(&blue_delay, (p->b >> 4) | 0x3000);
+	}
 
 	LPC_SSP1->DR = (p->i >> 4) | 0x5000;
 	LPC_SSP1->DR = (p->u1 >> 4) | 0x1000;
