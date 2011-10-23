@@ -319,11 +319,7 @@ EXPORT int __stdcall EtherDreamGetCardNum(void){
 	int ms_left = 1100 - ((tv_diff.tv_sec * 1000) + 
 	                      (tv_diff.tv_usec / 1000));
 	flog("Waiting %d milliseconds.\n", ms_left);
-	while (ms_left > 0) {
-		if (dac_list) break;
-		Sleep(100);
-		ms_left -= 100;
-	}
+	Sleep(ms_left);
 
 	/* Count how many DACs we have. Along the way, open them */
 	int count = 0;
