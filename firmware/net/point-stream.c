@@ -270,10 +270,10 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 			return send_resp(pcb, RESP_ACK, cmd, 1);
 
 		default:
+			outputf("unknown cmd 0x%02x", cmd);
 			return close_conn(pcb, CONNCLOSED_UNKNOWNCMD, -1);
 		}
 
-		panic("missed case in recv_fsm switch");
 		return -1;
 
 	case DATA:
