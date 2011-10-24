@@ -339,12 +339,6 @@ int check_data_response(dac_t *d) {
 	return 0;
 }
 
-struct {
-	struct queue_command queue;
-	struct data_command_header header;
-	struct dac_point data[1000];
-} __attribute__((packed)) dac_local_buffer;
-
 int dac_send_data(dac_t *d, struct dac_point *data, int npoints, int rate) { 
 	int res;
 	const struct dac_status *st = &d->conn.resp.dac_status;
@@ -382,21 +376,21 @@ int dac_send_data(dac_t *d, struct dac_point *data, int npoints, int rate) {
 		d->conn.pending_meta_acks++;
 	}
 
-	dac_local_buffer.queue.command = 'q';
-	dac_local_buffer.queue.point_rate = rate;
+	d->conn.local_buffer.queue.command = 'q';
+	d->conn.local_buffer.queue.point_rate = rate;
 
-	dac_local_buffer.header.command = 'd';
-	dac_local_buffer.header.npoints = npoints;
+	d->conn.local_buffer.header.command = 'd';
+	d->conn.local_buffer.header.npoints = npoints;
 
-	memcpy(&dac_local_buffer.data[0], data,
+	memcpy(&d->conn.local_buffer.data[0], data,
 		npoints * sizeof(struct dac_point));
 
-	dac_local_buffer.data[0].control |= DAC_CTRL_RATE_CHANGE;
+	d->conn.local_buffer.data[0].control |= DAC_CTRL_RATE_CHANGE;
 
-	ct_assert(sizeof(dac_local_buffer) == 18008);
+	ct_assert(sizeof(d->conn.local_buffer) == 18008);
 
 	/* Write the data */
-	if ((res = dac_sendall(d, &dac_local_buffer,
+	if ((res = dac_sendall(d, &d->conn.local_buffer,
 		8 + npoints * sizeof(struct dac_point))) < 0)
 		return res;
 

@@ -44,6 +44,12 @@ typedef struct dac_conn_s {
 	struct dac_response resp;
 	LARGE_INTEGER last_ack_time;
 
+	struct {
+		struct queue_command queue;
+		struct data_command_header header;
+		struct dac_point data[1000];
+	} __attribute__((packed)) local_buffer;
+
 	int begin_sent;
 	int ackbuf[MAX_LATE_ACKS];
 	int ackbuf_prod;
