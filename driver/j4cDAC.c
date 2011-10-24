@@ -101,13 +101,13 @@ unsigned __stdcall FindDACs(void *_bogus) {
 
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock == INVALID_SOCKET) {
-		log_socket_error("socket");
+		log_socket_error(NULL, "socket");
 		return 1;
 	}
 
 	int opt = 1;
 	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt)) < 0) {
-		log_socket_error("setsockopt");
+		log_socket_error(NULL, "setsockopt");
 		return 1;
 	}
 
@@ -118,7 +118,7 @@ unsigned __stdcall FindDACs(void *_bogus) {
 	addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-		log_socket_error("bind");
+		log_socket_error(NULL, "bind");
 		return 1;
 	}
 
@@ -130,7 +130,7 @@ unsigned __stdcall FindDACs(void *_bogus) {
 		int srclen = sizeof(src);
 		int len = recvfrom(sock, (char *)&buf, sizeof(buf), 0, (struct sockaddr *)&src, &srclen);
 		if (len < 0) {
-			log_socket_error("recvfrom");
+			log_socket_error(NULL, "recvfrom");
 			return 1;
 		}
 
@@ -280,13 +280,13 @@ bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 EXPORT int __stdcall EtherDreamGetStatus(const int *CardNum) {
 	dac_t *d = dac_get(*CardNum);
 	if (!d) {
-		flog("M: GetStatus(%d) return -1\n", *CardNum);
+		flogd(d, "M: GetStatus(%d) return -1\n", *CardNum);
 		return -1;
 	}
 
 	int st = dac_get_status(d);
 	if (st == GET_STATUS_BUSY) {
-		flog("M: bouncing\n");
+		flogd(d, "M: bouncing\n");
 		Sleep(2);
 	}
 
@@ -306,7 +306,7 @@ static void do_close(void) {
 
 EXPORT int __stdcall EtherDreamGetCardNum(void){
 
-	flog("== GetCardNum ==\n");
+	flog("== EtherDreamGetCardNum ==\n");
 
 	/* Clean up any already opened DACs */
 	do_close();
@@ -321,13 +321,12 @@ EXPORT int __stdcall EtherDreamGetCardNum(void){
 	flog("Waiting %d milliseconds.\n", ms_left);
 	Sleep(ms_left);
 
-	/* Count how many DACs we have. Along the way, open them */
+	/* Count how many DACs we have. */
 	int count = 0;
 
 	EnterCriticalSection(&dac_list_lock);
 	dac_t *d = dac_list;
 	while (d) {
-		dac_open_connection(d);
 		d = d->next;
 		count++;
 	}
@@ -339,8 +338,8 @@ EXPORT int __stdcall EtherDreamGetCardNum(void){
 }
 
 EXPORT bool __stdcall EtherDreamStop(const int *CardNum){
-	flog("== Stop ==\n");
 	dac_t *d = dac_get(*CardNum);
+	flogd(d, "== Stop(%d) ==\n", *CardNum);
 	if (!d) return 0;
 	EnterCriticalSection(&d->buffer_lock);
 	if (d->state == ST_READY)
@@ -476,11 +475,41 @@ EXPORT void __stdcall EtherDreamGetDeviceName(const int *CardNum, char *buf, int
 /* Wrappers and stubs
  */
 EXPORT int __stdcall EzAudDacGetCardNum(void) {
-	return EtherDreamGetCardNum();
+
+	flog("== EzAudDacGetCardNum ==\n");
+
+	/* Clean up any already opened DACs */
+	do_close();
+
+	/* Gross-vile-disgusting-sleep for up to a bit over a second to
+	 * catch broadcast packets from DACs */
+	struct timeval tv, tv_diff;
+	gettimeofday(&tv, NULL);
+	timeval_subtract(&tv_diff, &tv, &load_time);
+	int ms_left = 1100 - ((tv_diff.tv_sec * 1000) + 
+	                      (tv_diff.tv_usec / 1000));
+	flog("Waiting %d milliseconds.\n", ms_left);
+	Sleep(ms_left);
+
+	/* Count how many DACs we have. Along the way, open them */
+	int count = 0;
+
+	EnterCriticalSection(&dac_list_lock);
+	dac_t *d = dac_list;
+	while (d) {
+		dac_open_connection(d);
+		d = d->next;
+		count++;
+	}
+	LeaveCriticalSection(&dac_list_lock);
+
+	flog("Found %d DACs.\n", count);
+
+	return count;
 }
 
 EXPORT int __stdcall EasyLaseGetCardNum(void) {
-	return EtherDreamGetCardNum();
+	return EzAudDacGetCardNum();
 }
 
 EXPORT int __stdcall EasyLaseSend(const int *CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t KPPS) {

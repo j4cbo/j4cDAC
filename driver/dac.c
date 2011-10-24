@@ -52,8 +52,8 @@ int dac_open_connection(dac_t *d) {
 	memset(d->buffer, sizeof(d->buffer), 0);
 
 	// Connect to the DAC
-	if (dac_connect(&d->conn, host, "7765") < 0) {
-		flog("!! DAC connection failed.\n");
+	if (dac_connect(d, host, "7765") < 0) {
+		flogd(d, "!! DAC connection failed.\n");
 		return -1;
 	}
 
@@ -63,11 +63,11 @@ int dac_open_connection(dac_t *d) {
 
 	d->workerthread = (HANDLE)_beginthreadex(NULL, 0, &LoopUpdate, d, 0, NULL);
 	if (!d->workerthread) {
-		flog("!! Begin thread error: %s\n", strerror(errno));
+		flogd(d, "!! Begin thread error: %s\n", strerror(errno));
 		return -1;
 	}
 
-	flog("Ready.\n");
+	flogd(d, "Ready.\n");
 
 	return 0;
 }
@@ -81,13 +81,13 @@ void dac_close_connection(dac_t *d) {
 
 	int rv = WaitForSingleObject(d->workerthread, 250);
 	if (rv != WAIT_OBJECT_0)
-		flog("Exit thread timed out.\n");
+		flogd(d, "Exit thread timed out.\n");
 
 	if (d->state == ST_READY) {
 		CloseHandle(d->workerthread);
 	}
 
-	dac_disconnect(&d->conn);
+	dac_disconnect(d);
 	d->state = ST_DISCONNECTED;
 }
 
@@ -122,7 +122,7 @@ struct buffer_item *buf_get_write(dac_t *d) {
 	int write = (d->buffer_read + d->buffer_fullness) % BUFFER_NFRAMES;
 	LeaveCriticalSection(&d->buffer_lock);
 
-	flog("M: Writing to index %d\n", write);
+	flogd(d, "M: Writing to index %d\n", write);
 
 	return &d->buffer[write];
 }
@@ -161,7 +161,7 @@ int do_write_frame(dac_t *d, const void * data, int bytes, int pps,
 
 	/* If not ready for a new frame, bail */
 	if (dac_get_status(d) != GET_STATUS_READY) {
-		flog("M: NOT READY: %d points, %d reps\n", points, reps);
+		flogd(d, "M: NOT READY: %d points, %d reps\n", points, reps);
 		return 0;
 	}
 
@@ -181,7 +181,7 @@ int do_write_frame(dac_t *d, const void * data, int bytes, int pps,
 		data = bigdata;
 	}
 
-	flog("M: Writing: %d/%d points, %d reps, %d pps\n",
+	flogd(d, "M: Writing: %d/%d points, %d reps, %d pps\n",
 		points, convert(NULL, NULL, bytes), reps, pps);
 
 	struct buffer_item *next = buf_get_write(d);
@@ -204,12 +204,12 @@ unsigned __stdcall LoopUpdate(void *dv){
 
 	int res;
 	res = SetThreadPriority(GetCurrentThread, THREAD_PRIORITY_TIME_CRITICAL);
-	flog("SetThreadPriority ret %d\n");
+	flogd(d, "SetThreadPriority ret %d\n");
 
 	if (timeBeginPeriod(1) == TIMERR_NOERROR) {
-		flog("== Timer set to 1ms ==\n");
+		flogd(d, "Timer set to 1ms\n");
 	} else {
-		flog("== Timer error ==\n");
+		flogd(d, "Timer error\n");
 	}
 
 	EnterCriticalSection(&d->buffer_lock);
@@ -219,13 +219,13 @@ unsigned __stdcall LoopUpdate(void *dv){
 		while (d->state == ST_READY) {
 			LeaveCriticalSection(&d->buffer_lock);
 
-			flog("L: Waiting...\n");
+			flogd(d, "L: Waiting...\n");
 
 			int res = WaitForSingleObject(d->loop_go, INFINITE);
 
 			EnterCriticalSection(&d->buffer_lock);
 			if (res != WAIT_OBJECT_0) {
-				flog("!! WFSO failed: %lu\n",
+				flogd(d, "!! WFSO failed: %lu\n",
 					GetLastError());
 				d->state = ST_BROKEN;
 				timeEndPeriod(1);
@@ -234,7 +234,7 @@ unsigned __stdcall LoopUpdate(void *dv){
 		}
 
 		if (d->state != ST_RUNNING) {
-			flog("L: Shutting down.\n");
+			flogd(d, "L: Shutting down.\n");
 			LeaveCriticalSection(&d->buffer_lock);
 			timeEndPeriod(1);
 			return 0;
@@ -264,7 +264,7 @@ unsigned __stdcall LoopUpdate(void *dv){
 
 			if (d->conn.resp.dac_status.buffer_fullness < DEBUG_THRESHOLD
 			    || expected_fullness < DEBUG_THRESHOLD)
-				flog("L: b %d + %d - %d = %d, w %d om %d st %d\n",
+				flogd(d, "L: b %d + %d - %d = %d, w %d om %d st %d\n",
 					d->conn.resp.dac_status.buffer_fullness,
 					d->conn.unacked_points,
 					iu, expected_fullness, cap,
@@ -290,7 +290,7 @@ unsigned __stdcall LoopUpdate(void *dv){
 		if (cap < 0)
 			cap = 1;
 
-		int res = dac_send_data(&d->conn, b->data + b->idx, cap, b->pps);
+		int res = dac_send_data(d, b->data + b->idx, cap, b->pps);
 
 		if (res < 0) {
 			/* Welp, something's wrong. There's not much we
@@ -319,14 +319,15 @@ unsigned __stdcall LoopUpdate(void *dv){
 			b->repeatcount--;
 		} else if (d->buffer_fullness > 1) {
 			/* Move to the next frame */
-			flog("L: advancing frame - buffer fullness %d\n", d->buffer_fullness);
+			flogd(d, "L: advancing frame - buffer fullness %d\n",
+				d->buffer_fullness);
 			d->buffer_fullness--;
 			d->buffer_read++;
 			if (d->buffer_read >= BUFFER_NFRAMES)
 				d->buffer_read = 0;
 		} else if (b->repeatcount >= 0) {
 			/* Stop playing until we get a new frame. */
-			flog("L: returning to idle\n");
+			flogd(d, "L: returning to idle\n");
 			d->state = ST_READY;
 		} else {
 			/* Repeat this frame */

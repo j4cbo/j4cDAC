@@ -90,6 +90,9 @@ typedef struct dac_s {
 
 void flog (char *fmt, ...);
 
+#define flogd(d, fmt, ...) \
+  flog("%06x: " fmt, ((d)?((d)->dac_id&0xffffff):0xffffff), ##__VA_ARGS__)
+
 /* dac.c */
 int dac_init(dac_t *d);
 int dac_open_connection(dac_t *d);
@@ -101,13 +104,13 @@ int dac_get_status(dac_t *d);
 int do_write_frame(dac_t *d, const void * data, int bytes, int pps,
 	int reps, int (*convert)(struct buffer_item *, const void *, int));
 void dac_get_name(dac_t *d, char *buf, int max);
-int dac_get_acks(dac_conn_t *conn, int wait);
+int dac_get_acks(dac_t *d, int wait);
 
 /* comm.c */
-void log_socket_error(const char *call);
-int dac_connect(dac_conn_t *conn, const char *host, const char *port);
-int dac_disconnect(dac_conn_t *conn);
-int dac_send_data(dac_conn_t *conn, struct dac_point *data, int npoints, int rate);
+void log_socket_error(dac_t *d, const char *call);
+int dac_connect(dac_t *d, const char *host, const char *port);
+int dac_disconnect(dac_t *d);
+int dac_send_data(dac_t *d, struct dac_point *data, int npoints, int rate);
 
 extern LARGE_INTEGER timer_freq;
 #endif
