@@ -35,6 +35,7 @@ static struct udp_pcb broadcast_pcb;
  * Fill in a struct dac_status with the current state of things.
  */
 void fill_status(struct dac_status *status) {
+	status->protocol = 0;
 	status->light_engine_state = le_get_state();
 	status->playback_state = dac_get_state();
 	status->playback_flags = dac_flags;
