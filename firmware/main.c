@@ -72,68 +72,6 @@ TABLE(initializer_t, protocol);
 TABLE(initializer_t, hardware);
 TABLE(initializer_t, poll);
 
-static void playback_refill(void) {
-	int i;
-
-	if (playback_src != SRC_ILDAPLAYER)
-		return;
-
-	int dlen = dac_request();
-	packed_point_t *ptr = dac_request_addr();
-
-	/* Have we underflowed? */
-	if (dlen < 0) {
-		if (le_get_state() != LIGHTENGINE_READY)
-			return;
-
-		outputf("*U*");
-		dac_prepare();
-		return;
-	}
-
-	/* If we don't have any more room... */
-	if (dlen == 0) {
-		if (dac_get_state() == DAC_PREPARED)
-			dac_start();
-		return;
-	}
-
-	if (!(playback_source_flags & ILDA_PLAYER_PLAYING))
-		return;
-
-	if (dlen > 50)
-		outputf("[!] %d", dlen);
-
-	i = ilda_read_points(dlen, ptr);
-
-	if (i < 0) {
-		outputf("err: %d", i);
-		playback_source_flags &= ~ILDA_PLAYER_PLAYING;
-	} else if (i == 0) {
-		ilda_reset_file();
-
-		if (playback_source_flags & ILDA_PLAYER_REPEAT) {
-			outputf("rep");
-		} else {
-			outputf("done");
-
-			/* If the whole file didn't fit in the
-			 * buffer, we may have to start it now. */
-			dlen = 0;
-
-			playback_source_flags &= ~ILDA_PLAYER_PLAYING;
-		}
-	} else {
-		dac_advance(i);
-	}
-
-	/* If the buffer is nearly full, start it up */
-	if (dlen < 200 && dac_get_state() == DAC_PREPARED)
-		dac_start();
-}
-
-INITIALIZER(poll, playback_refill)
-
 static void NOINLINE FPA_init() {
 	int i;
 
@@ -163,12 +101,10 @@ void check_periodic_timers() {
 	}
 }
 
-void abs_parse_line(char *l);
-char x[160] AHB0;
-
 int main(int argc, char **argv) __attribute__((noreturn));
 int main(int argc, char **argv) {
 	__disable_irq();
+
 	LPC_SC->PCLKSEL0 = PCLKSEL0_INIT_VALUE;
 	LPC_SC->PCLKSEL1 = PCLKSEL1_INIT_VALUE;
 	LPC_SC->PCONP = PCONP_INIT_VALUE;
@@ -176,13 +112,14 @@ int main(int argc, char **argv) {
 	serial_init();
 
 	/* Enable bus, usage, and mem faults. */
-	SCB->SHCSR |= (1<<18) | (1<<17) | (1<<16);
+	SCB->SHCSR |= SCB_SHCSR_MEMFAULTENA_Msk | SCB_SHCSR_BUSFAULTENA_Msk
+		| SCB_SHCSR_USGFAULTENA_Msk;
 
 #if 0
 	/* Disable write buffers. This is useful for debugging - wild writes
 	 * are imprecise exceptions unless the Cortex's write buffering is
 	 * disabled. However, this has a significant performance hit, so it
-	 * should only be enabled if necessary. */
+	 * should only be set if necessary. */
 	*((uint32_t *)0xE000E008) |= (1<<1);
 #endif
 

@@ -15,10 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define SMALL_FRAME_THRESHOLD	100
-char ilda_sf_buffer[6 * SMALL_FRAME_THRESHOLD];
-
-#include <ff.h>
 #include <diskio.h>
 #include <serial.h>
 #include <stdint.h>
@@ -26,6 +22,11 @@ char ilda_sf_buffer[6 * SMALL_FRAME_THRESHOLD];
 #include <assert.h>
 #include <dac.h>
 #include <ilda-player.h>
+#include <ff.h>
+
+#define SMALL_FRAME_THRESHOLD	100
+
+char ilda_sf_buffer[6 * SMALL_FRAME_THRESHOLD];
 
 static FIL ilda_file;
 
@@ -50,6 +51,17 @@ int ilda_current_fps;
 
 static const uint8_t ilda_palette_64[];
 static const uint8_t ilda_palette_256[];
+
+/* calculate_intensity
+ *
+ * Calculate the intensity of a point given r, g, and b.
+ */
+static void calculate_intensity(dac_point_t *p) {
+	int max = p->r;
+	if (p->g > max) max = p->g;
+	if (p->b > max) max = p->b;
+	p->i = max;
+}
 
 /* ilda_reset_file
  *
@@ -144,7 +156,7 @@ int ilda_read_frame_header(void) {
  *
  * Parse a palettized color.
  */
-void ilda_palette_point(dac_point_t *p, int color) {
+void ilda_palette_point(dac_point_t *p, uint16_t color) {
 	if (color & 0x4000) {
 		/* "Blanking" flag */
 		p->r = 0;
@@ -153,22 +165,17 @@ void ilda_palette_point(dac_point_t *p, int color) {
 		p->i = 0;
 	} else {
 		/* Palette index */
-		color &= 0xFF;
 		if (color >= ilda_palette_size)
 			color = ilda_palette_size - 1;
 
 		p->r = ilda_palette_ptr[3 * color] << 8;
 		p->g = ilda_palette_ptr[3 * color + 1] << 8;
 		p->b = ilda_palette_ptr[3 * color + 2] << 8;
-
-		int max = p->r;
-		if (p->g > max) max = p->g;
-		if (p->b > max) max = p->b;
-		p->i = max;
+		calculate_intensity(p);
 	}
 }
 
-/* ilda_palette_point
+/* ilda_tc_point
  *
  * Parse a true-color point.
  */
@@ -183,11 +190,7 @@ void ilda_tc_point(dac_point_t *p, int r, int g, int b, int flags) {
 		p->r = r << 8;
 		p->g = g << 8;
 		p->b = b << 8;
-
-		int max = r;
-		if (g > max) max = g;
-		if (b > max) max = b;
-		p->i = max;
+		calculate_intensity(p);
 	}
 }
 
