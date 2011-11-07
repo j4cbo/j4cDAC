@@ -33,6 +33,7 @@
 #include <dac.h>
 #include <hardware.h>
 #include <ilda-player.h>
+#include <dac_settings.h>
 
 volatile uint32_t time;
 volatile uint32_t mtime;
@@ -41,6 +42,8 @@ extern const char build[];
 
 enum playback_source playback_src;
 int playback_source_flags;
+
+dac_settings_t settings;
 
 void SysTick_Handler(void) {
 	mtime++;

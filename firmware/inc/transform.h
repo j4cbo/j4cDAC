@@ -21,7 +21,7 @@
 
 #define COORD_MAX	32768
 
-#define COORD_TOO_CLOSE	6000
+#define COORD_TOO_CLOSE	1000
 
 #define CORNER_TL	0
 #define CORNER_TR	1
@@ -37,8 +37,6 @@
 #define IS_RIGHT(corner)	(((corner) & 1) == 1)
 
 typedef int32_t transform[4];
-
-extern transform transform_x, transform_y;
 
 void update_transform();
 

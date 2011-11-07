@@ -19,6 +19,7 @@
 #include <transform.h>
 #include <tables.h>
 #include <serial.h>
+#include <dac_settings.h>
 
 /* We use a four-point perspective transformation here. The transform
  * is given by:
@@ -70,20 +71,6 @@
  * c1 = x_bl - c2 + c3 + c4
  */
 
-transform transform_x = {
-	[CORNER_TL] = -COORD_MAX,
-	[CORNER_TR] = COORD_MAX,
-	[CORNER_BL] = -COORD_MAX,
-	[CORNER_BR] = COORD_MAX
-};
-
-transform transform_y = {
-	[CORNER_TL] = COORD_MAX,
-	[CORNER_TR] = COORD_MAX,
-	[CORNER_BL] = -COORD_MAX,
-	[CORNER_BR] = -COORD_MAX
-};
-
 int32_t transform_matrix[8];
 
 static void calculate_transform(int32_t *c, int32_t *coords) {
@@ -98,8 +85,18 @@ static void calculate_transform(int32_t *c, int32_t *coords) {
 }
 
 void update_transform() {
-	calculate_transform(transform_matrix, transform_x);
-	calculate_transform(transform_matrix + 4, transform_y);
+	/* XXX Fix this to load transform from i2c EEPROM */
+	settings.transform_x[CORNER_TL] = -COORD_MAX;
+	settings.transform_x[CORNER_TR] = COORD_MAX;
+	settings.transform_x[CORNER_BL] = -COORD_MAX;
+	settings.transform_x[CORNER_BR] = COORD_MAX;
+	settings.transform_y[CORNER_TL] = COORD_MAX;
+	settings.transform_y[CORNER_TR] = COORD_MAX;
+	settings.transform_y[CORNER_BL] = -COORD_MAX;
+	settings.transform_y[CORNER_BR] = -COORD_MAX;
+
+	calculate_transform(transform_matrix, settings.transform_x);
+	calculate_transform(transform_matrix + 4, settings.transform_y);
 }
 
 INITIALIZER(hardware, update_transform)

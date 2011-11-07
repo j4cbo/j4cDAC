@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <transform.h>
+#include <dac_settings.h>
 
 #define GEOM_LOCK_TOP	(1<<0)
 #define GEOM_LOCK_BOT	(1<<1)
@@ -25,7 +26,8 @@ static const char * const corner_strings[] = {
  */
 static void geom_send_corner(int corner) {
 	osc_send_int2(corner_strings[corner],
-		transform_y[corner] / 64, transform_x[corner] / 64);
+		settings.transform_y[corner] / 64,
+		settings.transform_x[corner] / 64);
 }
 
 /* geom_readout
@@ -47,8 +49,9 @@ static int can_set_corner(int corner, int x, int y) {
 	int i;
 	for (i = 0; i < 4; i++) {
 		if (i == corner) continue;
-		if (   (abs(transform_x[i] - x) < COORD_TOO_CLOSE)
-		    && (abs(transform_y[i] - y) < COORD_TOO_CLOSE)) return 0;
+		if (   (abs(settings.transform_x[i] - x) < COORD_TOO_CLOSE)
+		    && (abs(settings.transform_y[i] - y) < COORD_TOO_CLOSE))
+			return 0;
 	}
 
 	return 1;
@@ -70,23 +73,25 @@ static void geom_update(const char *path, int y, int x) {
 	if (((geom_lock_flags & GEOM_LOCK_TOP) && IS_TOP(corner)) ||
 	    ((geom_lock_flags & GEOM_LOCK_BOT) && IS_BOTTOM(corner))) {
 		other_corner_h = CORNER_FLIP_V(corner);
-		if (!can_set_corner(other_corner_h, transform_x[other_corner_h], y)) return;
+		if (!can_set_corner(other_corner_h,
+		     settings.transform_x[other_corner_h], y)) return;
 	}
 
 	int other_corner_v = corner;
 	if (((geom_lock_flags & GEOM_LOCK_LEFT) && IS_LEFT(corner)) ||
 	    ((geom_lock_flags & GEOM_LOCK_RIGHT) && IS_RIGHT(corner))) {
 		other_corner_v = CORNER_FLIP_H(corner);
-		if (!can_set_corner(other_corner_v, x, transform_y[other_corner_v])) return;
+		if (!can_set_corner(other_corner_v, x,
+		     settings.transform_y[other_corner_v])) return;
 	}
 
 	if (!can_set_corner(corner, x, y)) return;
 
 	/* OK, we are clear to go. */
-	transform_x[corner] = x;
-	transform_y[corner] = y;
-	transform_x[other_corner_v] = x;
-	transform_y[other_corner_h] = y;
+	settings.transform_x[corner] = x;
+	settings.transform_y[corner] = y;
+	settings.transform_x[other_corner_v] = x;
+	settings.transform_y[other_corner_h] = y;
 
 	/* Update the other corners if needed. */
 	if (other_corner_v != corner)
