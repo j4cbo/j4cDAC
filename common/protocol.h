@@ -21,6 +21,17 @@
 
 #include <stdint.h>
 
+#ifdef _MSC_VER
+typedef unsigned int uint32_t;
+typedef unsigned short uint16_t;
+typedef short int16_t;
+typedef unsigned char uint8_t;
+#pragma pack(1)
+#define __attribute__(x)
+#else
+#include <stdint.h>
+#endif
+
 typedef struct dac_point {
 	uint16_t control;
 	int16_t x;
