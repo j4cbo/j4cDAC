@@ -44,6 +44,11 @@ static __attribute__((always_inline, unused)) fixed fix_mul (const fixed x, cons
   return ((fixed)((((int64_t) x) * y)>> POINT));
 }
 
+/* If compiling on a PC, this won't be present. */
+#ifndef ASSERT_NOT_EQUAL
+#define ASSERT_NOT_EQUAL(x, y)
+#endif
+
 static __attribute__((always_inline, unused)) fixed fix_div (const fixed numerator, const fixed denom)
 {
   ASSERT_NOT_EQUAL(denom, 0);

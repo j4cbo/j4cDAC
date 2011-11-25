@@ -33,12 +33,12 @@ void dump_state(char *out, int len) {
 			seclen = snprintf(out, len, "%s:%d:%lu ",
 				osc->name,
 				osc->slave_multiplier,
-				(osc->pos - (osc_master.pos * mul))
+				(long unsigned)(osc->pos - (osc_master.pos * mul))
 			);
 		} else {
 			seclen = snprintf(out, len, "%s:%lu ",
 				osc->name,
-				osc->freq
+				(long unsigned)osc->freq
 			);
 		}
 
@@ -52,7 +52,8 @@ void dump_state(char *out, int len) {
 	param_t * const *param = params;
 	while (*param) {
 		param_t *p = *param;
-		int seclen = snprintf(out, len, "%s:%lu ", p->name, p->value);
+		int seclen = snprintf(out, len, "%s:%lu ", p->name,
+			(long unsigned)p->value);
 		if (seclen >= len) return;
 		len -= seclen;
 		out += seclen;

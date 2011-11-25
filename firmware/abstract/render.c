@@ -21,14 +21,14 @@
 #include "fixpoint.h"
 #include "render.h"
 
-oscillator_t osc_master = { "master", FIXED(100), 0 };
-static oscillator_t osc_x = { "x", FIXED(99.8), 0 };
-static oscillator_t osc_y = { "y", FIXED(100), 0 };
-static oscillator_t osc_z = { "z", FIXED(100), 0 };
-static oscillator_t osc_red = { "red", FIXED(99.5), 0 };
-static oscillator_t osc_green = { "green", FIXED(100), 0 };
-static oscillator_t osc_blue = { "blue", FIXED(100.5), 0 };
-static oscillator_t osc_blank = { "blank", 0, 0 };
+oscillator_t osc_master = { "master", FIXED(100), 0, -1 };
+static oscillator_t osc_x = { "x", FIXED(99.8), 0, -1 };
+static oscillator_t osc_y = { "y", FIXED(100), 0, -1 };
+static oscillator_t osc_z = { "z", FIXED(100), 0, -1 };
+static oscillator_t osc_red = { "red", FIXED(99.5), 0, -1 };
+static oscillator_t osc_green = { "green", FIXED(100), 0, -1 };
+static oscillator_t osc_blue = { "blue", FIXED(100.5), 0, -1 };
+static oscillator_t osc_blank = { "blank", 0, 0, -1 };
 
 static param_t x_rot = { "xrot", 0 };
 static param_t y_rot = { "yrot", 0 };
