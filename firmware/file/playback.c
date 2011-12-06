@@ -16,11 +16,17 @@
  */
 
 #include <dac.h>
-#include <ilda-player.h>
+#include <file_player.h>
 #include <lightengine.h>
 #include <playback.h>
 #include <serial.h>
 #include <tables.h>
+#include <string.h>
+
+int ilda_open(const char * fname);
+
+int ilda_read_points(int max_points, packed_point_t *p);
+void ilda_reset_file(void);
 
 /* playback_refill
  *
@@ -59,8 +65,10 @@ static void playback_refill(void) {
 	if (!(playback_source_flags & ILDA_PLAYER_PLAYING))
 		return;
 
+/*
 	if (dlen > 50)
 		outputf("[!] %d", dlen);
+*/
 
 	/* Read some points from the file. */
 	i = ilda_read_points(dlen, ptr);

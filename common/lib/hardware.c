@@ -238,7 +238,7 @@ void __attribute__((noreturn)) hw_open_interlock_forever(void) {
 	}
 }
 
-#define WDT_MILLISECONDS	5
+#define WDT_MILLISECONDS	20
 #define WDT_RC_FREQ		4000000
 
 /* Set up the watchdog timer.

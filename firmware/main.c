@@ -32,7 +32,7 @@
 #include <playback.h>
 #include <dac.h>
 #include <hardware.h>
-#include <ilda-player.h>
+#include <file_player.h>
 #include <dac_settings.h>
 
 volatile uint32_t time;
@@ -127,6 +127,9 @@ int main(int argc, char **argv) {
 	debugf("# Ether Dream #\r\n");
 	debugf("###############\r\n");
 	debugf("Firmware: %s\r\n", build);
+
+	debugf("RSID: %d\r\n", LPC_SC->RSID);
+	LPC_SC->RSID = 0xF;
 
 	hw_get_board_rev();
 

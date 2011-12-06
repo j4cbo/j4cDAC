@@ -1,4 +1,4 @@
-/* j4cDAC ILDA player
+/* j4cDAC file player
  *
  * Copyright 2011 Jacob Potter
  *
@@ -15,12 +15,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef ILD_PLAYER_H
-#define ILD_PLAYER_H
+#ifndef FILE_PLAYER_H
+#define FILE_PLAYER_H
 
-int ilda_open(const char * fname);
-int ilda_read_points(int max_points, packed_point_t *p);
-void ilda_reset_file(void);
+int fplay_open(const char *fname);
 
 void ilda_set_fps_limit(int max_fps);
 

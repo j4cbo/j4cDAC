@@ -24,7 +24,7 @@
 #include <dac.h>
 #include <serial.h>
 #include <playback.h>
-#include <ilda-player.h>
+#include <file_player.h>
 
 /* walk_fs() does two different things:
  *
@@ -75,7 +75,7 @@ static void walk_fs(int index) {
 			snprintf(path, sizeof(path), "/ilda/%d/name", i);
 			osc_send_string(path, fn);
 		} else if (index == i) {
-			ilda_open(fn);
+			fplay_open(fn);
 			playback_source_flags |= ILDA_PLAYER_PLAYING;
 			break;
 		}
