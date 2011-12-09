@@ -37,11 +37,12 @@
  */
 #define AHB0 __attribute__((section(".ahb_sram_0")))
 
-/* NOINLINE
+/* NOINLINE, ALWAYS_INLINE
  *
- * Prevent this function from being inlined.
+ * Force inlining on or off.
  */
 #define NOINLINE __attribute__((noinline))
+#define ALWAYS_INLINE __attribute__((always_inline))
 
 /* ARRAY_NELEMS(arr)
  *
