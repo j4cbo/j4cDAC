@@ -100,16 +100,3 @@ void update_transform() {
 }
 
 INITIALIZER(hardware, update_transform)
-
-static int32_t translate(int32_t *c, int x, int y) {
-	int32_t xy_scale = x * y / COORD_MAX;
-	return (c[0]*x + c[1]*y + c[2]*xy_scale) / COORD_MAX + c[3];
-}
-
-int32_t translate_x(int32_t x, int32_t y) {
-	return translate(transform_matrix, x, y);
-}
-
-int32_t translate_y(int32_t x, int32_t y) {
-	return translate(transform_matrix + 4, x, y);
-}
