@@ -16,47 +16,50 @@
 
 #if 1
 
-#define ASSERT(exp)	((void)((exp) ? 0				\
+#define likely(x)       __builtin_expect((x),1)
+#define unlikely(x)     __builtin_expect((x),0)
+
+#define ASSERT(exp)	((void)(likely(exp) ? 0				\
         : panic("%s:%d: Failed assertion \"%s\"", __FILE__, __LINE__, #exp)))
 
 #define ASSERT_EQUAL(e1, e2) do {					\
 	int _a_v1 = (e1), _a_v2 = (e2);					\
-	if (_a_v1 != _a_v2)						\
+	if (unlikely(_a_v1 != _a_v2))					\
 		panic("%s:%d: Failed assertion \"%s == %s\": %d != %d",	\
 			__FILE__, __LINE__, #e1, #e2, _a_v1, _a_v2);	\
 	} while(0)
 
 #define ASSERT_EQUAL_P(e1, e2) do {					\
 	void * _a_v1 = (e1), * _a_v2 = (e2);				\
-	if (_a_v1 != _a_v2)						\
+	if (unlikely(_a_v1 != _a_v2))					\
 		panic("%s:%d: Failed assertion \"%s == %s\": %p != %p",	\
 			__FILE__, __LINE__, #e1, #e2, _a_v1, _a_v2);	\
 	} while(0)
 
 #define ASSERT_NOT_EQUAL(e1, e2) do {					\
 	int _a_v1 = (e1), _a_v2 = (e2);					\
-	if (_a_v1 == _a_v2)						\
+	if (unlikely(_a_v1 == _a_v2))					\
 		panic("%s:%d: Failed assertion \"%s != %s\": both %d",	\
 			__FILE__, __LINE__, #e1, #e2, _a_v1);		\
 	} while(0)
 
 #define ASSERT_NULL(e) do {						\
 	void * _a_p = (e);						\
-	if (_a_p != NULL)						\
+	if (unlikely(_a_p != NULL))					\
 		panic("%s:%d: Failed assertion \"%s == NULL\": got %p",	\
 			__FILE__, __LINE__, #e, _a_p);			\
 	} while(0)
 
 #define ASSERT_NOT_NULL(e) do {						\
 	void * _a_p = (e);						\
-	if (_a_p == NULL)						\
+	if (unlikely(_a_p == NULL))					\
 		panic("%s:%d: Failed assertion \"%s != NULL\"",		\
 			__FILE__, __LINE__, #e);			\
 	} while(0)
 
 #define ASSERT_BIT(e) do {						\
 	void * _a_p = (e);						\
-	if (_a_p != NULL)						\
+	if (unlikely(_a_p != NULL))					\
 		panic("%s:%d: Failed assertion \"%s != NULL\"",		\
 			__FILE__, __LINE__, #e);			\
 	} while(0)
