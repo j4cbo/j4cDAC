@@ -23,6 +23,8 @@
 
 FATFS fs;
 
+//BYTE blort[512];
+
 void sd_init(void) {
 	char filename_buf[128];
 
@@ -31,6 +33,8 @@ void sd_init(void) {
 		outputf("SD initialization failed: %d", res);
 		return;
 	}
+
+	//while(1) disk_read(0, blort, 0, 1);
 
 	/* This code sucks. It comes from the fatfs example code. */
 	memset(&fs, 0, sizeof(fs));

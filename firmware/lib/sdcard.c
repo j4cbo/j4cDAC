@@ -42,8 +42,23 @@
 #define TOKEN_MULTI_BLOCK	0xFC
 #define TOKEN_STOP_TRAN		0xFD
 
+#define DMACC_Control_SBSIZE_4	(1 << 12)
+#define DMACC_Control_DBSIZE_4	(1 << 15)
+#define DMACC_Control_SWIDTH_8	(0 << 18)
+#define DMACC_Control_DWIDTH_8	(0 << 21)
+#define DMACC_Control_DI	(1 << 27)
+
+#define DMACC_Config_SrcPeripheral_SSP0Rx	(1 << 1)
+#define DMACC_Config_DestPeripheral_SSP0Tx	(0 << 6)
+#define DMACC_Config_M2P	(1 << 11)
+#define DMACC_Config_P2M	(2 << 11)
+#define DMACC_Config_E		(1 << 0)
+
+static uint16_t ffff = 0xffff;
+
 static uint8_t sdcard_spi_recv(void);
-static void sdcard_spi_recvblock(uint8_t * b, int l);
+// static void sdcard_spi_recvblock(uint8_t * b, int l);
+static void sdcard_spi_dma_recvblock(uint8_t * b, int l);
 static void sdcard_spi_send(uint8_t x);
 static void sdcard_spi_sendblock(const uint8_t * b, int l);
 static void sdcard_spi_select();
@@ -129,7 +144,7 @@ static int sdcard_read_block(uint8_t * buf, uint32_t len) {
 	if (token != 0xFE)
 		return ERR_RECVBLOCK_TIMEOUT;
 
-	sdcard_spi_recvblock(buf, len);
+	sdcard_spi_dma_recvblock(buf, len);
 
 	/* Ignore CRC. */
 	sdcard_spi_recv();
@@ -458,6 +473,21 @@ void sdcard_spi_init(void) {
 	/* drain SPI RX FIFO */
 	while (LPC_SSP0->SR & SSP_SR_RNE)
 		dummy = LPC_SSP0->DR;
+
+	/* Set up DMA controller */
+	LPC_GPDMA->DMACConfig = 1;
+	while (!(LPC_GPDMA->DMACConfig & 1));
+	outputf("GPDMA DMACConfig: 0x%08x\n", LPC_GPDMA->DMACConfig);
+	LPC_GPDMACH0->DMACCConfig = DMACC_Config_M2P
+		| DMACC_Config_DestPeripheral_SSP0Tx;
+	LPC_GPDMACH1->DMACCConfig = DMACC_Config_P2M
+		| DMACC_Config_SrcPeripheral_SSP0Rx;
+	LPC_GPDMACH0->DMACCLLI = 0;
+	LPC_GPDMACH1->DMACCLLI = 0;
+	LPC_SSP0->DMACR |= 3;
+	LPC_GPDMACH0->DMACCSrcAddr = (uint32_t)&ffff;
+	LPC_GPDMACH0->DMACCDestAddr = (uint32_t)&LPC_SSP0->DR;
+	LPC_GPDMACH1->DMACCSrcAddr = (uint32_t)&LPC_SSP0->DR;
 }
 
 /* Set SSP0 clock speed to desired value. */
@@ -503,6 +533,36 @@ static uint8_t sdcard_spi_recv(void) {
 	return sdcard_spi_exchange_byte(0xFF);
 }
 
+static void sdcard_spi_dma_recvblock(uint8_t *buf, int len) {
+
+	/* Set up channel 0 to copy ffff into DR */
+	LPC_GPDMACH0->DMACCControl = len | DMACC_Control_SWIDTH_8 \
+		| DMACC_Control_DWIDTH_8 \
+		| DMACC_Control_SBSIZE_4 | DMACC_Control_DBSIZE_4;
+
+	/* Set up channel 1 to copy dr to buf */
+	LPC_GPDMACH1->DMACCDestAddr = (uint32_t)buf;
+	LPC_GPDMACH1->DMACCControl = len | DMACC_Control_SWIDTH_8 \
+		| DMACC_Control_DWIDTH_8 | DMACC_Control_DI \
+		| DMACC_Control_SBSIZE_4 | DMACC_Control_DBSIZE_4;
+
+	/* Enable channels */
+	__disable_irq();
+	LPC_GPDMACH0->DMACCConfig |= DMACC_Config_E;
+	LPC_GPDMACH1->DMACCConfig |= DMACC_Config_E;
+	__enable_irq();
+
+	/* Wait... */
+	int count = len * 50;
+	while(count-- && 
+	      ((LPC_GPDMACH0->DMACCConfig & DMACC_Config_E)
+	    || (LPC_GPDMACH1->DMACCConfig & DMACC_Config_E)));
+
+	if (!count)
+		outputf("SD timeout\n");
+}
+
+#if 0
 #define FIFO_ELEM 8
 
 void sdcard_spi_recvblock(uint8_t * buf, int len) {
@@ -543,6 +603,7 @@ void sdcard_spi_recvblock(uint8_t * buf, int len) {
 	/* Back to 8-bit mode */
 	LPC_SSP0->CR0 = SSP_CR0_DSS(8);
 }
+#endif
 
 /* Send a block of data. */
 static void sdcard_spi_sendblock(const uint8_t * buf, int len) {
