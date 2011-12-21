@@ -48,7 +48,7 @@ void fill_status(struct dac_status *status) {
 	else
 		status->point_rate = 0;
 
-	status->point_count = dac_count;
+	status->point_count = dac_get_count();
 
 	status->source = playback_src;
 	status->source_flags = 0;	// XXX TODO

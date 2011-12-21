@@ -475,4 +475,12 @@ void impl_dac_pack_point(packed_point_t *dest, dac_point_t *src) {
 	dac_pack_point(dest, src);
 }
 
+/* dac_get_count
+ *
+ * Return the number of points played by the DAC.
+ */
+uint32_t dac_get_count() {
+	return dac_count;
+}
+
 INITIALIZER(hardware, dac_init);

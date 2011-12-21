@@ -83,9 +83,9 @@ enum dac_state dac_get_state(void);
 int dac_fullness(void);
 int dac_set_rate(int points_per_second);
 int dac_rate_queue(int points_per_second);
+uint32_t dac_get_count();
 
 extern int dac_current_pps;
-extern int dac_count;
 extern int dac_flags;
 
 #endif
