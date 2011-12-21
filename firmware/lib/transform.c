@@ -84,7 +84,12 @@ static void calculate_transform(int32_t *c, int32_t *coords) {
         c[0] = -bl - c[1] + c[2] + c[3];
 }
 
-void update_transform() {
+void update_transform(void) {
+	calculate_transform(transform_matrix, settings.transform_x);
+	calculate_transform(transform_matrix + 4, settings.transform_y);
+}
+
+void init_transform(void) {
 	/* XXX Fix this to load transform from i2c EEPROM */
 	settings.transform_x[CORNER_TL] = -COORD_MAX;
 	settings.transform_x[CORNER_TR] = COORD_MAX;
@@ -94,9 +99,7 @@ void update_transform() {
 	settings.transform_y[CORNER_TR] = COORD_MAX;
 	settings.transform_y[CORNER_BL] = -COORD_MAX;
 	settings.transform_y[CORNER_BR] = -COORD_MAX;
-
-	calculate_transform(transform_matrix, settings.transform_x);
-	calculate_transform(transform_matrix + 4, settings.transform_y);
+	update_transform();
 }
 
-INITIALIZER(hardware, update_transform)
+INITIALIZER(hardware, init_transform)
