@@ -18,10 +18,11 @@
 #ifndef TRANSFORM_MAX
 
 #include <stdint.h>
+#include <attrib.h>
 
 #define COORD_MAX	32768
 
-#define COORD_TOO_CLOSE	1000
+#define COORD_TOO_CLOSE	150
 
 #define CORNER_TL	0
 #define CORNER_TR	1
@@ -38,7 +39,7 @@
 
 typedef int32_t transform[4];
 
-void update_transform();
+void update_transform(void);
 
 extern int32_t transform_matrix[8];
 
