@@ -61,21 +61,6 @@ void dump_state(char *out, int len) {
 	}
 }		
 
-static int xatoi(const char *c) {
-	int n = 0;
-	int m = 1;
-	if (*c == '-') {
-		c++;
-		m = -1;
-	}
-	while (*c >= '0' && *c <= '9') {
-		n *= 10;
-		n += (*c++ - '0');
-	}
-
-	return n * m;
-}
-
 static void parse_update(char **argv) {
 	if (!argv[0] || !argv[1]) return;
 
@@ -83,18 +68,18 @@ static void parse_update(char **argv) {
 	if (!osc) {
 		param_t *param = get_param(argv[0]);
 		if (!param) return;
-		param->value = xatoi(argv[1]);
+		param->value = atoi(argv[1]);
 		return;
 	}
 
 	if (argv[2]) {
-		osc->slave_multiplier = xatoi(argv[1]);
+		osc->slave_multiplier = atoi(argv[1]);
 		int mul = get_mul(osc->slave_multiplier);
-		fixed f = xatoi(argv[2]);
+		fixed f = atoi(argv[2]);
 		osc->freq = osc_master.freq * mul / MUL_DENOM;
 		osc->pos = (osc_master.pos * mul) + f;
 	} else {
-		osc->freq = xatoi(argv[1]);
+		osc->freq = atoi(argv[1]);
 		osc->slave_multiplier = -1;
 	}
 }
