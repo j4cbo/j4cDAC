@@ -132,6 +132,12 @@ void ilda_play_FPV_osc(const char *path, int v) {
 
 	outputf("play %d", index);
 
+	/* Try switching to ILDA playback mode, if we weren't already */
+	if (playback_set_src(SRC_ILDAPLAYER) < 0) {
+		outputf("src switch err\n");
+		return;
+	}
+
 	walk_fs(index);
 }
 

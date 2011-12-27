@@ -426,9 +426,15 @@ void PWM1_IRQHandler(void) {
 	}
 	break;
 
-	case SRC_SYNTH: {
+	case SRC_ABSTRACT: {
+		/* If we're not actually playing, produce no output. */
 		dac_point_t dp;
-		get_next_point(&dp);
+		if (playback_source_flags & ABSTRACT_PLAYING) {
+			get_next_point(&dp);
+		} else {
+			memset(&dp, 0, sizeof(dp));
+		}
+
 		dac_write_point(&dp);
 	}
 	break;

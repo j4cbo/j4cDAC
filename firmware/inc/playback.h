@@ -21,13 +21,17 @@
 enum playback_source {
 	SRC_NETWORK = 0,
 	SRC_ILDAPLAYER = 1,
-	SRC_SYNTH = 2
+	SRC_ABSTRACT = 2
 };
 
 extern enum playback_source playback_src;
 extern int playback_source_flags;
 
+int playback_set_src(enum playback_source new_src);
+
 #define ILDA_PLAYER_PLAYING	0x01
 #define ILDA_PLAYER_REPEAT	0x02
+
+#define ABSTRACT_PLAYING	0x01
 
 #endif

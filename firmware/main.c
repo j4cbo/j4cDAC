@@ -40,9 +40,6 @@ volatile uint32_t mtime;
 extern int f0ad_flag;
 extern const char build[];
 
-enum playback_source playback_src;
-int playback_source_flags;
-
 dac_settings_t settings;
 
 void SysTick_Handler(void) {
@@ -152,8 +149,6 @@ int main(int argc, char **argv) {
 	outputf("Entering main loop...");
 	watchdog_init();
 
-	playback_src = SRC_NETWORK;
-
 	/* Startup might have taken some time, so reset the periodic event
 	 * timers. */
 	int i;
@@ -162,6 +157,8 @@ int main(int argc, char **argv) {
 	}
 
 	__enable_irq();
+
+	playback_set_src(SRC_NETWORK);
 
 	/* Default values */
 	dac_set_rate(30000);

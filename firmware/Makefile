@@ -17,7 +17,7 @@ BRD_SRCS += ../common/lib/hardware.c
 
 # Application
 BRD_SRCS += lib/dac.c
-APP_SRCS += lib/panic.c lib/lightengine.c
+APP_SRCS += lib/panic.c lib/lightengine.c lib/playback.c
 
 # lwIP
 LWIP = lwip-1.3.2/src
