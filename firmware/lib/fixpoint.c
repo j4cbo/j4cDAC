@@ -107,3 +107,54 @@ fixed fix_sine (const uint32_t phase)
 {
 	return interpolatewave (phase,SINE);
 }
+
+/* strtofixed
+ *
+ * Interpret a string (like "123.456") as a fixed-point value.
+ *
+ * In addition to the standard decimal notation, this also recognizes a
+ * trailing % sign to mean that a value should be divided by 100.
+ */
+fixed strtofixed(const char *c) {
+	if (!c) return 0;
+
+	int32_t integer = 0, num = 0, denom = 1;
+
+	/* Recognize a leading minus sign */
+	if (*c == '-') {
+		denom = -1;
+		c++;
+	}
+
+	/* Parse the integer part */
+	while (*c >= '0' && *c <= '9') {
+		integer *= 10;
+		integer += *c - '0';
+		c++;
+	}
+
+	/* Special: handle percent */
+	if (*c == '%') {
+		return FIXED(integer) * denom / 100;
+	} else if (*c != '.') {
+		return FIXED(integer) * denom;
+	}
+
+	c++;
+
+	/* Parse fractional part */
+	while (*c >= '0' && *c <= '9' && denom < 10000 && denom > -10000) {
+		denom *= 10;
+		num *= 10;
+		num += *c - '0';
+		c++;
+	}
+
+	num <<= POINT;
+
+	/* Round appropriately */
+	if (num % denom > (denom / 2))
+		return FIXED(integer) + (num / denom) + 1;
+	else
+		return FIXED(integer) + num / denom;
+}

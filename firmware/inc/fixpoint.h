@@ -58,5 +58,6 @@ static __attribute__((always_inline, unused)) fixed fix_div (const fixed numerat
 fixed fix_sqrt (const fixed x);
 fixed fix_cordic (const fixed theta, fixed *s, fixed *c);
 fixed fix_sine (const uint32_t phase);
+fixed strtofixed(const char *c);
 
 #endif
