@@ -34,10 +34,14 @@ int playback_set_src(enum playback_source new_src) {
 		return -1;
 	}
 
+	if (playback_src == new_src)
+		return 0;
+
 	/* Stop the DAC and set playback_src_flags to 0, which will prevent
 	 * the abstract generator and ILDA player from producing output. */
 	dac_stop(DAC_FLAG_STOP_SRCSWITCH);
 	playback_source_flags = 0;
+	playback_src = new_src;
 
 	return 0;
 }

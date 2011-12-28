@@ -31,37 +31,53 @@ union float_int {
 	uint32_t i;
 };
 
-void handle_acc_FPV_osc(const char *path, int x, int y, int z) {
+void handle_acc_FPV_osc(const char *path, int32_t x, int32_t y, int32_t z) {
 }
 
-void handle_fader_FPV_osc(const char *path, int v) {
+void handle_fader_FPV_osc(const char *path, int32_t v) {
 	outputf("%d", v);
 }
 
-TABLE(osc_handler, osc_handler)
+TABLE(param_handler, param_handler)
 
-TABLE_ITEMS(osc_handler, default_handlers,
-	{ "/accxyz", 3, { .f3 = handle_acc_FPV_osc }, { 1000000, 1000000, 1000000 } },
-	{ "/1/fader1", 1, { .f1 = handle_fader_FPV_osc }, { 1000000 } }
+TABLE_ITEMS(param_handler, default_handlers,
+	{ "/accxyz", PARAM_TYPE_I3, { .f3 = handle_acc_FPV_osc } },
+	{ "/1/fader1", PARAM_TYPE_I3, { .f1 = handle_fader_FPV_osc } }
 )
 
-void FPA_osc(const struct osc_handler *h, const char *address, int *params) {
-	switch (h->nargs) {
-	case 0:
-		h->f0(address);
+/* FPA_osc
+ *
+ * Accessor for parameter update functions. In addition to performing the
+ * indirect call, this also clamps parameters to the handler's range.
+ */
+void FPA_param(const struct param_handler *h, const char *addr, int32_t *p) {
+	int i;
+
+	if (h->type != PARAM_TYPE_S1 && (h->min || h->max)) {
+		for (i = 0; i < h->type; i++) {
+			if (p[i] > h->max) p[i] = h->max;
+			if (p[i] < h->min) p[i] = h->min;
+		}
+	}
+
+	switch (h->type) {
+	case PARAM_TYPE_0:
+		h->f0(addr);
 		break;
-	case 1:
-		h->f1(address, params[0]);
+	case PARAM_TYPE_I1:
+		h->f1(addr, p[0]);
 		break;
-	case 2:
-		h->f2(address, params[0], params[1]);
+	case PARAM_TYPE_I2:
+		h->f2(addr, p[0], p[1]);
 		break;
-	case 3:
-		h->f3(address, params[0], params[1], params[2]);
+	case PARAM_TYPE_I3:
+		h->f3(addr, p[0], p[1], p[2]);
+		break;
+	case PARAM_TYPE_S1:
+		h->fs(addr, (const char *)p[0]);
 		break;
 	default:
-		panic("bad nargs in osc handler: %s i=%d",
-		      h->address, h->nargs);
+		panic("bad type in param def: %s %d", h->address, h->type);
 	}
 }
 
@@ -105,58 +121,94 @@ void osc_parse_packet(char *data, int length) {
 
 	uint32_t *idata = (uint32_t *)data;
 
-	int i;
+	/* Parse in all the parameters */
+	int count = 0;
+	int32_t raw_params[3];
+
+	while (type[count] && count < 3) {
+		char t = type[count];
+		switch (t) {
+		case 'i':
+		case 'f':
+			/* We don't know whether we should be processing
+			 * as int or fixed until we've found the handler,
+			 * so to avoid loss of precision, don't do float
+			 * conversion until then. */
+			raw_params[count] = ntohl(*idata);
+			idata++;
+			break;
+		case 'T':
+			raw_params[count] = 1;
+			break;
+		case 'F':
+			raw_params[count] = 0;
+			break;
+		case 'N':
+			raw_params[count] = -1;
+			break;
+		default:
+			/* Unrecognized type code - we must ignore
+			 * this message. */
+			outputf("osc: unk type '%c' (%d)", t, t);
+			return;
+		}
+		count++;
+	}
+
 	int nmatched = 0;
-	for (i = 0; i < TABLE_LENGTH(osc_handler); i++) {
-		const struct osc_handler *h = &osc_handler_table[i];
+	int i;
+	const struct param_handler *h;
+	foreach_matching_handler(h, address) {
+		int32_t params[3];
 
-		if (strcmp(h->address, address))
-			continue;
+		switch (h->type) {
+		case PARAM_TYPE_S1:
+			/* Accept this iff we got one string parameter */
+			if (count != 1 || type[0] != 's') continue;
+			params[0] = raw_params[0];
+			break;
 
-		nmatched++;
-
-		/* If this has no function to call, skip it. */
-		if (!h->dummy)
-			continue;
-
-		/* Parse in all the parameters. */
-		int p = 0;
-		int params[3] = { -1, -1, -1 };
-		union float_int f;
-		while (*type && p < ARRAY_NELEMS(params)) {
-			switch (*type) {
-			case 'f':
-				f.i = ntohl(*idata);
-				params[p] = f.f * h->scalefactor[p];
-				idata++;
-				break;
-			case 'i':
-				params[p] = ntohl(*idata);
-				idata++;
-				break;
-			
-			case 'T':
-				params[p] = 1;
-				break;
-
-			case 'F':
-				params[p] = 0;
-				break;
-
-			case 'N':
-				params[p] = -1;
-				break;
-
-			default:
-				/* Unrecognized type code - we must ignore
-				 * this message. */
-				return;
+		case PARAM_TYPE_0:
+		case PARAM_TYPE_I1:
+		case PARAM_TYPE_I2:
+		case PARAM_TYPE_I3:
+			/* Convert floats as needed */
+			for (i = 0; i < count; i++) {
+				union float_int f;
+				if (type[i] == 's') continue; /* XXX want to continue outer */
+				if (type[i] == 'f') {
+					f.i = raw_params[i];
+					if (h->intmode == PARAM_MODE_INT) {
+						params[i] = f.f;
+					} else {
+						params[i] = FIXED(f.f);
+					}
+				} else {
+					if (h->intmode == PARAM_MODE_INT) {
+						params[i] = raw_params[i];
+					} else {
+						params[i] = FIXED(raw_params[i]);
+					}
+				}
 			}
-			p++;
+
+			/* Check parameter count - needs to match, with the
+			 * exception that if we get a single nonzero param
+			 * for something that wants 0, we accept it */
+			if (h->type == PARAM_TYPE_0 && count == 1) {
+				/* Swallow release events */
+				if (!params[0]) {
+					nmatched++;
+					continue;
+				}
+			} else if (h->type != count) {
+				continue;
+			}
 		}
 
 		/* Now, call the appropriate function */
-		FPA_osc(h, address, params);
+		nmatched++;
+		FPA_param(h, address, params);
 	}
 
 	if (!nmatched && address_len >= 2 && address[address_len - 1] != 'z' \
@@ -285,7 +337,7 @@ void osc_send_string(const char *path, const char *value) {
 		buf[bytes_used++] = '\0';
 
 	strcpy(buf + bytes_used, value);
-	bytes_used += vlen;
+	bytes_used += vlen + 1;
 	while (bytes_used % 4) 
 		buf[bytes_used++] = '\0';
 

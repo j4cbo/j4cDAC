@@ -15,16 +15,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <diskio.h>
 #include <serial.h>
-#include <stdint.h>
 #include <string.h>
 #include <assert.h>
+#include <attrib.h>
 #include <playback.h>
 #include <file_player.h>
 #include <ff.h>
+#include <param.h>
 #include <tables.h>
-#include <dac.h>
 #include <stdlib.h>
 
 #define AUTOPLAY_FILE_NAME	"autoplay.txt"
@@ -65,40 +64,84 @@ static char * autoplay_next_newline(void) {
 	}
 }
 
-static int autoplay_process_line(char *line) {
-	if (!line[0])
-		return 0;
+/* autoplay_invoke_handler
+ *
+ * Invoke a parameter handler based on a tokenized line.
+ *
+ * Returns 1 if the handler was called; 0 if the line was not suitable
+ * due to bad argument count.
+ */
+static int autoplay_invoke(const struct param_handler *h, const char *path,
+                           int argc, char * const * const argv) {
+	int32_t params[3] = { 0, 0, 0 };
 
-	if (!strncmp(line, "pps ", 4)) {
-		int pps = atoi(line + 4);
-		if (pps < 1000 || pps > 50000) {
-			outputf("ap: ? \"%s\"", line);
-			return -1;
-		}
-		outputf("ap: pps %d", pps);
-		dac_set_rate(pps);
-		return 0;
-	} else if (!strncmp(line, "fps ", 4)) {
-		int fps = atoi(line + 4);
-		if (fps > 1000) {
-			outputf("ap: ? \"%s\"", line);
-			return -1;
-		}
-		outputf("ap: fps %d", fps);
-		ilda_set_fps_limit(fps);
-		return 0;
-	} else if (!strncmp(line, "play ", 5)) {
-		outputf("ap: play \"%s\"", line + 5);
-		if (fplay_open(line + 5) == 0) {
-			dac_prepare();
-			playback_src = SRC_ILDAPLAYER;
-			playback_source_flags |= ILDA_PLAYER_PLAYING;
-			return 0;
-		} else {
-			return -1;
+	/* String parameter? */
+	if (h->type == PARAM_TYPE_S1 && argc == 1) {
+		params[0] = (int32_t)argv[0];
+	} else if (h->type == argc) {
+		int p;
+		for (p = 0; p < argc; p++) {
+			if (h->intmode == PARAM_MODE_INT)
+				params[p] = atoi(argv[p]);
+			else
+				params[p] = strtofixed(argv[p]);
 		}
 	} else {
-		outputf("ap: ? \"%s\"", line);
+		int expected = (h->type == PARAM_TYPE_S1) ? 1 : h->type;
+		outputf("ap: bad param count for %s: expect %d got %d",
+			h->address, expected, argc);
+	}
+
+	switch (h->type) {
+	case PARAM_TYPE_0:
+		outputf("ap: %s", h->address);
+		break;
+	case PARAM_TYPE_I1:
+		outputf("ap: %s %d", h->address, params[0]);
+		break;
+	case PARAM_TYPE_I2:
+		outputf("ap: %s %d %d", h->address, params[0], params[1]);
+		break;
+	case PARAM_TYPE_I3:
+		outputf("ap: %s %d %d %d", h->address, params[0], params[1], params[2]);
+		break;
+	case PARAM_TYPE_S1:
+		outputf("ap: %s \"%s\"", h->address, argv[0]);
+		break;
+	}
+
+	FPA_param(h, path, params);
+	return 1;
+}
+
+/* autoplay_process_line
+ *
+ * Process a line from the autoplay file. Each line is space-seprated:
+ *    /oscpath/to/set [value [value [value]]]
+ */
+static int autoplay_process_line(char *line) {
+	/* Tokenize line - this is straight out of the strsep man page */
+	char **ap, *argv[5], *inputstring = line;
+	for (ap = argv; (*ap = strsep(&inputstring, " \t")) != NULL; )
+		if (**ap != '\0')
+			if (++ap >= &argv[ARRAY_NELEMS(argv)])
+                                   break;
+
+	/* Make sure we got at least a path */
+	int nargs = ap - argv;
+	if (!nargs) return 0;
+	nargs--;
+
+	int matched = 0;
+	const struct param_handler *h;
+	foreach_matching_handler(h, argv[0]) {
+		matched += autoplay_invoke(h, argv[0], nargs, argv + 1);
+	}
+
+	if (matched) {
+		return 0;
+	} else {
+		outputf("ap: unmatched \"%s\"", argv[0]);
 		return -1;
 	}
 }

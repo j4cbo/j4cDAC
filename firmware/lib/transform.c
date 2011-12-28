@@ -87,6 +87,15 @@ static void calculate_transform(int32_t *c, int32_t *coords) {
 void update_transform(void) {
 	calculate_transform(transform_matrix, settings.transform_x);
 	calculate_transform(transform_matrix + 4, settings.transform_y);
+
+/*
+	outputf("TL: %d %d\tTR: %d %d",
+		settings.transform_x[CORNER_TL], settings.transform_y[CORNER_TL],
+		settings.transform_x[CORNER_TR], settings.transform_y[CORNER_TR]);
+	outputf("BL: %d %d\tBR: %d %d",
+		settings.transform_x[CORNER_BL], settings.transform_y[CORNER_BL],
+		settings.transform_x[CORNER_BR], settings.transform_y[CORNER_BR]);
+*/
 }
 
 void init_transform(void) {

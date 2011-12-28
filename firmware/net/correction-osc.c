@@ -58,8 +58,12 @@ static int can_set_corner(int corner, int x, int y) {
 }
 
 
-static void geom_update(const char *path, int y, int x) {
+static void geom_update(const char *path, int32_t y, int32_t x) {
 	int corner;
+
+	/* Inputs from OSC are in the range -1 to 1; scale them down. */
+	x /= 2;
+	y /= 2;
 
 	/* Which corner are we moving? */
 	if (!strcmp(path, "/geom/tl")) corner = CORNER_TL;
@@ -103,7 +107,7 @@ static void geom_update(const char *path, int y, int x) {
 	update_transform();
 }
 
-static void geom_update_lock(const char *path, int v) {
+static void geom_update_lock(const char *path, int32_t v) {
 	int mask;
 	if (!strcmp(path, "/geom/locktop")) mask = GEOM_LOCK_TOP;
 	else if (!strcmp(path, "/geom/lockbottom")) mask = GEOM_LOCK_BOT;
@@ -117,14 +121,49 @@ static void geom_update_lock(const char *path, int v) {
 		geom_lock_flags &= ~mask;
 }
 
-TABLE_ITEMS(osc_handler, correction_osc_updaters,
-	{ "/geom/tl", 2, { .f2 = geom_update }, { 64, 64 } },
-	{ "/geom/tr", 2, { .f2 = geom_update }, { 64, 64 } },
-	{ "/geom/bl", 2, { .f2 = geom_update }, { 64, 64 } },
-	{ "/geom/br", 2, { .f2 = geom_update }, { 64, 64 } },
-	{ "/geom", 0, { .f0 = geom_readout } },
-	{ "/geom/locktop", 1, { .f1 = geom_update_lock }, { 1 } },
-	{ "/geom/lockbottom", 1, { .f1 = geom_update_lock }, { 1 } },
-	{ "/geom/lockleft", 1, { .f1 = geom_update_lock }, { 1 } },
-	{ "/geom/lockright", 1, { .f1 = geom_update_lock }, { 1 } },
+static int geom_sz, geom_offset_x, geom_offset_y;
+
+static fixed coord_clamp(fixed v) {
+	if (v > COORD_MAX) return COORD_MAX;
+	if (v < -COORD_MAX) return -COORD_MAX;
+	return v;
+}
+
+static void geom_set_sz_offset(void) {
+	int sz = geom_sz / 2;
+	int off_x = geom_offset_x / 2;
+	int off_y = geom_offset_y / 2;
+	settings.transform_x[CORNER_TL] = coord_clamp(-sz + off_x);
+	settings.transform_x[CORNER_TR] = coord_clamp(sz + off_x);
+	settings.transform_x[CORNER_BL] = coord_clamp(-sz + off_x);
+	settings.transform_x[CORNER_BR] = coord_clamp(sz + off_x);
+	settings.transform_y[CORNER_TL] = coord_clamp(sz + off_y);
+	settings.transform_y[CORNER_TR] = coord_clamp(sz + off_y);
+	settings.transform_y[CORNER_BL] = coord_clamp(-sz + off_y);
+	settings.transform_y[CORNER_BR] = coord_clamp(-sz + off_y);
+}
+
+static void geom_set_size(const char *path, int32_t sz) {
+	geom_sz = sz;
+	geom_set_sz_offset();
+}
+
+static void geom_set_offset(const char *path, int32_t offset_x, int32_t offset_y) {
+	geom_offset_x = offset_x;
+	geom_offset_y = offset_y;
+	geom_set_sz_offset();
+}
+
+TABLE_ITEMS(param_handler, correction_param_updaters,
+	{ "/geom/tl", PARAM_TYPE_I2, { .f2 = geom_update }, PARAM_MODE_FIXED, FIXED(-1), FIXED(1) },
+	{ "/geom/tr", PARAM_TYPE_I2, { .f2 = geom_update }, PARAM_MODE_FIXED, FIXED(-1), FIXED(1) },
+	{ "/geom/bl", PARAM_TYPE_I2, { .f2 = geom_update }, PARAM_MODE_FIXED, FIXED(-1), FIXED(1) },
+	{ "/geom/br", PARAM_TYPE_I2, { .f2 = geom_update }, PARAM_MODE_FIXED, FIXED(-1), FIXED(1) },
+	{ "/geom", PARAM_TYPE_0, { .f0 = geom_readout } },
+	{ "/geom/locktop", PARAM_TYPE_I1, { .f1 = geom_update_lock } },
+	{ "/geom/lockbottom", PARAM_TYPE_I1, { .f1 = geom_update_lock } },
+	{ "/geom/lockleft", PARAM_TYPE_I1, { .f1 = geom_update_lock } },
+	{ "/geom/lockright", PARAM_TYPE_I1, { .f1 = geom_update_lock } },
+	{ "/geom/size", PARAM_TYPE_I1, { .f1 = geom_set_size }, PARAM_MODE_FIXED, FIXED(0.01), FIXED(1) },
+	{ "/geom/offset", PARAM_TYPE_I2, { .f2 = geom_set_offset }, PARAM_MODE_FIXED, FIXED(-1), FIXED(1) },
 )

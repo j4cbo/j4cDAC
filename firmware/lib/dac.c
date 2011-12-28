@@ -72,6 +72,9 @@ enum dac_state dac_state = DAC_IDLE;
  * Set the DAC point rate to a new value.
  */
 int dac_set_rate(int points_per_second) {
+	ASSERT(points_per_second <= 200000);
+	ASSERT(points_per_second > 0);
+
 	/* The PWM peripheral is set in dac_init() to use CCLK/4. */
 	int ticks_per_point = (SystemCoreClock / 4) / points_per_second;
 	LPC_PWM1->MR0 = ticks_per_point;
