@@ -64,8 +64,6 @@ static struct delay_line red_delay, green_delay, blue_delay;
 int dac_current_pps;
 int dac_flags = 0;
 
-uint8_t dac_shutter_req = 0;
-
 /* Shutter pin config. */
 #define DAC_SHUTTER_PIN		6
 #define DAC_SHUTTER_EN_PIN	7
@@ -274,7 +272,6 @@ int dac_prepare(void) {
 	dac_rate_consume = 0;
 	dac_flags &= ~DAC_FLAG_STOP_ALL;
 	dac_status.state = DAC_PREPARED;
-	dac_shutter_req = 0;
 
 	return 0;
 }
@@ -293,7 +290,6 @@ void dac_stop(int flags) {
 	LPC_PWM1->TCR = PWM_TCR_COUNTER_RESET;
 
 	/* Close the shutter. */
-	dac_shutter_req = 0;
 	dac_flags &= ~DAC_FLAG_SHUTTER;
 	LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_PIN);
 
@@ -363,14 +359,6 @@ static void __attribute__((always_inline)) dac_write_point(dac_point_t *p) {
 	LPC_SSP1->DR = (p->i >> 4) | 0x5000;
 	LPC_SSP1->DR = (p->u1 >> 4) | 0x1000;
 	LPC_SSP1->DR = (p->u2 >> 4);
-
-	if (dac_shutter_req) {
-		LPC_GPIO2->FIOSET = (1 << DAC_SHUTTER_PIN);
-		dac_flags |= DAC_FLAG_SHUTTER;
-	} else {
-		LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_PIN);
-		dac_flags &= ~DAC_FLAG_SHUTTER;
-	}
 
 	/* Change the point rate? */
 	if (p->control & DAC_CTRL_RATE_CHANGE) {
@@ -466,14 +454,21 @@ int dac_fullness(void) {
 /* shutter_set
  *
  * Set the state of the shutter - nonzero for open, zero for closed.
- *
- * This does not perform the set immediately, since it would then race
- * against the DAC interrupt (setting the shutter open after a DAC stop
- * condition, causing the shutter to be open when it should not be).
- * Instead, it sets a flag asking the DAC interrupt to update the shutter.
  */
 void shutter_set(int state) {
-	dac_shutter_req = state;
+	if (state) {
+		__disable_irq();
+		if (dac_status.state == DAC_PLAYING) {
+			LPC_GPIO2->FIOSET = (1 << DAC_SHUTTER_PIN);
+			dac_flags |= DAC_FLAG_SHUTTER;
+		}
+		__enable_irq();
+	} else {
+		__disable_irq();
+		LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_PIN);
+		dac_flags &= ~DAC_FLAG_SHUTTER;
+		__enable_irq();
+	}
 }
 
 /* impl_dac_pack_point
