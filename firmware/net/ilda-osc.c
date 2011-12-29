@@ -159,6 +159,22 @@ static void ilda_stop_FPV_osc(const char *path) {
 	dac_stop(0);
 }
 
+static void ilda_play_fn_FPV_osc(const char *path, const char *fn) {
+	outputf("/ilda/play: \"%s\"", fn);
+
+	/* Try switching to ILDA playback mode, if we weren't already */
+	if (playback_set_src(SRC_ILDAPLAYER) < 0) {
+		outputf("src switch err\n");
+		return;
+	}
+
+	if (fplay_open(fn) == 0) {
+		playback_source_flags |= ILDA_PLAYER_PLAYING;
+		outputf("ok");
+	} else
+		outputf("failed");
+}
+
 TABLE_ITEMS(param_handler, ilda_osc_handlers,
 	{ "/ilda/1/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_osc } },
 	{ "/ilda/2/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_osc } },
@@ -176,4 +192,5 @@ TABLE_ITEMS(param_handler, ilda_osc_handlers,
 	{ "/ilda/repeat", PARAM_TYPE_I1, { .f1 = ilda_repeat_FPV_osc }, PARAM_MODE_INT },
 	{ "/ilda", PARAM_TYPE_0, { .f0 = ilda_tab_enter_FPV_osc } },
 	{ "/stop", PARAM_TYPE_0, { .f0 = ilda_stop_FPV_osc } },
+	{ "/ilda/play", PARAM_TYPE_S1, { .fs = ilda_play_fn_FPV_osc } },
 )
