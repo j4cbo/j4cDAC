@@ -331,6 +331,17 @@ static void delay_line_write(struct delay_line *dl, uint16_t in) {
 	}
 }
 
+static void NOINLINE dac_pop_rate_change(void) {
+	int rate_consume = dac_rate_consume;
+	if (rate_consume != dac_rate_produce) {
+		dac_set_rate(dac_rate_buffer[rate_consume]);
+		rate_consume++;
+		if (rate_consume >= DAC_RATE_BUFFER_SIZE)
+			rate_consume = 0;
+		dac_rate_consume = rate_consume;
+	}
+}
+
 static void __attribute__((always_inline)) dac_write_point(dac_point_t *p) {
 
 	uint32_t xi = p->x;
@@ -359,18 +370,6 @@ static void __attribute__((always_inline)) dac_write_point(dac_point_t *p) {
 	LPC_SSP1->DR = (p->i >> 4) | 0x5000;
 	LPC_SSP1->DR = (p->u1 >> 4) | 0x1000;
 	LPC_SSP1->DR = (p->u2 >> 4);
-
-	/* Change the point rate? */
-	if (p->control & DAC_CTRL_RATE_CHANGE) {
-		int rate_consume = dac_rate_consume;
-		if (rate_consume != dac_rate_produce) {
-			dac_set_rate(dac_rate_buffer[rate_consume]);
-			rate_consume++;
-			if (rate_consume >= DAC_RATE_BUFFER_SIZE)
-				rate_consume = 0;
-			dac_rate_consume = rate_consume;
-		}
-	}
 }
 
 /* dac_handle_abstract
@@ -417,6 +416,12 @@ void PWM1_IRQHandler(void) {
 	}
 
 	packed_point_t *p = &dac_buffer[consume];
+
+	/* Change the point rate? */
+	if (unlikely(p->control & DAC_CTRL_RATE_CHANGE)) {
+		dac_pop_rate_change();
+	}
+		
 	dac_point_t dp = {
 		.x = UNPACK_X(p) << 4,
 		.y = UNPACK_Y(p) << 4,
@@ -425,8 +430,7 @@ void PWM1_IRQHandler(void) {
 		.g = UNPACK_G(p) << 4,
 		.b = UNPACK_B(p) << 4,
 		.u1 = UNPACK_U1(p) << 4,
-		.u2 = UNPACK_U2(p) << 4,
-		.control = p->control
+		.u2 = UNPACK_U2(p) << 4
 	};
 
 	dac_write_point(&dp);
