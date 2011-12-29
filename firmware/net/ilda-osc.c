@@ -103,6 +103,7 @@ static void refresh_display() {
 
 static void ilda_tab_enter_FPV_osc(const char *path) {
 	refresh_display();
+	playback_set_src(SRC_ILDAPLAYER);
 }
 
 static void ilda_reload_FPV_osc(const char *path) {
