@@ -42,6 +42,7 @@ struct {
 	uint16_t produce;
 	uint16_t consume;
 	enum dac_state state;
+	enum playback_source playback_src;
 } dac_status;
 
 /* Buffer for point rate changes.
@@ -110,9 +111,9 @@ int dac_start(void) {
 
 	outputf("dac: starting");
 
-	LPC_PWM1->TCR = PWM_TCR_COUNTER_ENABLE | PWM_TCR_PWM_ENABLE;
-
 	dac_status.state = DAC_PLAYING;
+	dac_status.playback_src = playback_src;
+	LPC_PWM1->TCR = PWM_TCR_COUNTER_ENABLE | PWM_TCR_PWM_ENABLE;
 
 	led_set_backled(1);
 
@@ -390,7 +391,7 @@ void PWM1_IRQHandler(void) {
 	/* Tell the interrupt handler we've handled it */
 	LPC_PWM1->IR = PWM_IR_PWMMRn(0);
 
-	if (unlikely(playback_src == SRC_ABSTRACT)) {
+	if (unlikely(dac_status.playback_src == SRC_ABSTRACT)) {
 		dac_handle_abstract();
 		return;
 	}
