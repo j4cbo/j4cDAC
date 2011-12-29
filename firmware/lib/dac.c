@@ -36,8 +36,13 @@
  * 60k.
  */
 static packed_point_t dac_buffer[DAC_BUFFER_POINTS] AHB0;
-static int dac_produce;
-static volatile int dac_consume;
+
+struct {
+	uint32_t count;
+	uint16_t produce;
+	uint16_t consume;
+	enum dac_state state;
+} dac_status;
 
 /* Buffer for point rate changes.
  */
@@ -57,11 +62,9 @@ static struct delay_line red_delay, green_delay, blue_delay;
 
 /* Internal state. */
 int dac_current_pps;
-int dac_count;
 int dac_flags = 0;
 
 uint8_t dac_shutter_req = 0;
-enum dac_state dac_state = DAC_IDLE;
 
 /* Shutter pin config. */
 #define DAC_SHUTTER_PIN		6
@@ -97,7 +100,7 @@ int dac_set_rate(int points_per_second) {
  * specified point rate.
  */
 int dac_start(void) {
-	if (dac_state != DAC_PREPARED) {
+	if (dac_status.state != DAC_PREPARED) {
 		outputf("dac: not starting - not prepared");
 		return -1;
 	}
@@ -111,7 +114,7 @@ int dac_start(void) {
 
 	LPC_PWM1->TCR = PWM_TCR_COUNTER_ENABLE | PWM_TCR_PWM_ENABLE;
 
-	dac_state = DAC_PLAYING;
+	dac_status.state = DAC_PLAYING;
 
 	led_set_backled(1);
 
@@ -123,7 +126,7 @@ int dac_start(void) {
  * Queue up a point rate change.
  */
 int dac_rate_queue(int points_per_second) {
-	if (dac_state == DAC_IDLE) {
+	if (dac_status.state == DAC_IDLE) {
 		outputf("drq rejected: idle");
 		return -1;
 	}
@@ -157,36 +160,36 @@ int dac_rate_queue(int points_per_second) {
  * give by dac_request_addr().
  */
 int dac_request(void) {
-	int consume = dac_consume;
+	int consume = dac_status.consume;
 	int ret;
 
-	if (dac_state == DAC_IDLE)
+	if (dac_status.state == DAC_IDLE)
 		return -1;
 
 /*
-	outputf("d_r: p %d, c %d", dac_produce, consume);
+	outputf("d_r: p %d, c %d", dac_status.produce, consume);
 */
 
-	if (dac_produce >= consume) {
+	if (dac_status.produce >= consume) {
 		/* The read pointer is behind the write pointer, so we can
 		 * go ahead and fill the buffer up to the end. */
 		if (consume == 0) {
 			/* But not if consume = 0, since the buffer can only
 			 * ever become one word short of full. */
-			ret = (DAC_BUFFER_POINTS - dac_produce) - 1;
+			ret = (DAC_BUFFER_POINTS - dac_status.produce) - 1;
 		} else {
-			ret = DAC_BUFFER_POINTS - dac_produce;
+			ret = DAC_BUFFER_POINTS - dac_status.produce;
 		}
 	} else {
 		/* We can only fil up as far as the write pointer. */
-		ret = (consume - dac_produce) - 1;
+		ret = (consume - dac_status.produce) - 1;
 	}
 
 	return ret;
 }
 
 packed_point_t *dac_request_addr(void) {
-	return &dac_buffer[dac_produce];
+	return &dac_buffer[dac_status.produce];
 }
 
 /* dac_advance
@@ -198,9 +201,9 @@ packed_point_t *dac_request_addr(void) {
  * than dac_request allowed, but it should not write *more*.
  */
 void dac_advance(int count) {
-	if (dac_state == DAC_PREPARED || dac_state == DAC_PLAYING) {
-		int new_produce = (dac_produce + count) % DAC_BUFFER_POINTS;
-		dac_produce = new_produce;
+	if (dac_status.state == DAC_PREPARED || dac_status.state == DAC_PLAYING) {
+		int new_produce = (dac_status.produce + count) % DAC_BUFFER_POINTS;
+		dac_status.produce = new_produce;
 	}
 }
 
@@ -240,8 +243,8 @@ void dac_init() {
 	NVIC_SetPriority(PWM1_IRQn, 0);
 	NVIC_EnableIRQ(PWM1_IRQn);
 
-	dac_state = DAC_IDLE;
-	dac_count = 0;
+	dac_status.state = DAC_IDLE;
+	dac_status.count = 0;
 	dac_current_pps = 0;
 
 	memset(red_delay.buffer, 0, sizeof(red_delay.buffer));
@@ -259,18 +262,18 @@ void dac_init() {
  * reset call after the DAC stops and before the first time it is started.
  */
 int dac_prepare(void) {
-	if (dac_state != DAC_IDLE)
+	if (dac_status.state != DAC_IDLE)
 		return -1;
 
 	if (le_get_state() != LIGHTENGINE_READY)
 		return -1;
 
-	dac_produce = 0;
-	dac_consume = 0;
+	dac_status.produce = 0;
+	dac_status.consume = 0;
 	dac_rate_produce = 0;
 	dac_rate_consume = 0;
 	dac_flags &= ~DAC_FLAG_STOP_ALL;
-	dac_state = DAC_PREPARED;
+	dac_status.state = DAC_PREPARED;
 	dac_shutter_req = 0;
 
 	return 0;
@@ -304,8 +307,8 @@ void dac_stop(int flags) {
 	LPC_PINCON->PINSEL4 |= (1 << 8);
 
 	/* Now, reset state */
-	dac_state = DAC_IDLE;
-	dac_count = 0;
+	dac_status.state = DAC_IDLE;
+	dac_status.count = 0;
 	dac_flags |= flags;
 
 	memset(red_delay.buffer, 0, sizeof(red_delay.buffer));
@@ -381,7 +384,7 @@ static void __attribute__((always_inline)) dac_write_point(dac_point_t *p) {
 		}
 	}
 
-	dac_count++;
+	dac_status.count++;
 }
 
 void PWM1_IRQHandler(void) {
@@ -395,12 +398,12 @@ void PWM1_IRQHandler(void) {
 	switch (playback_src) {
 	case SRC_NETWORK:
 	case SRC_ILDAPLAYER: {
-		ASSERT_EQUAL(dac_state, DAC_PLAYING);
+		ASSERT_EQUAL(dac_status.state, DAC_PLAYING);
 
-		int consume = dac_consume;
+		int consume = dac_status.consume;
 
 		/* Are we out of buffer space? If so, shut the lasers down. */
-		if (consume == dac_produce) {
+		if (consume == dac_status.produce) {
 			dac_stop(DAC_FLAG_STOP_UNDERFLOW);
 			return;
 		}
@@ -425,7 +428,7 @@ void PWM1_IRQHandler(void) {
 		if (consume >= DAC_BUFFER_POINTS)
 			consume = 0;
 
-		dac_consume = consume;
+		dac_status.consume = consume;
 	}
 	break;
 
@@ -446,7 +449,7 @@ void PWM1_IRQHandler(void) {
 }
 
 enum dac_state dac_get_state(void) {
-	return dac_state;
+	return dac_status.state;
 }
 
 /* dac_fullness
@@ -454,7 +457,7 @@ enum dac_state dac_get_state(void) {
  * Returns the number of points currently in the buffer.
  */
 int dac_fullness(void) {
-	int fullness = dac_produce - dac_consume;
+	int fullness = dac_status.produce - dac_status.consume;
 	if (fullness < 0)
 		fullness += DAC_BUFFER_POINTS;
 	return fullness;
@@ -489,7 +492,7 @@ void impl_dac_pack_point(packed_point_t *dest, dac_point_t *src) {
  * Return the number of points played by the DAC.
  */
 uint32_t dac_get_count() {
-	return dac_count;
+	return dac_status.count;
 }
 
 INITIALIZER(hardware, dac_init);
