@@ -417,6 +417,14 @@ void PWM1_IRQHandler(void) {
 
 	packed_point_t *p = &dac_buffer[consume];
 
+	/* Move the consume pointer up and write it back to dac_status */
+	consume++;
+	if (consume >= DAC_BUFFER_POINTS)
+		consume = 0;
+
+	dac_status.consume = consume;
+	dac_status.count++;
+
 	/* Change the point rate? */
 	if (unlikely(p->control & DAC_CTRL_RATE_CHANGE)) {
 		dac_pop_rate_change();
@@ -434,14 +442,6 @@ void PWM1_IRQHandler(void) {
 	};
 
 	dac_write_point(&dp);
-
-	consume++;
-
-	if (consume >= DAC_BUFFER_POINTS)
-		consume = 0;
-
-	dac_status.consume = consume;
-	dac_status.count++;
 }
 
 enum dac_state dac_get_state(void) {
