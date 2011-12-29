@@ -371,69 +371,73 @@ static void __attribute__((always_inline)) dac_write_point(dac_point_t *p) {
 			dac_rate_consume = rate_consume;
 		}
 	}
+}
 
+/* dac_handle_abstract
+ *
+ * To reduce register pressure and improve performance during high-speed
+ * network/file playback, the abstract generator codepath is separate from
+ * the main PWM IRQ handler.
+ */
+static void NOINLINE dac_handle_abstract(void) {
+	/* If we're not actually playing, produce no output. */
+	dac_point_t dp;
+	if (playback_source_flags & ABSTRACT_PLAYING) {
+		get_next_point(&dp);
+	} else {
+		memset(&dp, 0, sizeof(dp));
+	}
+
+	dac_write_point(&dp);
 	dac_status.count++;
 }
 
+/* PQM1_IRQHandler
+ *
+ * This is called for every point, and is responsible for filling the SSP's
+ * transmit FIFO with whatever point data is necessary.
+ */
 void PWM1_IRQHandler(void) {
 	/* Tell the interrupt handler we've handled it */
-	if (LPC_PWM1->IR & PWM_IR_PWMMRn(0)) {
-		LPC_PWM1->IR = PWM_IR_PWMMRn(0);
-	} else {
-		panic("Unexpected PWM IRQ");
+	LPC_PWM1->IR = PWM_IR_PWMMRn(0);
+
+	if (unlikely(playback_src == SRC_ABSTRACT)) {
+		dac_handle_abstract();
+		return;
 	}
  
-	switch (playback_src) {
-	case SRC_NETWORK:
-	case SRC_ILDAPLAYER: {
-		ASSERT_EQUAL(dac_status.state, DAC_PLAYING);
+	ASSERT_EQUAL(dac_status.state, DAC_PLAYING);
 
-		int consume = dac_status.consume;
+	int consume = dac_status.consume;
 
-		/* Are we out of buffer space? If so, shut the lasers down. */
-		if (consume == dac_status.produce) {
-			dac_stop(DAC_FLAG_STOP_UNDERFLOW);
-			return;
-		}
-
-		packed_point_t *p = &dac_buffer[consume];
-		dac_point_t dp = {
-			.x = UNPACK_X(p) << 4,
-			.y = UNPACK_Y(p) << 4,
-			.i = UNPACK_I(p) << 4,
-			.r = UNPACK_R(p) << 4,
-			.g = UNPACK_G(p) << 4,
-			.b = UNPACK_B(p) << 4,
-			.u1 = UNPACK_U1(p) << 4,
-			.u2 = UNPACK_U2(p) << 4,
-			.control = p->control
-		};
-
-		dac_write_point(&dp);
-
-		consume++;
-
-		if (consume >= DAC_BUFFER_POINTS)
-			consume = 0;
-
-		dac_status.consume = consume;
+	/* Are we out of buffer space? If so, shut the lasers down. */
+	if (consume == dac_status.produce) {
+		dac_stop(DAC_FLAG_STOP_UNDERFLOW);
+		return;
 	}
-	break;
 
-	case SRC_ABSTRACT: {
-		/* If we're not actually playing, produce no output. */
-		dac_point_t dp;
-		if (playback_source_flags & ABSTRACT_PLAYING) {
-			get_next_point(&dp);
-		} else {
-			memset(&dp, 0, sizeof(dp));
-		}
+	packed_point_t *p = &dac_buffer[consume];
+	dac_point_t dp = {
+		.x = UNPACK_X(p) << 4,
+		.y = UNPACK_Y(p) << 4,
+		.i = UNPACK_I(p) << 4,
+		.r = UNPACK_R(p) << 4,
+		.g = UNPACK_G(p) << 4,
+		.b = UNPACK_B(p) << 4,
+		.u1 = UNPACK_U1(p) << 4,
+		.u2 = UNPACK_U2(p) << 4,
+		.control = p->control
+	};
 
-		dac_write_point(&dp);
-	}
-	break;
+	dac_write_point(&dp);
 
-	}
+	consume++;
+
+	if (consume >= DAC_BUFFER_POINTS)
+		consume = 0;
+
+	dac_status.consume = consume;
+	dac_status.count++;
 }
 
 enum dac_state dac_get_state(void) {
