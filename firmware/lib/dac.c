@@ -335,28 +335,18 @@ static void NOINLINE dac_pop_rate_change(void) {
 
 static void __attribute__((always_inline)) dac_write_point(dac_point_t *p) {
 
-	uint32_t xi = p->x;
-	uint32_t yi = p->y;
+	#define MASK_XY(v)	((((v) >> 4) + 0x800) & 0xFFF)
 
+	delay_line_write(&blue_delay, (p->b >> 4) | 0x3000);
+
+	uint32_t xi = p->x, yi = p->y;
 	int32_t x = translate_x(xi, yi);
 	int32_t y = translate_y(xi, yi);
+	LPC_SSP1->DR = MASK_XY(x) | 0x7000;
+	LPC_SSP1->DR = MASK_XY(y) | 0x6000;
 
-	#define MASK_XY(v)	((((v) >> 4) + 0x800) & 0xFFF)
-	if (unlikely(hw_board_rev == HW_REV_PROTO)) {
-		LPC_SSP1->DR = MASK_XY(x) | 0x6000;
-		LPC_SSP1->DR = MASK_XY(y) | 0x7000;
-
-		delay_line_write(&red_delay, (p->r >> 4) | 0x4000);
-		delay_line_write(&green_delay, (p->g >> 4)| 0x3000);
-		delay_line_write(&blue_delay, (p->b >> 4) | 0x2000);
-	} else {
-		LPC_SSP1->DR = MASK_XY(x) | 0x7000;
-		LPC_SSP1->DR = MASK_XY(y) | 0x6000;
-
-		delay_line_write(&red_delay, (p->r >> 4) | 0x4000);
-		delay_line_write(&green_delay, (p->g >> 4)| 0x2000);
-		delay_line_write(&blue_delay, (p->b >> 4) | 0x3000);
-	}
+	delay_line_write(&red_delay, (p->r >> 4) | 0x4000);
+	delay_line_write(&green_delay, (p->g >> 4)| 0x2000);
 
 	LPC_SSP1->DR = (p->i >> 4) | 0x5000;
 	LPC_SSP1->DR = (p->u1 >> 4) | 0x1000;
