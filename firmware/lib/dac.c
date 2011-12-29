@@ -52,11 +52,11 @@ static volatile int dac_rate_consume;
 
 /* Color channel delay lines.
  */
-#define DAC_MAX_COLOR_DELAY	20
+#define DAC_MAX_COLOR_DELAY	16
 struct delay_line {
 	uint16_t buffer[DAC_MAX_COLOR_DELAY];
-	uint8_t index;
-	uint8_t points;
+	uint8_t produce;
+	uint8_t consume;
 };
 static struct delay_line red_delay, green_delay, blue_delay;
 
@@ -249,9 +249,9 @@ void dac_init() {
 	memset(green_delay.buffer, 0, sizeof(green_delay.buffer));
 	memset(blue_delay.buffer, 0, sizeof(blue_delay.buffer));
 
-	red_delay.points = 2;
-	green_delay.points = 2;
-	blue_delay.points = 2;
+	red_delay.produce = red_delay.consume = 0;
+	green_delay.produce = green_delay.consume = 0;
+	blue_delay.produce = blue_delay.consume = 0;
 }
 
 /* dac_configure
@@ -314,21 +314,11 @@ void dac_stop(int flags) {
 
 /* Delay the red, green, and blue lines if needed
  */
-static void delay_line_write(struct delay_line *dl, uint16_t in) {
-	int points = dl->points;
-
-	if (points) {
-		int index = dl->index;
-
-		if (index > points)
-			index = 0;
-
-		LPC_SSP1->DR = dl->buffer[index];
-		dl->buffer[index] = in;
-		dl->index = index + 1;
-	} else {
-		LPC_SSP1->DR = in;
-	}
+static void ALWAYS_INLINE delay_line_write(struct delay_line *dl, uint16_t in) {
+	dl->produce = (dl->produce + 1) % ARRAY_NELEMS(dl->buffer);
+	dl->consume = (dl->consume + 1) % ARRAY_NELEMS(dl->buffer);
+	dl->buffer[dl->produce] = in;
+	LPC_SSP1->DR = dl->buffer[dl->consume];
 }
 
 static void NOINLINE dac_pop_rate_change(void) {
@@ -351,7 +341,7 @@ static void __attribute__((always_inline)) dac_write_point(dac_point_t *p) {
 	int32_t y = translate_y(xi, yi);
 
 	#define MASK_XY(v)	((((v) >> 4) + 0x800) & 0xFFF)
-	if (hw_board_rev == HW_REV_PROTO) {
+	if (unlikely(hw_board_rev == HW_REV_PROTO)) {
 		LPC_SSP1->DR = MASK_XY(x) | 0x6000;
 		LPC_SSP1->DR = MASK_XY(y) | 0x7000;
 
