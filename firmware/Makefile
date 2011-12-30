@@ -1,7 +1,7 @@
 PREFIX = arm-none-eabi-
 
 INCLUDES = -Iinc -I../common/inc -Ilib/lpc17xx -Idrivers/include -I../common
-CFLAGS += -fno-common -mcpu=cortex-m3 -mthumb -Os -g
+CFLAGS += -fno-common -mcpu=cortex-m3 -mthumb -O2 -g
 CFLAGS += -Wall -Werror -fdata-sections -fshort-enums
 LDFLAGS = -Tlib/lpc17xx/lpc1758.lds -mcpu=cortex-m3 -mthumb -fwhole-program -Wl,-Map=j4cDAC.map
 
