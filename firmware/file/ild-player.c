@@ -16,6 +16,7 @@
  */
 
 #include <diskio.h>
+#include <attrib.h>
 #include <serial.h>
 #include <stdint.h>
 #include <string.h>
@@ -24,9 +25,9 @@
 #include <file_player.h>
 #include <ff.h>
 
-#define SMALL_FRAME_THRESHOLD	100
+#define SMALL_FRAME_THRESHOLD	300
 
-char fplay_small_frame_buffer[6 * SMALL_FRAME_THRESHOLD];
+char fplay_small_frame_buffer[6 * SMALL_FRAME_THRESHOLD] AHB0;
 
 static FIL fplay_file;
 static enum {
