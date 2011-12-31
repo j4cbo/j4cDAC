@@ -50,7 +50,7 @@ TABLE_ITEMS(param_handler, default_handlers,
  * Accessor for parameter update functions. In addition to performing the
  * indirect call, this also clamps parameters to the handler's range.
  */
-void FPA_param(const struct param_handler *h, const char *addr, int32_t *p) {
+int FPA_param(const volatile param_handler *h, const char *addr, int32_t *p) {
 	int i;
 
 	if (h->type != PARAM_TYPE_S1 && (h->min || h->max)) {
@@ -79,6 +79,8 @@ void FPA_param(const struct param_handler *h, const char *addr, int32_t *p) {
 	default:
 		panic("bad type in param def: %s %d", h->address, h->type);
 	}
+
+	return 1;
 }
 
 void osc_parse_packet(char *data, int length) {
@@ -157,7 +159,7 @@ void osc_parse_packet(char *data, int length) {
 
 	int nmatched = 0;
 	int i;
-	const struct param_handler *h;
+	const volatile param_handler *h;
 	foreach_matching_handler(h, address) {
 		int32_t params[3];
 

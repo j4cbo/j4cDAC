@@ -47,12 +47,12 @@ typedef struct param_handler {
 	fixed max;
 } param_handler;
 
-void FPA_param(const struct param_handler *h, const char *addr, int32_t *params);
+int FPA_param(const volatile param_handler *h, const char *addr, int32_t *params);
 void param_invocation_dump(const struct param_handler *h,
 	const char *addr, int32_t *params);
 
-extern const param_handler param_handler_table[0];
-extern const param_handler param_handler_table_end[0];
+extern const volatile param_handler param_handler_table[0];
+extern const volatile param_handler param_handler_table_end[0];
 
 #define foreach_matching_handler(h, cmpaddr)				\
 	for (h = param_handler_table; h < param_handler_table_end; h++)	\

@@ -71,10 +71,11 @@ static char * autoplay_next_newline(void) {
  * Returns 1 if the handler was called; 0 if the line was not suitable
  * due to bad argument count.
  */
-static int autoplay_invoke(const struct param_handler *h, const char *path,
+static int32_t autoplay_params[3];
+static int NOINLINE autoplay_invoke(const volatile param_handler *h, const char *path,
                            int argc, char * const * const argv) {
-	int32_t params[3] = { 0, 0, 0 };
 
+	int32_t *params = autoplay_params;
 	/* String parameter? */
 	if (h->type == PARAM_TYPE_S1 && argc == 1) {
 		params[0] = (int32_t)argv[0];
@@ -90,6 +91,7 @@ static int autoplay_invoke(const struct param_handler *h, const char *path,
 		int expected = (h->type == PARAM_TYPE_S1) ? 1 : h->type;
 		outputf("ap: bad param count for %s: expect %d got %d",
 			h->address, expected, argc);
+		return 0;
 	}
 
 	switch (h->type) {
@@ -133,7 +135,7 @@ static int autoplay_process_line(char *line) {
 	nargs--;
 
 	int matched = 0;
-	const struct param_handler *h;
+	const volatile param_handler *h;
 	foreach_matching_handler(h, argv[0]) {
 		matched += autoplay_invoke(h, argv[0], nargs, argv + 1);
 	}
