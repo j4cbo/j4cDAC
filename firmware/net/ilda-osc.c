@@ -101,16 +101,16 @@ static void refresh_display() {
 	osc_send_string("/ilda/fpsreadout", buf);
 }
 
-static void ilda_tab_enter_FPV_osc(const char *path) {
-	refresh_display();
+static void ilda_tab_enter_FPV_param(const char *path) {
 	playback_set_src(SRC_ILDAPLAYER);
-}
-
-static void ilda_reload_FPV_osc(const char *path) {
 	refresh_display();
 }
 
-void ilda_play_FPV_osc(const char *path) {
+static void ilda_reload_FPV_param(const char *path) {
+	refresh_display();
+}
+
+void ilda_play_FPV_param(const char *path) {
 	/* Figure out which file index this was */
 	int index = atoi(path + 6);
 
@@ -125,7 +125,7 @@ void ilda_play_FPV_osc(const char *path) {
 	walk_fs(index);
 }
 
-static void ilda_pps_FPV_osc(const char *path, int32_t v) {
+static void ilda_pps_FPV_param(const char *path, int32_t v) {
 	char buf[6];
 	snprintf(buf, sizeof(buf), "%ldk", v);
 	osc_send_string("/ilda/ppsreadout", buf);
@@ -137,7 +137,7 @@ static void ilda_pps_FPV_osc(const char *path, int32_t v) {
 	ilda_set_fps_limit(ilda_current_fps);
 }
 
-static void ilda_fps_FPV_osc(const char *path, int32_t v) {
+static void ilda_fps_FPV_param(const char *path, int32_t v) {
 	char buf[6];
 	snprintf(buf, sizeof(buf), "%ld", v);
 	osc_send_string("/ilda/fpsreadout", buf);
@@ -145,7 +145,7 @@ static void ilda_fps_FPV_osc(const char *path, int32_t v) {
 	ilda_set_fps_limit(v);
 }
 
-static void ilda_repeat_FPV_osc(const char *path, int32_t v) {
+static void ilda_repeat_FPV_param(const char *path, int32_t v) {
 	if (playback_src != SRC_ILDAPLAYER)
 		return;
 
@@ -155,12 +155,12 @@ static void ilda_repeat_FPV_osc(const char *path, int32_t v) {
 		playback_source_flags &= ~ILDA_PLAYER_REPEAT;
 }
 
-static void ilda_stop_FPV_osc(const char *path) {
+static void ilda_stop_FPV_param(const char *path) {
 	playback_source_flags &= ~ILDA_PLAYER_PLAYING;
 	dac_stop(0);
 }
 
-static void ilda_play_fn_FPV_osc(const char *path, const char *fn) {
+static void ilda_play_fn_FPV_param(const char *path, const char *fn) {
 	outputf("/ilda/play: \"%s\"", fn);
 
 	/* Try switching to ILDA playback mode, if we weren't already */
@@ -177,21 +177,21 @@ static void ilda_play_fn_FPV_osc(const char *path, const char *fn) {
 }
 
 TABLE_ITEMS(param_handler, ilda_osc_handlers,
-	{ "/ilda/1/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_osc } },
-	{ "/ilda/2/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_osc } },
-	{ "/ilda/3/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_osc } },
-	{ "/ilda/4/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_osc } },
-	{ "/ilda/5/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_osc } },
-	{ "/ilda/6/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_osc } },
-	{ "/ilda/7/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_osc } },
-	{ "/ilda/8/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_osc } },
-	{ "/ilda/9/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_osc } },
-	{ "/ilda/10/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_osc } },
-	{ "/ilda/reloadbutton", PARAM_TYPE_0, { .f0 = ilda_reload_FPV_osc } },
-	{ "/ilda/pps", PARAM_TYPE_I1, { .f1 = ilda_pps_FPV_osc }, PARAM_MODE_INT, 1000, 100000 },
-	{ "/ilda/fps", PARAM_TYPE_I1, { .f1 = ilda_fps_FPV_osc }, PARAM_MODE_INT, 0, 100 },
-	{ "/ilda/repeat", PARAM_TYPE_I1, { .f1 = ilda_repeat_FPV_osc }, PARAM_MODE_INT },
-	{ "/ilda", PARAM_TYPE_0, { .f0 = ilda_tab_enter_FPV_osc } },
-	{ "/stop", PARAM_TYPE_0, { .f0 = ilda_stop_FPV_osc } },
-	{ "/ilda/play", PARAM_TYPE_S1, { .fs = ilda_play_fn_FPV_osc } },
+	{ "/ilda/1/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_param } },
+	{ "/ilda/2/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_param } },
+	{ "/ilda/3/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_param } },
+	{ "/ilda/4/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_param } },
+	{ "/ilda/5/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_param } },
+	{ "/ilda/6/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_param } },
+	{ "/ilda/7/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_param } },
+	{ "/ilda/8/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_param } },
+	{ "/ilda/9/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_param } },
+	{ "/ilda/10/play", PARAM_TYPE_0, { .f0 = ilda_play_FPV_param } },
+	{ "/ilda/reloadbutton", PARAM_TYPE_0, { .f0 = ilda_reload_FPV_param } },
+	{ "/ilda/pps", PARAM_TYPE_I1, { .f1 = ilda_pps_FPV_param }, PARAM_MODE_INT, 1000, 100000 },
+	{ "/ilda/fps", PARAM_TYPE_I1, { .f1 = ilda_fps_FPV_param }, PARAM_MODE_INT, 0, 100 },
+	{ "/ilda/repeat", PARAM_TYPE_I1, { .f1 = ilda_repeat_FPV_param }, PARAM_MODE_INT },
+	{ "/ilda", PARAM_TYPE_0, { .f0 = ilda_tab_enter_FPV_param } },
+	{ "/stop", PARAM_TYPE_0, { .f0 = ilda_stop_FPV_param } },
+	{ "/ilda/play", PARAM_TYPE_S1, { .fs = ilda_play_fn_FPV_param } },
 )

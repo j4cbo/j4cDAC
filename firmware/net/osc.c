@@ -31,18 +31,18 @@ union float_int {
 	uint32_t i;
 };
 
-void handle_acc_FPV_osc(const char *path, int32_t x, int32_t y, int32_t z) {
+void handle_acc_FPV_param(const char *path, int32_t x, int32_t y, int32_t z) {
 }
 
-void handle_fader_FPV_osc(const char *path, int32_t v) {
+void handle_fader_FPV_param(const char *path, int32_t v) {
 	outputf("%d", v);
 }
 
 TABLE(param_handler, param_handler)
 
 TABLE_ITEMS(param_handler, default_handlers,
-	{ "/accxyz", PARAM_TYPE_I3, { .f3 = handle_acc_FPV_osc } },
-	{ "/1/fader1", PARAM_TYPE_I3, { .f1 = handle_fader_FPV_osc } }
+	{ "/accxyz", PARAM_TYPE_I3, { .f3 = handle_acc_FPV_param } },
+	{ "/1/fader1", PARAM_TYPE_I3, { .f1 = handle_fader_FPV_param } }
 )
 
 /* FPA_osc
