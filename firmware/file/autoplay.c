@@ -112,8 +112,7 @@ static int NOINLINE autoplay_invoke(const volatile param_handler *h, const char 
 		break;
 	}
 
-	FPA_param(h, path, params);
-	return 1;
+	return FPA_param(h, path, params);
 }
 
 /* autoplay_process_line
@@ -123,7 +122,7 @@ static int NOINLINE autoplay_invoke(const volatile param_handler *h, const char 
  */
 static int autoplay_process_line(char *line) {
 	/* Tokenize line - this is straight out of the strsep man page */
-	char **ap, *argv[5], *inputstring = line;
+	char **ap, *argv[4], *inputstring = line;
 	for (ap = argv; (*ap = strsep(&inputstring, " \t")) != NULL; )
 		if (**ap != '\0')
 			if (++ap >= &argv[ARRAY_NELEMS(argv)])
