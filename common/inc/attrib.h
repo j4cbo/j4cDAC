@@ -31,6 +31,14 @@
  */
 #define RV __attribute__((warn_unused_result))
 
+/* COLD, HOT
+ *
+ * GCC supports marking of cold and hot functions, for better locality and
+ * size.
+ */
+#define COLD __attribute__((cold))
+#define HOT __attribute__((hot))
+
 /* AHB0
  *
  * Put this object in the AHB SRAM block, rather than the main SRAM.

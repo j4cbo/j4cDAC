@@ -69,7 +69,7 @@ TABLE(initializer_t, protocol);
 TABLE(initializer_t, hardware);
 TABLE(initializer_t, poll);
 
-static void NOINLINE FPA_init() {
+static void COLD NOINLINE FPA_init() {
 	int i;
 
 	debugf("### Initializing Hardware ###\r\n");

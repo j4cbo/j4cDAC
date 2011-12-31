@@ -87,6 +87,7 @@
 
 #include "ff.h"			/* FatFs configurations and declarations */
 #include "diskio.h"		/* Declarations of low level disk I/O functions */
+#include <attrib.h>
 
 
 /*--------------------------------------------------------------------------
@@ -1675,7 +1676,7 @@ void get_fileinfo (		/* No return code */
 /*-----------------------------------------------------------------------*/
 
 static
-FRESULT follow_path (	/* FR_OK(0): successful, !=0: error code */
+FRESULT COLD follow_path (	/* FR_OK(0): successful, !=0: error code */
 	DIR *dj,			/* Directory object to return last directory and found object */
 	const TCHAR *path	/* Full-path string to find a file or directory */
 )
@@ -2752,7 +2753,7 @@ FRESULT f_opendir (
 /* Read Directory Entry in Sequense                                      */
 /*-----------------------------------------------------------------------*/
 
-FRESULT f_readdir (
+FRESULT COLD f_readdir (
 	DIR *dj,			/* Pointer to the open directory object */
 	FILINFO *fno		/* Pointer to file information to return */
 )

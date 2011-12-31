@@ -20,6 +20,7 @@
 
 #include <LPC17xx.h>
 #include <panic.h>
+#include <attrib.h>
 #include <lightengine.h>
 #include <netif/etharp.h>
 #include <lwip/dhcp.h>
@@ -61,7 +62,7 @@ void EINT3_IRQHandler(void) {
 	}
 }
 
-void eth_init() {
+void COLD eth_init() {
 	struct ip_addr ipa = { 0 } , netmask = { 0 } , gw = { 0 };
 
 	/* Set up basic fields in ether_netif */

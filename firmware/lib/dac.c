@@ -210,7 +210,7 @@ void dac_advance(int count) {
  *
  * Initialize the DAC. This must be called once after reset.
  */
-void dac_init() {
+void COLD dac_init() {
 
 	/* Turn on the PWM and timer peripherals. */
 	CLKPWR_ConfigPPWR(CLKPWR_PCONP_PCPWM1, ENABLE);

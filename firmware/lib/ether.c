@@ -56,7 +56,7 @@ void handle_packet(struct pbuf *p);
  * SRAM; Rx lives in AHB SRAM and is statically allocated, so we set up the
  * pointers once during initialization.
  */
-static int eth_init_descriptors() {
+static int COLD eth_init_descriptors() {
 	uint32_t i;
 	struct pbuf *p;
 
@@ -96,7 +96,7 @@ static int eth_init_descriptors() {
  *
  * Set the MAC address of the system.
  */
-static void eth_set_mac(uint8_t * addr) {
+static void COLD eth_set_mac(uint8_t * addr) {
 	LPC_EMAC->SA0 = ((uint32_t) addr[5] << 8) | (uint32_t) addr[4];
 	LPC_EMAC->SA1 = ((uint32_t) addr[3] << 8) | (uint32_t) addr[2];
 	LPC_EMAC->SA2 = ((uint32_t) addr[1] << 8) | (uint32_t) addr[0];
@@ -129,7 +129,7 @@ static void eth_set_mac(uint8_t * addr) {
  *  (Ref. from LPC17xx UM)
  **********************************************************************/
 
-int EMAC_Init(void) {
+int COLD EMAC_Init(void) {
 	/* Initialize the EMAC Ethernet controller. */
 	int32_t regv, tout;
 
@@ -222,7 +222,7 @@ void EMAC_DeInit(void)
  * 							- EMAC_MODE_100M_HALF
  * @return		Return (0) if no error, otherwise return (-1)
  **********************************************************************/
-int32_t EMAC_SetPHYMode(uint32_t ulPHYMode)
+int32_t COLD EMAC_SetPHYMode(uint32_t ulPHYMode)
 {
 	int32_t id1, id2;
 

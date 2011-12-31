@@ -76,7 +76,7 @@ static const struct skub_pool_info skub_pools_var[] = {
 #define BITBAND_SRAM_BASE	0x22000000
 #define BITBAND_SRAM(a,b) ((BITBAND_SRAM_BASE + ((a)-BITBAND_SRAM_REF)*32 + ((b)*4)))
 
-static void skub_init_pool(const struct skub_pool_info *pool) {
+static void COLD skub_init_pool(const struct skub_pool_info *pool) {
 	int i, nbitfields = (pool->max + 31) / 32;
 
 	for (i = 0; i < nbitfields - 1; i++) {
@@ -86,7 +86,7 @@ static void skub_init_pool(const struct skub_pool_info *pool) {
 	pool->bitmask[nbitfields - 1] = (1 << (pool->max % 32)) - 1;
 }
 
-void skub_init(void) {
+void COLD skub_init(void) {
 	int i;
 	for (i = 0; i < ARRAY_NELEMS(skub_pools_var); i++) {
 		skub_init_pool(&skub_pools_var[i]);

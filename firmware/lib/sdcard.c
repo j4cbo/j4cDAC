@@ -10,6 +10,7 @@
 #include <lpc17xx_ssp.h>
 
 #include <stdint.h>
+#include <attrib.h>
 #include "sdcard.h"
 
 #include <hardware.h>
@@ -270,7 +271,7 @@ bailout:
 	return -1;
 }
 
-int sdcard_init(void) {
+int COLD sdcard_init(void) {
 	uint32_t i, timeout;
 	uint8_t cmd, ct, ocr[4];
 
@@ -434,7 +435,7 @@ int sdcard_get_sd_status(uint8_t * buf) {
 #define SS_PROTO_P0_PIN	(1 << 22)
 #define SS_PROD_P1_PIN	(1 << 25)
 
-void sdcard_spi_init(void) {
+void COLD sdcard_spi_init(void) {
 	int dummy;
 
 	/* Turn on SSP0 */
