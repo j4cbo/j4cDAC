@@ -59,7 +59,11 @@ struct delay_line {
 	uint8_t produce;
 	uint8_t consume;
 };
-static struct delay_line red_delay, green_delay, blue_delay;
+
+/* This looks weird. Using a struct to group the red and green delay
+ * lines together cuts down on some address loads. */
+static struct { struct delay_line red, green; } delay_lines;
+static struct delay_line blue_delay;
 
 /* Internal state. */
 int dac_current_pps;
@@ -206,6 +210,16 @@ void dac_advance(int count) {
 	}
 }
 
+/* delay_line_reset
+ *
+ * Reset a delay line's buffer, produce, and consume pointers.
+ */
+static void delay_line_reset(struct delay_line *dl) {
+	memset(&dl->buffer, 0, ARRAY_NELEMS(dl->buffer));
+	dl->produce = 0;
+	dl->consume = 0;
+}
+
 /* dac_init
  *
  * Initialize the DAC. This must be called once after reset.
@@ -246,13 +260,9 @@ void COLD dac_init() {
 	dac_status.count = 0;
 	dac_current_pps = 0;
 
-	memset(red_delay.buffer, 0, sizeof(red_delay.buffer));
-	memset(green_delay.buffer, 0, sizeof(green_delay.buffer));
-	memset(blue_delay.buffer, 0, sizeof(blue_delay.buffer));
-
-	red_delay.produce = red_delay.consume = 0;
-	green_delay.produce = green_delay.consume = 0;
-	blue_delay.produce = blue_delay.consume = 0;
+	delay_line_reset(&delay_lines.red);
+	delay_line_reset(&delay_lines.green);
+	delay_line_reset(&blue_delay);
 }
 
 /* dac_configure
@@ -308,9 +318,9 @@ void dac_stop(int flags) {
 	dac_status.count = 0;
 	dac_flags |= flags;
 
-	memset(red_delay.buffer, 0, sizeof(red_delay.buffer));
-	memset(green_delay.buffer, 0, sizeof(green_delay.buffer));
-	memset(blue_delay.buffer, 0, sizeof(blue_delay.buffer));
+	delay_line_reset(&delay_lines.red);
+	delay_line_reset(&delay_lines.green);
+	delay_line_reset(&blue_delay);
 }
 
 /* Delay the red, green, and blue lines if needed
@@ -345,8 +355,8 @@ static void __attribute__((always_inline)) dac_write_point(dac_point_t *p) {
 	LPC_SSP1->DR = MASK_XY(x) | 0x7000;
 	LPC_SSP1->DR = MASK_XY(y) | 0x6000;
 
-	delay_line_write(&red_delay, (p->r >> 4) | 0x4000);
-	delay_line_write(&green_delay, (p->g >> 4)| 0x2000);
+	delay_line_write(&delay_lines.red, (p->r >> 4) | 0x4000);
+	delay_line_write(&delay_lines.green, (p->g >> 4) | 0x2000);
 
 	LPC_SSP1->DR = (p->i >> 4) | 0x5000;
 	LPC_SSP1->DR = (p->u1 >> 4) | 0x1000;
@@ -372,6 +382,10 @@ static void NOINLINE dac_handle_abstract(void) {
 	dac_status.count++;
 }
 
+static NOINLINE __attribute__((noreturn)) void dac_panic_not_playing(void) {
+	panic("dac_status not PLAYING in PWM1 IRQ");
+}
+
 /* PQM1_IRQHandler
  *
  * This is called for every point, and is responsible for filling the SSP's
@@ -385,8 +399,11 @@ void PWM1_IRQHandler(void) {
 		dac_handle_abstract();
 		return;
 	}
- 
-	ASSERT_EQUAL(dac_status.state, DAC_PLAYING);
+
+	if (unlikely(dac_status.state != DAC_PLAYING)) {
+		dac_panic_not_playing();
+		return;
+	}
 
 	int consume = dac_status.consume;
 
