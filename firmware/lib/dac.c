@@ -382,7 +382,7 @@ static void NOINLINE dac_handle_abstract(void) {
 	dac_status.count++;
 }
 
-static NOINLINE __attribute__((noreturn)) void dac_panic_not_playing(void) {
+static NOINLINE COLD __attribute__((noreturn)) void dac_panic_not_playing(void) {
 	panic("dac_status not PLAYING in PWM1 IRQ");
 }
 
