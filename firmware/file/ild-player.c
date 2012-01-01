@@ -392,7 +392,7 @@ int ilda_read_points(int max_points, packed_point_t *pp) {
 	
 			p.x = buf[0] << 8 | buf[1];
 			p.y = buf[2] << 8 | buf[3];
-			ilda_tc_point(&p, buf[7], buf[8], buf[9], buf[6]);
+			ilda_tc_point(&p, buf[9], buf[8], buf[7], buf[6]);
 			break;
 
 		case STATE_ILDA_5:
@@ -401,7 +401,7 @@ int ilda_read_points(int max_points, packed_point_t *pp) {
 
 			p.x = buf[0] << 8 | buf[1];
 			p.y = buf[2] << 8 | buf[3];
-			ilda_tc_point(&p, buf[5], buf[6], buf[7], buf[4]);
+			ilda_tc_point(&p, buf[7], buf[6], buf[5], buf[4]);
 			break;
 
 		case STATE_WAV:
