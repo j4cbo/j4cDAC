@@ -407,19 +407,19 @@ void PWM1_IRQHandler(void) {
 	dac_status.count++;
 
 	/* Change the point rate? */
-	if (unlikely(p->control & DAC_CTRL_RATE_CHANGE)) {
+	if (unlikely(p->bf & DAC_CTRL_RATE_CHANGE)) {
 		dac_pop_rate_change();
 	}
 		
 	dac_point_t dp = {
-		.x = UNPACK_X(p) << 4,
-		.y = UNPACK_Y(p) << 4,
-		.i = UNPACK_I(p) << 4,
-		.r = UNPACK_R(p) << 4,
-		.g = UNPACK_G(p) << 4,
-		.b = UNPACK_B(p) << 4,
-		.u1 = UNPACK_U1(p) << 4,
-		.u2 = UNPACK_U2(p) << 4
+		.x = UNPACK_X(p),
+		.y = UNPACK_Y(p),
+		.i = UNPACK_I(p),
+		.r = UNPACK_R(p),
+		.g = UNPACK_G(p),
+		.b = UNPACK_B(p),
+		.u1 = UNPACK_U1(p),
+		.u2 = UNPACK_U2(p)
 	};
 
 	dac_write_point(&dp);

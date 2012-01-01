@@ -41,35 +41,38 @@ enum dac_state {
 #define DAC_MAX_POINT_RATE	100000
 
 typedef struct packed_point_t {
-	uint32_t words[3];
-	uint16_t control;
-} __attribute__((packed)) packed_point_t;
+	uint16_t x;
+	uint16_t y;
+	uint32_t irg;
+	uint32_t i12;
+	uint16_t bf;
+} __attribute__((packed)) __attribute__((aligned(2))) packed_point_t;
 
 /* Pack a point from the DAC into a bufferable format */
 
 static inline void dac_pack_point(packed_point_t *dest, dac_point_t *src) {
-	/*
-	   XXXYYYRR
-	   RGGGBBBI
-	   II111222
+	/* IIRRRGGG
+	 * 111222ix
+	 * fBBB
 	*/
-	dest->control = src->control;
-	dest->words[0] = (((uint32_t)src->x & 0xFFF0) << 16)
-		| ((src->y & 0xFFF0) << 4) | (src->r >> 8);
-	dest->words[1] = (((uint32_t)src->r & 0xFFF0) << 24) | (((uint32_t)src->g & 0xFFF0) << 12)
-		| (src->b & 0xFFF0) | ((src->i & 0xFFF0) >> 12);
-	dest->words[2] = (((uint32_t)src->i & 0xFFF0) << 20) | (((uint32_t)src->u1 & 0xFFF0) << 8)
-		| (src->u2 >> 4);
+	dest->x = src->x;
+	dest->y = src->y;
+
+	#define U(color) ((uint32_t)(src->color))
+
+	dest->irg = (src->g >> 4) | ((U(r) & 0xFFF0) << 8) | ((U(i) & 0xFFF0) << 16);
+	dest->i12 = (U(i) & 0x00F0) | ((U(u2) & 0xFFF0) << 4) | ((U(u1) & 0xFFF0) << 20);
+	dest->bf = (src->b >> 4) | (src->control & 0xF000);
 }
 
-#define UNPACK_X(p)	(((p)->words[0] >> 20) & 0xFFF)
-#define UNPACK_Y(p)	(((p)->words[0] >> 8) & 0xFFF)
-#define UNPACK_R(p)	((((p)->words[0] << 4) & 0xFF0) | ((p)->words[1] >> 28))
-#define UNPACK_G(p)	(((p)->words[1] >> 16) & 0xFFF)
-#define UNPACK_B(p)	(((p)->words[1] >> 4) & 0xFFF)
-#define UNPACK_I(p)	((((p)->words[1] << 8) & 0xF00) | ((p)->words[2] >> 24))
-#define UNPACK_U1(p)	(((p)->words[2] >> 12) & 0xFFF)
-#define UNPACK_U2(p)	(((p)->words[2] >> 0) & 0xFFF)
+#define UNPACK_X(p)	((p)->x)
+#define UNPACK_Y(p)	((p)->y)
+#define UNPACK_R(p)	(((p)->irg >> 8) & 0xFFF0)
+#define UNPACK_G(p)	(((p)->irg << 4) & 0xFFF0)
+#define UNPACK_B(p)	(((p)->bf << 4) & 0xFFF0)
+#define UNPACK_I(p)	((((p)->irg >> 16) & 0xFF00) | ((p)->i12 & 0xF0))
+#define UNPACK_U1(p)	(((p)->i12 >> 4) & 0xFFF0)
+#define UNPACK_U2(p)	(((p)->i12 >> 16) & 0xFFF0)
 
 void dac_init(void);
 
