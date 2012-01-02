@@ -216,8 +216,48 @@ void dac_advance(int count) {
  */
 static void delay_line_reset(struct delay_line *dl) {
 	memset(&dl->buffer, 0, ARRAY_NELEMS(dl->buffer));
-	dl->produce = 0;
+	int delay = (dl->produce - dl->consume + DAC_MAX_COLOR_DELAY)
+		% DAC_MAX_COLOR_DELAY;
+	dl->produce = delay;
 	dl->consume = 0;
+}
+
+/* delay_line_set_delay
+ *
+ * Change the delay of a delay line.
+ *
+ * Reducing a channel's delay will cause some points to be dropped.
+ * Increasing it will cause intermediate points to be repeated once.
+ */
+void delay_line_set_delay(int color_index, int delay) {
+	struct delay_line *dl;
+	if (color_index == 0) dl = &delay_lines.red;
+	else if (color_index == 1) dl = &delay_lines.green;
+	else dl = &blue_delay;
+	if (delay < 0) delay = 0;
+	if (delay >= DAC_MAX_COLOR_DELAY) delay = DAC_MAX_COLOR_DELAY - 1;
+
+	__disable_irq();
+
+	int cur_delay = (dl->produce - dl->consume + DAC_MAX_COLOR_DELAY)
+		% DAC_MAX_COLOR_DELAY;
+	int offset = delay - cur_delay;
+	if (offset < 0) {
+		/* Just move the consume pointer up a bit, dropping
+		 * some points */
+		dl->consume = (dl->consume - offset) % DAC_MAX_COLOR_DELAY;
+	} else {
+		/* Repeat some color points */
+		uint16_t repvalue = dl->buffer[dl->produce];
+		int i;
+		for (i = 0; i < offset; i++) {
+			dl->produce = (dl->produce + 1) % DAC_MAX_COLOR_DELAY;
+			dl->buffer[dl->produce] = repvalue;
+		}
+	}
+	uint8_t p = dl->produce, c = dl->consume;
+
+	__enable_irq();
 }
 
 /* dac_init
@@ -260,6 +300,9 @@ void COLD dac_init() {
 	dac_status.count = 0;
 	dac_current_pps = 0;
 
+	delay_lines.red.produce = delay_lines.red.consume = 0;
+	delay_lines.green.produce = delay_lines.green.consume = 0;
+	blue_delay.produce = blue_delay.consume = 0;
 	delay_line_reset(&delay_lines.red);
 	delay_line_reset(&delay_lines.green);
 	delay_line_reset(&blue_delay);

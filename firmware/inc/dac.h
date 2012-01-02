@@ -88,6 +88,8 @@ int dac_set_rate(int points_per_second);
 int dac_rate_queue(int points_per_second);
 uint32_t dac_get_count();
 
+void delay_line_set_delay(int color_index, int delay);
+
 extern int dac_current_pps;
 extern int dac_flags;
 

@@ -1,6 +1,7 @@
 #include <serial.h>
 #include <tables.h>
 #include <osc.h>
+#include <dac.h>
 #include <stdlib.h>
 #include <string.h>
 #include <transform.h>
@@ -154,6 +155,18 @@ static void geom_set_offset(const char *path, int32_t offset_x, int32_t offset_y
 	geom_set_sz_offset();
 }
 
+static void geom_set_rdelay(const char *path, int32_t delay) {
+	delay_line_set_delay(0, delay);
+}
+
+static void geom_set_gdelay(const char *path, int32_t delay) {
+	delay_line_set_delay(1, delay);
+}
+
+static void geom_set_bdelay(const char *path, int32_t delay) {
+	delay_line_set_delay(2, delay);
+}
+
 TABLE_ITEMS(param_handler, correction_param_updaters,
 	{ "/geom/tl", PARAM_TYPE_I2, { .f2 = geom_update }, PARAM_MODE_FIXED, FIXED(-1), FIXED(1) },
 	{ "/geom/tr", PARAM_TYPE_I2, { .f2 = geom_update }, PARAM_MODE_FIXED, FIXED(-1), FIXED(1) },
@@ -166,4 +179,7 @@ TABLE_ITEMS(param_handler, correction_param_updaters,
 	{ "/geom/lockright", PARAM_TYPE_I1, { .f1 = geom_update_lock } },
 	{ "/geom/size", PARAM_TYPE_I1, { .f1 = geom_set_size }, PARAM_MODE_FIXED, FIXED(0.01), FIXED(1) },
 	{ "/geom/offset", PARAM_TYPE_I2, { .f2 = geom_set_offset }, PARAM_MODE_FIXED, FIXED(-1), FIXED(1) },
+	{ "/geom/rdelay", PARAM_TYPE_I1, { .f1 = geom_set_rdelay }, PARAM_MODE_INT, 0, 15 },
+	{ "/geom/gdelay", PARAM_TYPE_I1, { .f1 = geom_set_gdelay }, PARAM_MODE_INT, 0, 15 },
+	{ "/geom/bdelay", PARAM_TYPE_I1, { .f1 = geom_set_bdelay }, PARAM_MODE_INT, 0, 15 },
 )
