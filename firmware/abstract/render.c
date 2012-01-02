@@ -159,14 +159,10 @@ void get_next_point(dac_point_t *p) {
 	fixed cos_ay = fix_sine(y_rot.value + UINT32_MAX/4);
 
 	fixed r_x = fix_mul(xv, cos_ay) + fix_mul((fix_mul(zv, cos_ax) + fix_mul(yv, sin_ax)), sin_ay);
-	fixed r_y = fix_mul(yv, cos_ax) - fix_mul(zv, sin_ax);
-
 	p->x = r_x >> 2;
-	p->y = r_y >> 2;
 
-	p->i = p->b;
-	p->u1 = p->g;
-	p->u2 = p->r;
+	fixed r_y = fix_mul(yv, cos_ax) - fix_mul(zv, sin_ax);
+	p->y = r_y >> 2;
 
 	/* Advance all the oscillators */
 	int i;
