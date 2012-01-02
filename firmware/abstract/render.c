@@ -33,6 +33,9 @@ static oscillator_t osc_blank = { "blank", 0, 0, -1 };
 static param_t x_rot = { "xrot", 0 };
 static param_t y_rot = { "yrot", 0 };
 static param_t mode_sel = { "mode", 0 };
+static param_t rwfm = { "redwfm", 1 };
+static param_t gwfm = { "greenwfm", 1 };
+static param_t bwfm = { "bluewfm", 1 };
 static param_t blankwfm = { "blankwfm", 0 };
 
 static const int mul_coeffs[] = {
@@ -50,7 +53,8 @@ oscillator_t * const oscillators[] = {
 };
 
 param_t * const params[] = {
-	&x_rot, &y_rot, &mode_sel, &blankwfm, NULL
+	&x_rot, &y_rot, &mode_sel, &blankwfm,
+	&rwfm, &gwfm, &bwfm, NULL
 };
 
 fixed fix_sine(uint32_t phase);
@@ -79,25 +83,33 @@ param_t *get_param(const char *name) {
 	return NULL;
 }
 
-static void blank(dac_point_t *p) {
-	p->r = p->g = p->b = 0;
+static fixed render_oscillator(oscillator_t *osc, int mode) {
+	switch (mode) {
+	case 1:
+		return (fix_sine(osc->pos) >> 1) + 32768;
+	case 2:
+	case 3:
+	case 4:
+		if (osc->freq && osc->pos < ((unsigned long)(mode - 1) << 30))
+			return 65535;
+		else
+			return 0;
+	default:
+		return 0;
+	}
 }
 
 void get_next_point(dac_point_t *p) {
-	p->r = (fix_sine(osc_red.pos) >> 1) + 32768;
-	p->g = (fix_sine(osc_green.pos) >> 1) + 32768;
-	p->b = (fix_sine(osc_blue.pos) >> 1) + 32768;
+	fixed blank;
 
-	switch(blankwfm.value) {
-	case 1:
-		if (osc_blank.freq && osc_blank.pos > 1000000000) blank(p);
-	case 2:
-		if (osc_blank.freq && osc_blank.pos > 2000000000) blank(p);
-	case 3:
-		if (osc_blank.freq && osc_blank.pos > 3000000000U) blank(p);
-	default:
-		break;
-	}
+	if (blankwfm.value)
+		blank = render_oscillator(&osc_blank, blankwfm.value);
+	else
+		blank = 65536;
+
+	p->r = fix_mul(render_oscillator(&osc_red, rwfm.value), blank);
+	p->g = fix_mul(render_oscillator(&osc_green, gwfm.value), blank);
+	p->b = fix_mul(render_oscillator(&osc_blue, bwfm.value), blank);
 
 	fixed xv, yv, zv, r;
 
