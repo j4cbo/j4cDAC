@@ -21,6 +21,7 @@
 #include <tables.h>
 #include <stdio.h>
 #include <ff.h>
+#include <attrib.h>
 #include <dac.h>
 #include <serial.h>
 #include <playback.h>
@@ -34,7 +35,7 @@
  *     Open the index'th file. Note that index is 1-based.
  */
 static void walk_fs(int index) {
-	char filename_buf[64];
+	char filename_buf[32];
 	char path[16];
 
 	DIR dir;
@@ -84,10 +85,8 @@ static void walk_fs(int index) {
 	}
 }
 
-static void refresh_display() {
+static void NOINLINE refresh_readouts() {
 	char buf[16];
-
-	walk_fs(-1);
 
 	outputf("pps: %d, fps: %d", dac_current_pps, ilda_current_fps);
 
@@ -99,6 +98,11 @@ static void refresh_display() {
 
 	snprintf(buf, sizeof(buf), "%d", ilda_current_fps);
 	osc_send_string("/ilda/fpsreadout", buf);
+}
+
+static void refresh_display() {
+	refresh_readouts();
+	walk_fs(-1);
 }
 
 static void ilda_tab_enter_FPV_param(const char *path) {
