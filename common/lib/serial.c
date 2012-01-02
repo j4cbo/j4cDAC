@@ -1,6 +1,7 @@
 #include "LPC17xx.h"
 #include "LPC17xx_bits.h"
 #include <stdarg.h>
+#include <string.h>
 
 #define DEBUG_UART	LPC_UART0
 
@@ -71,6 +72,10 @@ void serial_send(const char *buf, int len) {
 		DEBUG_UART->THR = ((uint8_t)*buf);
 		buf++;
 	}
+}
+
+void serial_send_str(const char *buf) {
+	serial_send(buf, strlen(buf));
 }
 
 void outputf(const char *fmt, ...) {

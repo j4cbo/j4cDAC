@@ -560,7 +560,7 @@ static void sdcard_spi_dma_recvblock(uint8_t *buf, int len) {
 	    || (LPC_GPDMACH1->DMACCConfig & DMACC_Config_E)));
 
 	if (!count)
-		outputf("SD timeout\n");
+		serial_send_str("SD timeout\r\n");
 }
 
 #if 0
