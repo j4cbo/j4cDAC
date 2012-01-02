@@ -402,7 +402,7 @@ udp_sendto(struct udp_pcb *pcb, struct pbuf *p,
  *
  * @see udp_disconnect() udp_send()
  */
-err_t
+err_t __attribute__((always_inline))
 udp_sendto_if(struct udp_pcb *pcb, struct pbuf *p,
   struct ip_addr *dst_ip, u16_t dst_port, struct netif *netif)
 {
