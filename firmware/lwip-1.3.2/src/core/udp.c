@@ -63,6 +63,7 @@
 #include "lwip/dhcp.h"
 
 #include <string.h>
+#include <attrib.h>
 
 /* The list of UDP PCBs */
 /* exported in udp.h (was static) */
@@ -313,7 +314,7 @@ end:
   PERF_STOP("udp_input");
 }
  
-void FPA_udp_recv(struct udp_pcb *pcb, struct pbuf *p, struct ip_addr *addr, u16_t port) {
+void NOINLINE FPA_udp_recv(struct udp_pcb *pcb, struct pbuf *p, struct ip_addr *addr, u16_t port) {
         pcb->recv(pcb->recv_arg, pcb, p, addr, port);
 }
 

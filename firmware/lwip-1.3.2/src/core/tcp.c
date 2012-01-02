@@ -51,6 +51,7 @@
 #include "lwip/debug.h"
 #include "lwip/stats.h"
 #include <skub.h>
+#include <attrib.h>
 
 #include <string.h>
 
@@ -1450,39 +1451,39 @@ tcp_pcbs_sane(void)
 
 
 #if LWIP_CALLBACK_API
-err_t FPA_tcp_accept(struct tcp_pcb *pcb, err_t err) {
+err_t NOINLINE FPA_tcp_accept(struct tcp_pcb *pcb, err_t err) {
 	if (pcb->accept)
 		return pcb->accept(pcb->callback_arg, pcb, err);
 	else
 		return ERR_OK;
 }
 
-err_t FPA_tcp_sent(struct tcp_pcb *pcb, uint16_t len) {
+err_t NOINLINE FPA_tcp_sent(struct tcp_pcb *pcb, uint16_t len) {
 	if (pcb->sent)
 		return pcb->sent(pcb->callback_arg, pcb, len);
 	else
 		return ERR_OK;
 }
 
-err_t FPA_tcp_recv(struct tcp_pcb *pcb, struct pbuf *p, err_t err) {
+err_t NOINLINE FPA_tcp_recv(struct tcp_pcb *pcb, struct pbuf *p, err_t err) {
 	return pcb->recv(pcb, p, err);
 }
 
-err_t FPA_tcp_connected(struct tcp_pcb *pcb, err_t err) {
+err_t NOINLINE FPA_tcp_connected(struct tcp_pcb *pcb, err_t err) {
 	if (pcb->connected)
 		return pcb->connected(pcb->callback_arg, pcb, err);
 	else
 		return ERR_OK;
 }
 
-err_t FPA_tcp_poll(struct tcp_pcb *pcb) {
+err_t NOINLINE FPA_tcp_poll(struct tcp_pcb *pcb) {
 	if (pcb->poll)
 		return pcb->poll(pcb->callback_arg, pcb);
 	else
 		return ERR_OK;
 }
 
-void FPA_tcp_errf(struct tcp_pcb *pcb, err_t err) {
+void NOINLINE FPA_tcp_errf(struct tcp_pcb *pcb, err_t err) {
 	if (pcb->errf)
 		pcb->errf(pcb->callback_arg, err);
 }
