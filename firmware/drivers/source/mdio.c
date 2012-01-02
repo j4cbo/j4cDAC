@@ -2,6 +2,7 @@
 #include <LPC17xx.h>                    /* LPC17xx definitions               */
 #include <lpc17xx_pinsel.h>
 #include <hardware.h>
+#include <attrib.h>
 
 #define DP83848C_DEF_ADR    0x0100      /* Default PHY device address        */
 
@@ -104,7 +105,7 @@ static U32 input_MDIO (void) {
 }
 
 
-U32 mdio_read(int PhyReg) {
+U32 COLD mdio_read(int PhyReg) {
    U32 val;
    __disable_irq();
 
