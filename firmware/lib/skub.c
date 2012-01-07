@@ -141,13 +141,17 @@ void * skub_alloc(enum skub_type region) {
 	return ptr;
 }
 
+int snprintf(char *buf, unsigned int len, const char *fmt, ...);
+
 void * skub_alloc_sz(int size) {
 	/* Find a free block */
+	char err[24];
 	int i;
 	void * ret = NULL;
 
 	if (size > skub_pools_var[ARRAY_NELEMS(skub_pools_var) - 1].sz) {
-		outputf("alloc %d: too big for any pool");
+		snprintf(err, sizeof(err), "alloc %d: too big", size);
+		serial_send_str(err);
 		return NULL;
 	}
 
@@ -160,12 +164,13 @@ void * skub_alloc_sz(int size) {
 		if (ret)
 			break;
 
-		outputf("alloc %d: oom in %d, trying larger...", size,
+		snprintf(err, sizeof(err), "alloc %d: oom in %d", size,
 			skub_pools_var[i].sz);
+		serial_send_str(err);
 	}
 
 #ifdef SKUB_SPEW
-	outputf("alloc sz %d -> used block %d @ %p", size, i, ret);
+	outputf("alloc %d: %d %p", size, i, ret);
 #endif
 
 	return ret;
