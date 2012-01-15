@@ -436,8 +436,8 @@ int ilda_read_points(int max_points, packed_point_t *pp) {
 			sfb_ptr[1] = p.x >> 8;
 			sfb_ptr[2] = (p.x & 0xF0) | ((p.y & 0xF0) >> 4);
 			sfb_ptr[3] = p.r >> 8;
-			sfb_ptr[3] = p.g >> 8;
-			sfb_ptr[3] = p.b >> 8;
+			sfb_ptr[4] = p.g >> 8;
+			sfb_ptr[5] = p.b >> 8;
 		}
 
 		dac_pack_point(pp, &p);
@@ -452,9 +452,9 @@ int ilda_read_points(int max_points, packed_point_t *pp) {
 	if (!fplay_points_left) {
 		fplay_repeat_count--;
 		if (!fplay_repeat_count) {
-			fplay_state = -1;
+			fplay_state = STATE_BETWEEN_FRAMES;
 		} else if (ilda_frame_pointcount <= SMALL_FRAME_THRESHOLD) {
-			fplay_state = -2;
+			fplay_state = STATE_SMALL_FRAME;
 			fplay_points_left = ilda_frame_pointcount;
 		} else {
 			fplay_file.fptr = fplay_frame_start.fptr;
