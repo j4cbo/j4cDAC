@@ -234,15 +234,14 @@ void osc_init(void) {
 	udp_recv(&osc_pcb, osc_recv, 0);
 }
 
-void osc_send_int(const char *path, uint32_t value) {
+static struct pbuf * osc_setup_pbuf(const char *path, char **data, int datalen) {
 	int plen = strlen(path);
-	int size_needed = plen - (plen % 4) + 12;
+	int size_needed = plen - (plen % 4) + 8 + datalen;
 
 	struct pbuf * p = pbuf_alloc(PBUF_TRANSPORT, size_needed, PBUF_RAM);
-
 	if (!p) {
-		outputf("osc_send_int: oom");
-		return;
+		outputf("osc_setup_pbuf: oom");
+		return NULL;
 	}
 
 	char *buf = p->payload;
@@ -255,93 +254,71 @@ void osc_send_int(const char *path, uint32_t value) {
 		buf[bytes_used++] = '\0';
 	}
 
+	*data = buf + bytes_used;
+	return p;
+}
+	
+void osc_send_int(const char *path, uint32_t value) {
+	char *data;
+	struct pbuf * p = osc_setup_pbuf(path, &data, 4);
+	if (!p) return;
+
 	/* Add the type tag */
-	buf[bytes_used++] = ',';
-	buf[bytes_used++] = 'i';
+	memcpy(data, ",i\x00\x00", 4);
 
-	while (bytes_used % 4) {
-		buf[bytes_used++] = '\0';
-	}
-
-	*(uint32_t *)&buf[bytes_used] = htonl(value);
-	bytes_used += 4;
+	*(uint32_t *)(data + 4) = htonl(value);
 
 	udp_sendto(&osc_pcb, p, osc_last_source, 60001);
 	pbuf_free(p);
 }
 
 void osc_send_int2(const char *path, uint32_t v1, uint32_t v2) {
-	int plen = strlen(path);
-	int size_needed = plen - (plen % 4) + 16;
-
-	struct pbuf * p = pbuf_alloc(PBUF_TRANSPORT, size_needed, PBUF_RAM);
-
-	if (!p) {
-		outputf("osc_send_int: oom");
-		return;
-	}
-
-	char *buf = p->payload;
-
-	strcpy(buf, path);
-	int bytes_used = plen + 1;
-
-	/* Pad nulls to a multiple of 4 bytes */
-	while (bytes_used % 4) {
-		buf[bytes_used++] = '\0';
-	}
+	char *data;
+	struct pbuf * p = osc_setup_pbuf(path, &data, 8);
+	if (!p) return;
 
 	/* Add the type tag */
-	buf[bytes_used++] = ',';
-	buf[bytes_used++] = 'i';
-	buf[bytes_used++] = 'i';
+	memcpy(data, ",ii\x00", 4);
 
-	while (bytes_used % 4) {
-		buf[bytes_used++] = '\0';
-	}
+	*(uint32_t *)(data + 4) = htonl(v1);
+	*(uint32_t *)(data + 8) = htonl(v2);
 
-	*(uint32_t *)&buf[bytes_used] = htonl(v1);
-	bytes_used += 4;
-	*(uint32_t *)&buf[bytes_used] = htonl(v2);
-	bytes_used += 4;
+	udp_sendto(&osc_pcb, p, osc_last_source, 60001);
+	pbuf_free(p);
+}
+
+void osc_send_fixed2(const char *path, fixed v1, fixed v2) {
+	char *data;
+	struct pbuf * p = osc_setup_pbuf(path, &data, 8);
+	if (!p) return;
+
+	/* Add the type tag */
+	memcpy(data, ",ff\x00", 4);
+
+	union float_int f1, f2;
+	f1.f = FLOAT(v1);
+	f2.f = FLOAT(v2);
+
+	*(uint32_t *)(data + 4) = htonl(f1.i);
+	*(uint32_t *)(data + 8) = htonl(f2.i);
 
 	udp_sendto(&osc_pcb, p, osc_last_source, 60001);
 	pbuf_free(p);
 }
 
 void osc_send_string(const char *path, const char *value) {
-	int plen = strlen(path);
 	int vlen = strlen(value);
-	int size_needed = plen - (plen % 4) + vlen - (vlen % 4) + 12;
-
-	struct pbuf * p = pbuf_alloc(PBUF_TRANSPORT, size_needed, PBUF_RAM);
-
-	if (!p) {
-		outputf("osc_send_int: oom");
-		return;
-	}
-
-	char *buf = p->payload;
-
-	strcpy(buf, path);
-	int bytes_used = plen + 1;
-
-	/* Pad nulls to a multiple of 4 bytes */
-	while (bytes_used % 4) {
-		buf[bytes_used++] = '\0';
-	}
+	char *data;
+	struct pbuf * p = osc_setup_pbuf(path, &data, vlen - (vlen % 4) + 4);
+	if (!p) return;
 
 	/* Add the type tag */
-	buf[bytes_used++] = ',';
-	buf[bytes_used++] = 's';
+	memcpy(data, ",s\x00\x00", 4);
 
-	while (bytes_used % 4)
-		buf[bytes_used++] = '\0';
-
-	strcpy(buf + bytes_used, value);
-	bytes_used += vlen + 1;
+	strcpy(data + 4, value);
+	int bytes_used = vlen + 5;
 	while (bytes_used % 4) 
-		buf[bytes_used++] = '\0';
+		data[bytes_used++] = '\0';
 
 	udp_sendto(&osc_pcb, p, osc_last_source, 60001);
 	pbuf_free(p);
