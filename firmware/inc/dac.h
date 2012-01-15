@@ -41,8 +41,8 @@ enum dac_state {
 #define DAC_MAX_POINT_RATE	100000
 
 typedef struct packed_point_t {
-	uint16_t x;
-	uint16_t y;
+	int16_t x;
+	int16_t y;
 	uint32_t irg;
 	uint32_t i12;
 	uint16_t bf;
