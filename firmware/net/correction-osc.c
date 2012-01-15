@@ -44,6 +44,9 @@ static void geom_readout(const char *path) {
 	osc_send_int("/geom/lockbottom", geom_lock_flags & GEOM_LOCK_BOT ? 1 : 0);
 	osc_send_int("/geom/lockleft", geom_lock_flags & GEOM_LOCK_LEFT ? 1 : 0);
 	osc_send_int("/geom/lockright", geom_lock_flags & GEOM_LOCK_RIGHT ? 1 : 0);
+	osc_send_int("/geom/rdelay", delay_line_get_delay(0));
+	osc_send_int("/geom/gdelay", delay_line_get_delay(1));
+	osc_send_int("/geom/bdelay", delay_line_get_delay(2));
 }
 
 static int can_set_corner(int corner, int x, int y) {
