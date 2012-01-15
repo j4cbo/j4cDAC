@@ -30,6 +30,8 @@
 #include <playback.h>
 #include <render.h>
 
+#define DAC_INSTRUMENT_TIME 0
+
 /* Each point is 18 bytes. We buffer 1800 points = 32400 bytes.
  *
  * This gives us up to 60ms at 30k, 45ms at 40k, 36ms at 50k, or 30ms at
@@ -50,6 +52,8 @@ struct {
 static uint32_t dac_rate_buffer[DAC_RATE_BUFFER_SIZE];
 static int dac_rate_produce;
 static volatile int dac_rate_consume;
+
+uint32_t dac_cycle_count;
 
 /* Color channel delay lines.
  */
@@ -337,7 +341,7 @@ int dac_prepare(void) {
  * This is triggered internally when the DAC has a buffer underrun, and may
  * also be called externally at any time.
  */ 
-void dac_stop(int flags) {
+void NOINLINE dac_stop(int flags) {
 	/* First things first: shut down the PWM timer. This prevents us
 	 * from being interrupted by a PWM interrupt, which could cause
 	 * the DAC outputs to be left on. */
@@ -435,6 +439,11 @@ static NOINLINE COLD __attribute__((noreturn)) void dac_panic_not_playing(void) 
  * transmit FIFO with whatever point data is necessary.
  */
 void PWM1_IRQHandler(void) {
+#if DAC_INSTRUMENT_TIME
+	uint32_t t1 = SysTick->VAL;
+	asm volatile("" ::: "memory");
+#endif
+
 	/* Tell the interrupt handler we've handled it */
 	LPC_PWM1->IR = PWM_IR_PWMMRn(0);
 
@@ -470,19 +479,29 @@ void PWM1_IRQHandler(void) {
 	if (unlikely(p->bf & DAC_CTRL_RATE_CHANGE)) {
 		dac_pop_rate_change();
 	}
-		
-	dac_point_t dp = {
-		.x = UNPACK_X(p),
-		.y = UNPACK_Y(p),
-		.i = UNPACK_I(p),
-		.r = UNPACK_R(p),
-		.g = UNPACK_G(p),
-		.b = UNPACK_B(p),
-		.u1 = UNPACK_U1(p),
-		.u2 = UNPACK_U2(p)
-	};
 
-	dac_write_point(&dp);
+	#define MASK_XY(v)      ((((v) >> 4) + 0x800) & 0xFFF)
+
+	delay_line_write(&blue_delay, (UNPACK_B(p) >> 4) | 0x3000);
+
+	uint32_t xi = UNPACK_X(p), yi = UNPACK_Y(p);
+	int32_t x = translate_x(xi, yi);
+	int32_t y = translate_y(xi, yi);
+	LPC_SSP1->DR = MASK_XY(x) | 0x7000;
+	LPC_SSP1->DR = MASK_XY(y) | 0x6000;
+
+	delay_line_write(&delay_lines.red, (UNPACK_R(p) >> 4) | 0x4000);
+	delay_line_write(&delay_lines.green, (UNPACK_G(p) >> 4) | 0x2000);
+
+	LPC_SSP1->DR = (UNPACK_I(p) >> 4) | 0x5000;
+	LPC_SSP1->DR = (UNPACK_U1(p) >> 4) | 0x1000;
+	LPC_SSP1->DR = (UNPACK_U2(p) >> 4);
+
+#if DAC_INSTRUMENT_TIME
+	uint32_t t2 = SysTick->VAL;
+	if ((t1 - t2) < 2500)
+		dac_cycle_count = t1 - t2;
+#endif
 }
 
 enum dac_state dac_get_state(void) {
