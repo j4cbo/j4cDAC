@@ -97,8 +97,14 @@ dac_t * dac_get(int num) {
 	dac_t *d = dac_list;
 	if (num >= 0) {
 		while (num--) {
+			if (!d->next) {
+				/* If they pass one past the last DAC,
+				 * just return the last one. Ugh, buggy
+				 * software. */
+				if (!num) return d;
+				else return NULL;
+			}
 			d = d->next;
-			if (!d) break;
 		}
 	} else {
 		while (d) {
