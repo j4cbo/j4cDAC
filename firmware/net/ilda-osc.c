@@ -96,8 +96,12 @@ static void NOINLINE refresh_readouts() {
 	snprintf(buf, sizeof(buf), "%dk", dac_current_pps / 1000);
 	osc_send_string("/ilda/ppsreadout", buf);
 
-	snprintf(buf, sizeof(buf), "%d", ilda_current_fps);
+	snprintf(buf, sizeof(buf), "%d FPS", ilda_current_fps);
 	osc_send_string("/ilda/fpsreadout", buf);
+
+	osc_send_int("/ilda/repeat",
+		((playback_src == SRC_ILDAPLAYER)
+		 && (playback_source_flags & ILDA_PLAYER_REPEAT)));
 }
 
 static void refresh_display() {
@@ -131,7 +135,7 @@ void ilda_play_FPV_param(const char *path) {
 
 static void ilda_pps_FPV_param(const char *path, int32_t v) {
 	char buf[6];
-	snprintf(buf, sizeof(buf), "%ldk", v);
+	snprintf(buf, sizeof(buf), "%ldk", v / 1000);
 	osc_send_string("/ilda/ppsreadout", buf);
 
 	if (playback_src != SRC_ILDAPLAYER)
@@ -142,8 +146,8 @@ static void ilda_pps_FPV_param(const char *path, int32_t v) {
 }
 
 static void ilda_fps_FPV_param(const char *path, int32_t v) {
-	char buf[6];
-	snprintf(buf, sizeof(buf), "%ld", v);
+	char buf[8];
+	snprintf(buf, sizeof(buf), "%ld FPS", v);
 	osc_send_string("/ilda/fpsreadout", buf);
 
 	ilda_set_fps_limit(v);

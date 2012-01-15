@@ -26,9 +26,9 @@ static const char * const corner_strings[] = {
  * Send the position of a given corner out via OSC.
  */
 static void geom_send_corner(int corner) {
-	osc_send_int2(corner_strings[corner],
-		settings.transform_y[corner] / 64,
-		settings.transform_x[corner] / 64);
+	osc_send_fixed2(corner_strings[corner],
+		settings.transform_y[corner] * 2,
+		settings.transform_x[corner] * 2);
 }
 
 /* geom_readout
@@ -57,7 +57,6 @@ static int can_set_corner(int corner, int x, int y) {
 
 	return 1;
 }
-
 
 static void geom_update(const char *path, int32_t y, int32_t x) {
 	int corner;
@@ -142,6 +141,7 @@ static void geom_set_sz_offset(void) {
 	settings.transform_y[CORNER_TR] = coord_clamp(sz + off_y);
 	settings.transform_y[CORNER_BL] = coord_clamp(-sz + off_y);
 	settings.transform_y[CORNER_BR] = coord_clamp(-sz + off_y);
+	update_transform();
 }
 
 static void geom_set_size(const char *path, int32_t sz) {

@@ -214,6 +214,19 @@ void dac_advance(int count) {
 	}
 }
 
+/* delay_line_get_delay
+ *
+ * Return the number of points of delay in the given delay line.
+ */
+int delay_line_get_delay(int color_index) {
+	struct delay_line *dl;
+	if (color_index == 0) dl = &delay_lines.red;
+	else if (color_index == 1) dl = &delay_lines.green;
+	else dl = &blue_delay;
+	return (dl->produce - dl->consume + DAC_MAX_COLOR_DELAY)
+		% DAC_MAX_COLOR_DELAY;
+}
+
 /* delay_line_reset
  *
  * Reset a delay line's buffer, produce, and consume pointers.
