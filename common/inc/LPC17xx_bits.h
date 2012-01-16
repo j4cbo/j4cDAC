@@ -34,8 +34,6 @@
 #define WDMOD_WDINT			(1 << 3)
 #define WDSEL_WDLOCK			(1 << 31)
 
-#define CLKPWR_PCONP_PCSSP0		(1 << 21)
-
 #define SSP_SR_TFE			(1 << 0)
 #define SSP_SR_TNF			(1 << 1)
 #define SSP_SR_RNE			(1 << 2)
