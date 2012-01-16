@@ -34,4 +34,26 @@
 #define WDMOD_WDINT			(1 << 3)
 #define WDSEL_WDLOCK			(1 << 31)
 
+#define CLKPWR_PCONP_PCSSP0		(1 << 21)
+
+#define SSP_SR_TFE			(1 << 0)
+#define SSP_SR_TNF			(1 << 1)
+#define SSP_SR_RNE			(1 << 2)
+#define SSP_SR_RFF			(1 << 3)
+#define SSP_SR_BSY			(1 << 4)
+
+#define SSP_CR0_DSS_8			(7)
+#define SSP_CR0_DSS_16			(15)
+#define SSP_CR1_SSP_EN			(1 << 1)
+
+#define I2C_I2CONSET_AA			(1 << 2)
+#define I2C_I2CONSET_SI			(1 << 3)
+#define I2C_I2CONSET_STO		(1 << 4)
+#define I2C_I2CONSET_STA		(1 << 5)
+#define I2C_I2CONSET_I2EN		(1 << 6)
+#define I2C_I2CONCLR_AAC		(1 << 2)
+#define I2C_I2CONCLR_SIC		(1 << 3)
+#define I2C_I2CONCLR_STAC		(1 << 5)
+#define I2C_I2CONCLR_I2ENC		(1 << 6)
+
 #endif

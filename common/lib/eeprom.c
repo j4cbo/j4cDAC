@@ -19,9 +19,6 @@
 #include <tables.h>
 #include <serial.h>
 
-#include <lpc17xx_i2c.h>
-#include <lpc17xx_clkpwr.h>
-
 #define I2C		LPC_I2C1
 #define I2C_FREQ	50000
 
@@ -47,7 +44,7 @@ static void eeprom_i2c_stop(void) {
 static void eeprom_i2c_send(uint8_t data) {
 	if (I2C->I2CONSET & I2C_I2CONSET_STA)
 		I2C->I2CONCLR = I2C_I2CONCLR_STAC;
-	I2C->I2DAT = data & I2C_I2DAT_BITMASK;
+	I2C->I2DAT = data;
 	I2C->I2CONCLR = I2C_I2CONCLR_SIC;
 
 	while (!(I2C->I2CONSET & I2C_I2CONSET_SI));
@@ -58,17 +55,15 @@ static uint8_t eeprom_i2c_recv() {
 	I2C->I2CONCLR = I2C_I2CONCLR_SIC;
 
 	while (!(I2C->I2CONSET & I2C_I2CONSET_SI));
-	return (I2C->I2DAT & I2C_I2DAT_BITMASK);
+	return I2C->I2DAT;
 }
 
 static uint8_t eeprom_i2c_recvnak() {
 	I2C->I2CONCLR = (I2C_I2CONCLR_AAC | I2C_I2CONCLR_SIC);
 
 	while (!(I2C->I2CONSET & I2C_I2CONSET_SI));
-	return (I2C->I2DAT & I2C_I2DAT_BITMASK);
+	return I2C->I2DAT;
 }
-
-uint8_t mac[6];
 
 void eeprom_init(void) {
 
@@ -77,8 +72,6 @@ void eeprom_init(void) {
 		return;
 
 	/* Turn on peripheral */
-	CLKPWR_ConfigPPWR (CLKPWR_PCONP_PCI2C1, ENABLE);
-	CLKPWR_SetPCLKDiv(CLKPWR_PCLKSEL_I2C1, CLKPWR_PCLKSEL_CCLK_DIV_4);
 	I2C->I2SCLH = SystemCoreClock / (4 * I2C_FREQ);
 	I2C->I2SCLL = SystemCoreClock / (4 * I2C_FREQ);
 	I2C->I2CONCLR = I2C_I2CONCLR_AAC | I2C_I2CONCLR_STAC \
