@@ -11,6 +11,8 @@
 
 #define RV __attribute__((warn_unused_result))
 
+extern const char build[];
+
 enum fsm_result {
 	NEEDMORE,
 	OK,
@@ -148,6 +150,40 @@ static int RV send_resp(struct tcp_pcb *pcb, char resp, char cmd, int len) {
 	return len;
 }
 
+/* send_version_resp
+ *
+ * Send our version string back to the host.
+ *
+ * This looks a lot like send_resp, but with a version string instead; also,
+ * we can't defer a version response like we can an ACK, so any error in
+ * send is fatal. (This is OK, since version queries don't happen under
+ * heavy load.)
+ *
+ * This does the same CPS-style return as send_resp.
+ */
+static int RV send_version_resp(struct tcp_pcb *pcb, int len) {
+	char buf[32];
+	memset(buf, 0, sizeof(buf));
+	strncpy(buf, build, sizeof(buf) - 1);
+
+	err_t err = tcp_write(pcb, buf, sizeof(buf), TCP_WRITE_FLAG_COPY);
+
+	/* We can't defer a version response... */
+	if (err != ERR_OK) {
+		outputf("tcp_write returned %d", err);
+		return close_conn(pcb, CONNCLOSED_SENDFAIL, len);
+	}
+
+	err = tcp_output(pcb);
+
+	if (err != ERR_OK) {
+		outputf("tcp_output returned %d", err);
+		return close_conn(pcb, CONNCLOSED_SENDFAIL, len);
+	}
+
+	return len;
+}
+
 /* recv_fsm
  *
  * Attempt to process some data from the buffer located at 'data'.
@@ -268,6 +304,10 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		case '?':
 			/* Ping */
 			return send_resp(pcb, RESP_ACK, cmd, 1);
+
+		case 'v':
+			/* Check version */
+			return send_version_resp(pcb, 1);
 
 		default:
 			outputf("unknown cmd 0x%02x", cmd);
