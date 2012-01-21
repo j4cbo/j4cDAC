@@ -41,7 +41,7 @@ BRD_SRCS += lib/ether.c lib/network.c drivers/source/mdio.c ../common/lib/eeprom
 
 # FAT
 APP_SRCS += lib/fatfs/ff.c lib/fatfs/ccsbcs.c lib/fatfs/diskio.c lib/fatfs/fatfs.c
-BRD_SRCS += lib/sdcard.c 
+BRD_SRCS += ../common/lib/sdcard.c 
 INCLUDES += -Ilib/fatfs
 
 CFLAGS += $(INCLUDES)
