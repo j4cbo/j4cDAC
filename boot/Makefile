@@ -18,7 +18,9 @@ SRCS += ../common/lib/usbstdreq.c ../common/lib/usbcontrol.c \
 	../common/lib/usbhw_lpc.c \
 	lib/lpcusb/usbhw_lpc.c lib/lpcusb/usbinit.c
 
-#SRCS += net/ether.c net/network.c net/mdio.c
+SRCS += ../common/lib/ff.c ../common/lib/ccsbcs.c ../common/lib/diskio.c
+SRCS += ../common/lib/sdcard.c
+SRCS += ../common/lib/eeprom.c
 
 SRCS += usboot_iap.c main.c enter_app.s crc32.c
 

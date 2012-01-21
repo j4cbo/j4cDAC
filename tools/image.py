@@ -62,8 +62,9 @@ def main():
 	data += crcdata + "\0" * 252
 
 	# Tack on a header
-	image = ("j4cDAC firmware image - DO NOT EDIT\n".ljust(59, "~")
-	        + "\n" + data_len + data)
+	image = ("j4cDAC firmware image - DO NOT EDIT\n".ljust(51, "~")
+	        + "\n" + struct.pack("<I", 0x12345678)
+	        + crcdata + data_len + data)
 
 	file(sys.argv[2], "w").write(image)
 	print "Wrote %d bytes." % (len(image), )
