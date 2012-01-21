@@ -33,7 +33,7 @@ extern void tohex(char *s, unsigned long l);
 extern void btohex(char *s, unsigned char c);
 extern void puthex(unsigned long l);
 extern int vsprintf(char *s, const char *fmt, va_list args);
-extern int vsnprintf(char *s, int size, const char *fmt, va_list args);
+extern int vsnprintf(char *s, unsigned int size, const char *fmt, va_list args);
 extern int sprintf(char *s, const char *fmt, ...);
 extern int snprintf(char *s, int size, const char *fmt, ...);
 extern unsigned short htons(unsigned short in);
