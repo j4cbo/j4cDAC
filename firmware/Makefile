@@ -37,11 +37,12 @@ APP_SRCS += lib/skub.c file/ild-player.c file/playback.c lib/fixpoint.c \
 APP_SRCS += abstract/render.c abstract/io.c
 
 # Ethernet driver
-BRD_SRCS += lib/ether.c lib/network.c drivers/source/mdio.c lib/eeprom.c
+BRD_SRCS += lib/ether.c lib/network.c drivers/source/mdio.c ../common/lib/eeprom.c
 
 # FAT
-APP_SRCS += lib/fatfs/ff.c lib/fatfs/ccsbcs.c lib/fatfs/diskio.c lib/fatfs/fatfs.c
-BRD_SRCS += lib/sdcard.c 
+APP_SRCS += ../common/lib/ff.c ../common/lib/ccsbcs.c ../common/lib/diskio.c
+APP_SRCS += lib/fatfs.c
+BRD_SRCS += ../common/lib/sdcard.c 
 INCLUDES += -Ilib/fatfs
 
 CFLAGS += $(INCLUDES)

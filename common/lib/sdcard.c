@@ -6,9 +6,6 @@
  * Based on code from NXP app note AN10916.
  */
 
-#include <lpc17xx_clkpwr.h>
-#include <lpc17xx_ssp.h>
-
 #include <stdint.h>
 #include <attrib.h>
 #include "sdcard.h"
@@ -438,9 +435,6 @@ int sdcard_get_sd_status(uint8_t * buf) {
 void COLD sdcard_spi_init(void) {
 	int dummy;
 
-	/* Turn on SSP0 */
-	LPC_SC->PCONP |= CLKPWR_PCONP_PCSSP0;
-
 	/* Configure I/O pins */
 	/* SSEL is GPIO, output set to high. */
 	if (hw_board_rev == HW_REV_PROTO)
@@ -463,7 +457,7 @@ void COLD sdcard_spi_init(void) {
 	LPC_SC->PCLKSEL1 &= ~(3 << 10);	/* PCLKSP0 = CCLK/4 (18MHz) */
 	LPC_SC->PCLKSEL1 |= (1 << 10);	/* PCLKSP0 = CCLK   (72MHz) */
 
-	LPC_SSP0->CR0 = SSP_CR0_DSS(8);
+	LPC_SSP0->CR0 = SSP_CR0_DSS_8;
 	LPC_SSP0->CR1 = SSP_CR1_SSP_EN;
 
 	sdcard_spi_set_speed(400000);
@@ -576,7 +570,7 @@ void sdcard_spi_recvblock(uint8_t * buf, int len) {
 	}
 
 	/* Set the SSP peripheral to 16-bit mode */
-	LPC_SSP0->CR0 = SSP_CR0_DSS(16);
+	LPC_SSP0->CR0 = SSP_CR0_DSS_16;
 
 	/* fill TX FIFO, prepare clk for receive */
 	for (i = 0; i < startcnt; i++) {
@@ -602,7 +596,7 @@ void sdcard_spi_recvblock(uint8_t * buf, int len) {
 	} while (i < nwords);
 
 	/* Back to 8-bit mode */
-	LPC_SSP0->CR0 = SSP_CR0_DSS(8);
+	LPC_SSP0->CR0 = SSP_CR0_DSS_8;
 }
 #endif
 
@@ -612,7 +606,7 @@ static void sdcard_spi_sendblock(const uint8_t * buf, int len) {
 	uint16_t data;
 
 	/* Set the SSP peripheral to 16-bit mode */
-	LPC_SSP0->CR0 = SSP_CR0_DSS(16);
+	LPC_SSP0->CR0 = SSP_CR0_DSS_16;
 
 	/* fill the FIFO unless it is full */
 	for (cnt = 0; cnt < (len / 2); cnt++) {
@@ -633,5 +627,5 @@ static void sdcard_spi_sendblock(const uint8_t * buf, int len) {
 	}
 
 	/* Back to 8-bit mode */
-	LPC_SSP0->CR0 = SSP_CR0_DSS(8);
+	LPC_SSP0->CR0 = SSP_CR0_DSS_8;
 }

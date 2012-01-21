@@ -38,6 +38,9 @@
 #include "usbhw_lpc.h"
 #include "dfu.h"
 
+#include <ff.h>
+#include <diskio.h>
+
 #define APP_START	0x4000
 
 volatile uint32_t time = 0;
@@ -148,10 +151,12 @@ enum dfu_state state = dfuIDLE;
 
 uint8_t data_buffer[64];
 uint8_t write_buffer[256] __attribute__((aligned(4)));
+
 volatile int data_req = 0;
-volatile int block = 0;
+volatile int current_block = 0;
 volatile int reset_flag = 0;
 volatile int reset_armed = 0;
+uint32_t app_crc;
 
 static int HandleClassRequest(TSetupPacket *pSetup, int *piLen, uint8_t **ppbData) {
 	static struct dfu_getstatus_resp resp;
@@ -178,7 +183,7 @@ static int HandleClassRequest(TSetupPacket *pSetup, int *piLen, uint8_t **ppbDat
 		}
 
 		memcpy(data_buffer, *ppbData, *piLen);
-		block = pSetup->wValue;
+		current_block = pSetup->wValue;
 		data_req = 1;
 		state = dfuDNLOAD_SYNC;
 		break;
@@ -265,12 +270,13 @@ int app_ok() {
 	int app_length = (int)app_vectors[8];
 
 	outputf("App length: %d", app_length);
-	if (app_length < 1024) {
+	if (app_length < 1024 || app_length > (524288 - APP_START)) {
 		return 0;
 	}
 
 	uint32_t expected_crc = *(uint32_t *)(APP_START + app_length);
 	uint32_t crc = crc32(0, (unsigned char *)APP_START, app_length);
+	app_crc = crc;
 
 	outputf("CRC: expected 0x%08x, got 0x%08x", expected_crc, crc);
 
@@ -301,6 +307,73 @@ void enter_application() {
 	enter_app(app_vectors[0], app_vectors[1]);
 }
 
+int handle_data_block(void);
+FATFS fs;
+
+extern uint8_t mac_address[6];
+int attempt_file_bootload(int ok) {
+	char filename[22];
+	snprintf(filename, sizeof(filename), "etherdream%02x%02x%02x.bin",
+		mac_address[3], mac_address[4], mac_address[5]);
+
+	FRESULT res = disk_initialize(0);
+	if (res) {
+		outputf("SD initialization failed: %d", res);
+		return -1;
+	}
+
+	memset(&fs, 0, sizeof(fs));
+	res = f_mount(0, &fs);
+	if (res) {
+		outputf("f_mount() failed: %d", res);
+		return -1;
+	}
+
+	FIL firmware_file;
+
+	res = f_open(&firmware_file, filename, FA_READ);
+	if (res) {
+		outputf("No firmware update found.");
+		return -1;
+	}
+
+	outputf("Found firmware update: %s", filename);
+
+	current_block = 0;
+	while (1) {
+		outputf("Reading block %d...", current_block);
+		unsigned int read = 0;
+		f_read(&firmware_file, data_buffer, 64, &read);
+		if (read == 0) break;
+		if (read != 64) {
+			outputf("Short read - bad file?");
+			return -1;
+		}
+
+		/* Look for checksum in block 0 */
+		if (current_block == 0) {
+			if (*(uint32_t *)(data_buffer + 52) != 0x12345678) {
+				outputf("Bad magic number in block 0");
+				return -1;
+			}
+
+			if (ok && *(uint32_t *)(data_buffer + 56) == app_crc) {
+				outputf("Firmware is current - not overwriting");
+				return -1;
+			}
+		}
+
+		if (handle_data_block() != OK) {
+			return -1;
+		}
+		current_block++;
+	}
+
+	return 0;
+}
+
+void eeprom_init(void);
+
 /*************************************************************************
 	main
 	====
@@ -329,6 +402,8 @@ int main(void)
 
 	hw_get_board_rev();
 	outputf("Hardware Revision: %d", hw_board_rev);
+
+	eeprom_init();
 
 	if (clock_res < 0)
 		hw_open_interlock_forever();
@@ -382,6 +457,11 @@ int main(void)
 
 	SysTick_Config(SystemCoreClock / 1000);
 
+	/* Load from file? */
+	if (attempt_file_bootload(!pin_held && !force && app_is_ok) == 0) {
+		app_is_ok = app_ok();
+	}
+
 	/* Check whether we need to enter application mode */
 	if (!pin_held && !force && app_is_ok) {
 		enter_application();
@@ -416,11 +496,6 @@ int main(void)
 	// connect to bus
 	USBHwConnect(TRUE);
 
-	uint32_t expected_length;
-
-	unsigned long sector_base = 0;
-	unsigned long sector_len = 0;
-
 	// Run the app.
 	while(1) {
 		while (!data_req && !reset_flag);
@@ -429,65 +504,11 @@ int main(void)
 			reset_flag = 0;
 		}
 
-		if (block == 0) {
-			if (memcmp((char *)data_buffer, "j4cDAC", 6)) {
-				state = errTARGET;
-				data_req = 0;
-				continue;
-			}
-
-			data_req = 0;
-			continue;
+		int res = handle_data_block();
+		if (res != OK) {
+			state = dfuERROR;
+			last_status = res;
 		}
-
-		block--;
-
-		if (block == 0) {
-			/* Image length in vectors */ 
-			expected_length = *(uint32_t *)(data_buffer + 0x20);
-		}
-
-		int base = (block & ~3) * 64 + APP_START;
-
-		if (base < sector_base ||
-		    base + 256 > sector_base + sector_len) {
-			if (iapFindSector(base, &sector_base, &sector_len) > 0) {
-				outputf("# Erase 0x%x [0x%x]", sector_base, sector_len);
-				int result = iapErase(sector_base, sector_len, SystemCoreClock / 1000);
-				if (result != IAP_CMD_SUCCESS) {
-					outputf("!!! Erase failed: %d", result);
-					state = errERASE;
-					data_req = 0;
-					continue;
-				}
-			} else {
-				outputf("!!! Can't find sector for 0x%x", base);
-				state = errADDRESS;
-				data_req = 0;
-				continue;
-			}
-		}
-
-		/* Copy into write buffer */
-		memcpy(write_buffer + (64 * (block % 4)), data_buffer, 64);
-
-		if (block % 4 != 3) {
-			/* Don't write until we have all of this block */
-			data_req = 0;
-			continue;
-		}
-
-		outputf("# Write 0x%x ... 0x%x", base, base + 256);
-		int result = iapWrite(base, write_buffer, 256, SystemCoreClock / 1000);
-
-		if (result != IAP_CMD_SUCCESS) {
-			outputf("!!! Write failed: %d", result);
-			state = errWRITE;
-			data_req = 0;
-			continue;
-		}
-
-		outputf("# Write done");
 		data_req = 0;
 	}
 
@@ -497,4 +518,54 @@ int main(void)
 
 	/* Unreachable. */
 	return 0;
+}
+
+int handle_data_block(void) {
+	static unsigned long sector_base = 0;
+	static unsigned long sector_len = 0;
+
+	if (current_block == 0) {
+		if (memcmp((char *)data_buffer, "j4cDAC", 6)) {
+			return errTARGET;
+		}
+
+		return OK;
+	}
+
+	int block = current_block - 1;
+	int base = (block & ~3) * 64 + APP_START;
+
+	if (base < sector_base ||
+	    base + 256 > sector_base + sector_len) {
+		if (iapFindSector(base, &sector_base, &sector_len) > 0) {
+			outputf("# Erase 0x%x [0x%x]", sector_base, sector_len);
+			int result = iapErase(sector_base, sector_len, SystemCoreClock / 1000);
+			if (result != IAP_CMD_SUCCESS) {
+				outputf("!!! Erase failed: %d", result);
+				return errERASE;
+			}
+		} else {
+			outputf("!!! Can't find sector for 0x%x", base);
+			return errADDRESS;
+		}
+	}
+
+	/* Copy into write buffer */
+	memcpy(write_buffer + (64 * (block % 4)), data_buffer, 64);
+
+	if (block % 4 != 3) {
+		/* Don't write until we have all of this block */
+		return OK;
+	}
+
+	outputf("# Write 0x%x ... 0x%x", base, base + 256);
+	int result = iapWrite(base, write_buffer, 256, SystemCoreClock / 1000);
+
+	if (result != IAP_CMD_SUCCESS) {
+		outputf("!!! Write failed: %d", result);
+		return errWRITE;
+	}
+
+	outputf("# Write done");
+	return OK;
 }

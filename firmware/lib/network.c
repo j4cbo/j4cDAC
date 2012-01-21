@@ -144,6 +144,8 @@ void eth_check_link(void) {
 			return;
 		}
 
+		le_estop_clear(ESTOP_LINKLOST);
+
 		eth_link_state = LINK_UP;
 		outputf("Ethernet link up");
 

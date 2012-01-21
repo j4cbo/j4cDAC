@@ -105,7 +105,7 @@ class DAC(object):
 
 	def readresp(self, cmd):
 		"""Read a response from the DAC."""
-		data = self.read(21)
+		data = self.read(22)
 		response = data[0]
 		cmdR = data[1]
 		status = Status(data[2:])
