@@ -44,7 +44,16 @@ dac_settings_t settings;
 
 void SysTick_Handler(void) {
 	mtime++;
-	if (mtime % 10 == 0) time++;
+	if (mtime % 10 != 0) return;
+
+	time++;
+
+	/* If we're in an estop condition, slow-blink the LED */
+	if (time % 500 == 0) {
+		led_set_frontled(1);
+	} else if (time % 500 == 450 && le_get_state() == LIGHTENGINE_ESTOP) {
+		led_set_frontled(0);
+	}
 }
 
 struct periodic_event {
