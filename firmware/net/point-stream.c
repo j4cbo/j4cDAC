@@ -13,6 +13,13 @@
 
 extern const char build[];
 
+uint8_t ps_plugin[PLUGIN_SIZE] __attribute__((aligned(16)));
+static int ps_plugin_enabled;
+
+static int __attribute__((noinline)) invoke_plugin(int stage, void * data) {
+	return ((int (*)(int, void*))(ps_plugin + 1))(stage, data);
+}
+
 enum fsm_result {
 	NEEDMORE,
 	OK,
@@ -20,7 +27,7 @@ enum fsm_result {
 };
 
 static enum {
-	MAIN, DATA, DATA_ABORTING
+	MAIN, DATA, DATA_ABORTING, INSTALL
 } ps_state;
 
 static int ps_pointsleft;
@@ -305,6 +312,20 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 			/* Ping */
 			return send_resp(pcb, RESP_ACK, cmd, 1);
 
+		case 'I':
+			/* Install plugin */
+			ps_state = INSTALL;
+			ps_pointsleft = sizeof(ps_plugin);
+			return 1;
+
+		case 'P':
+			/* Pass data to plugin */
+			if (!ps_plugin_enabled)
+				return send_resp(pcb, RESP_NAK_INVL, cmd, 17);
+			if (len < 17) return 0;
+			int resp = invoke_plugin(1, data + 1);
+			return send_resp(pcb, resp, cmd, 17);
+
 		case 'v':
 			/* Check version */
 			return send_version_resp(pcb, 1);
@@ -315,6 +336,39 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		}
 
 		return -1;
+
+	case INSTALL:
+		/* How many bytes? */
+		npoints = len;
+		if (npoints > ps_pointsleft) npoints = ps_pointsleft;
+
+		/* Copy in the data and move up */
+		memcpy(ps_plugin + sizeof(ps_plugin) - ps_pointsleft,
+		       data, npoints);
+		ps_pointsleft -= npoints;
+
+		if (!ps_pointsleft) {
+			/* Initialize */
+			outputf("invoking plugin...");
+			int ret = invoke_plugin(0, NULL);
+			outputf("plugin returned %d", ret);
+
+			ps_state = MAIN;
+
+			if (ret) {
+				/* Fail! */
+				ps_plugin_enabled = 0;
+				return send_resp(pcb, RESP_NAK_INVL, 'I',
+				                 npoints);
+			} else {
+				ps_plugin_enabled = 1;
+				return send_resp(pcb, RESP_ACK, 'I', npoints);
+			}
+		} else {
+			return npoints;
+		}
+
+		break;
 
 	case DATA:
 		ASSERT_NOT_EQUAL(ps_pointsleft, 0);

@@ -64,6 +64,7 @@ static inline void dump_stack(uint32_t * stack) {
 		stack[-4], stack[-3], stack[-2], stack[-1]);
 	outputf("r12 %08x lr %08x pc %08x psr 0x%08x",
 		stack[4], stack[5], stack[6], stack[7]);
+	watchdog_feed();
 	int i;
 	for (i = 8; i < 32; i++) {
 		if (&stack[i] >= (uint32_t *)0x10008000) break;

@@ -106,4 +106,6 @@ struct dac_response {
 #define RESP_NAK_INVL		'I'
 #define RESP_NAK_ESTOP		'!'
 
+#define PLUGIN_SIZE		600
+
 #endif
