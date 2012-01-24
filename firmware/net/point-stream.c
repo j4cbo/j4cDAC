@@ -16,8 +16,8 @@ extern const char build[];
 uint8_t ps_plugin[PLUGIN_SIZE] __attribute__((aligned(16)));
 static int ps_plugin_enabled;
 
-static int __attribute__((noinline)) invoke_plugin(int stage, void * data) {
-	return ((int (*)(int, void*))(ps_plugin + 1))(stage, data);
+static int __attribute__((noinline)) invoke_plugin(void * dest, void * src) {
+	return ((int (*)(void*, void*))(ps_plugin + 1))(dest, src);
 }
 
 enum fsm_result {
@@ -27,7 +27,7 @@ enum fsm_result {
 };
 
 static enum {
-	MAIN, DATA, DATA_ABORTING, INSTALL
+	MAIN, DATA, DATA_PLUGIN, DATA_ABORTING, INSTALL
 } ps_state;
 
 static int ps_pointsleft;
@@ -265,6 +265,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 					 sizeof(struct queue_command));
 
 		case 'd':
+		case 'D':
 			/* Data: switch into the DATA state to start reading
 			 * points into the buffer. */
 			if (len < sizeof(struct data_command))
@@ -273,7 +274,8 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 			struct data_command *h = (struct data_command *) data;
 
 			if (h->npoints) {
-				ps_state = DATA;
+				if (cmd == 'd') ps_state = DATA;
+				else ps_state = DATA_PLUGIN;
 				ps_pointsleft = h->npoints;
 
 				/* We'll send a response once we've read all
@@ -323,8 +325,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 			if (!ps_plugin_enabled)
 				return send_resp(pcb, RESP_NAK_INVL, cmd, 17);
 			if (len < 17) return 0;
-			int resp = invoke_plugin(1, data + 1);
-			return send_resp(pcb, resp, cmd, 17);
+			return send_resp(pcb, invoke_plugin(data + 1, NULL), cmd, 17);
 
 		case 'v':
 			/* Check version */
@@ -350,7 +351,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		if (!ps_pointsleft) {
 			/* Initialize */
 			outputf("invoking plugin...");
-			int ret = invoke_plugin(0, NULL);
+			int ret = invoke_plugin(NULL, NULL);
 			outputf("plugin returned %d", ret);
 
 			ps_state = MAIN;
@@ -371,6 +372,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		break;
 
 	case DATA:
+	case DATA_PLUGIN:
 		ASSERT_NOT_EQUAL(ps_pointsleft, 0);
 
 		/* We can only write a complete point at a time. */
@@ -381,6 +383,11 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		npoints = len / sizeof(struct dac_point);
 		if (npoints > ps_pointsleft)
 			npoints = ps_pointsleft;
+
+		if (state == DATA_PLUGIN && !ps_plugin_enabled) {
+			ps_state = DATA_ABORTING;
+			goto handle_aborted_data;
+		}
 
 		/* How much do we have room for now? Note that dac_prepare
 		 * is a ring buffer, so it's OK if it returns less than the
@@ -412,7 +419,12 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 
 		int i;
 		for (i = 0; i < npoints; i++) {
-			dac_pack_point(addr + i, pdata + i);
+			if (ps_state == DATA) {
+				dac_pack_point(addr + i, pdata + i);
+			} else {
+				invoke_plugin(addr + i, pdata + i);
+			}
+
 		}
 
 		/* Let the DAC know we've given it more data */
@@ -422,7 +434,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 
 		if (!ps_pointsleft) {
 			ps_state = MAIN;
-			return send_resp(pcb, RESP_ACK, 'd',
+			return send_resp(pcb, RESP_ACK, (ps_state == DATA ? 'd' : 'D'),
 					 npoints * sizeof(struct dac_point));
 		} else {
 			return (npoints * sizeof(struct dac_point));
