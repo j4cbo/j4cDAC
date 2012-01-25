@@ -384,7 +384,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		if (npoints > ps_pointsleft)
 			npoints = ps_pointsleft;
 
-		if (state == DATA_PLUGIN && !ps_plugin_enabled) {
+		if (ps_state == DATA_PLUGIN && !ps_plugin_enabled) {
 			ps_state = DATA_ABORTING;
 			goto handle_aborted_data;
 		}

@@ -118,8 +118,10 @@ static unsigned int fplay_read(void *buf, int n) {
 	unsigned int bytes_read;
 
 	FRESULT res = f_read(&fplay_file, buf, n, &bytes_read);
-	if (res != FR_OK)
+	if (res != FR_OK) {
+		outputf("fplay_read: error %d", res);
 		return -1;
+	}
 
 	return bytes_read;
 }
@@ -134,6 +136,20 @@ struct wav_header_part2 {
 	uint16_t bits_per_sample;
 } __attribute__((packed));
 
+static const char *wav_errors[] = {
+	"ok",
+	"data read error",
+	"<16 bits",
+	"bad audio format",
+	"bad channel count",
+	"byte rate mismatch",
+	"block align too small",
+	"bad bit depth",
+	"short extended header",
+	"no data header",
+	"bad extended fmt"
+};
+
 /* wav_read_file_header
  *
  * Read the header for a WAV file, and save playback information.
@@ -144,21 +160,39 @@ static int wav_read_file_header(int file_size) {
 	struct wav_header_part2 pt2;
 	if (fplay_read(&pt2, sizeof(pt2)) != sizeof(pt2)) return -1;
 
-	if (pt2.fmt_size < 16) return -1;
-	if (pt2.audio_format != 1) return -1;
-	if (pt2.num_channels < 5 || pt2.num_channels > 8) return -1;
+	if (pt2.fmt_size < 16) return -2;
+
+	int is_extended;
+
+	if (pt2.audio_format == 1)
+		is_extended = 0;
+	else if (pt2.audio_format == 0xFFFE)
+		is_extended = 1;
+	else
+		return -3;
+
+	if (pt2.num_channels < 5 || pt2.num_channels > 8) return -4;
 	wav_channels = pt2.num_channels;
 	int point_rate = pt2.sample_rate;
-	if (pt2.byte_rate != point_rate * wav_channels * 2) return -1;
+	if (pt2.byte_rate != point_rate * wav_channels * 2) return -5;
 	if (pt2.block_align < wav_channels * 2 || pt2.block_align > 16)
-		return -1;
+		return -6;
 	wav_block_align = pt2.block_align;
-	if (pt2.bits_per_sample != 16) return -1;
+	if (pt2.bits_per_sample != 16) return -7;
 
 	char buf[8];
+	int fmt_size_left = pt2.fmt_size - 16;
+
+	if (fmt_size_left >= 22 && is_extended) {
+		fplay_read(buf, 8);
+		uint16_t actual_type;
+		fplay_read(&actual_type, 2);
+		if (actual_type != 1) return -10;
+		fmt_size_left -= 10;
+	} else if (is_extended)
+		return -8;
 
 	/* Consume the rest of the format block, if any */
-	int fmt_size_left = pt2.fmt_size - 16;
 	while (fmt_size_left > 0) {
 		fplay_read(buf, fmt_size_left > 8 ? 8 : fmt_size_left);
 		fmt_size_left -= 8;
@@ -166,13 +200,25 @@ static int wav_read_file_header(int file_size) {
 
 	/* Now read data header */
 	if (fplay_read(buf, 8) != 8) return -1;
-	if (memcmp(buf, "data", 4)) return -1;
+
+	/* Ignore fact chunk if present */
+	if (!memcmp(buf, "fact", 4)) {
+		if (fplay_read(buf, 4) != 4) return -1;
+		if (fplay_read(buf, 8) != 8) return -1;
+	}
+	
+	if (memcmp(buf, "data", 4)) return -9;
 
 	int data_size = *(uint32_t *)(buf + 4);
 	if (data_size > file_size - 36) data_size = file_size - 36;
 
 	fplay_points_left = data_size / wav_block_align;
+	ilda_frame_pointcount = fplay_points_left;
 	fplay_repeat_count = 1;
+	fplay_state = STATE_WAV;
+
+	outputf("playing %d pps", point_rate);
+	dac_set_rate(point_rate);
 
 	/* Phew! */
 	return 0;
@@ -301,7 +347,10 @@ int fplay_read_header(void) {
 		uint32_t wav_file_size = *(uint32_t *)(buf + 4);
 		if (fplay_read(buf, 8) != 8) return -1;
 		if (memcmp(buf, "WAVEfmt ", 8)) return -1;
-		return wav_read_file_header(wav_file_size);
+		ret = wav_read_file_header(wav_file_size);
+		if (ret <= 0 && ret >= -10)
+			outputf("wav_read_file_header: %s", wav_errors[-ret]);
+		return ret;
 	}
 
 	/* If it's not WAV, it had better be ILDA */
