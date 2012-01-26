@@ -433,8 +433,9 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		ps_pointsleft -= npoints;
 
 		if (!ps_pointsleft) {
+			char resp = (ps_state == DATA) ? 'd' : 'D';
 			ps_state = MAIN;
-			return send_resp(pcb, RESP_ACK, (ps_state == DATA ? 'd' : 'D'),
+			return send_resp(pcb, RESP_ACK, resp,
 					 npoints * sizeof(struct dac_point));
 		} else {
 			return (npoints * sizeof(struct dac_point));
