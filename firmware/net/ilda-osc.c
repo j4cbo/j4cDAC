@@ -65,7 +65,8 @@ static void walk_fs(int index) {
 		/* Does it end with .ild or .ilda? */
 		char *fn_end = fn + strlen(fn);
 		if (strcasecmp(fn_end - 4, ".ild") \
-		    && strcasecmp(fn_end - 5, ".ilda"))
+		    && strcasecmp(fn_end - 5, ".ilda") \
+		    && strcasecmp(fn_end - 4, ".wav"))
 			continue;
 
 		if (index <= 0) {

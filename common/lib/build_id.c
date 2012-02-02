@@ -1,1 +1,1 @@
-const char build[] = BUILDID;
+const char build[32] = BUILDID;

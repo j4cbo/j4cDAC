@@ -31,12 +31,14 @@ q = Queue.Queue()
 def queue_check():
 	try:
 		while True:
-			state, text = to_ui.get_nowait()
+			state, text, btn = to_ui.get_nowait()
 			label['text'] = text
-			if state:
-				go_button.configure(state=NORMAL, text="Update")
+			if state == "quit":
+				root.quit()
+			elif state:
+				go_button.configure(state=NORMAL, text=btn)
 			else:
-				go_button.configure(state=DISABLED, text="Update")
+				go_button.configure(state=DISABLED, text=btn)
 	except Queue.Empty:
 		root.after(200, queue_check)
 
@@ -44,7 +46,7 @@ root.after(100, queue_check)
 
 def msg(s):
 	print s
-	to_ui.put((False, s))
+	to_ui.put((False, s, "Update"))
 
 # USB thread
 def usb_thread():
@@ -54,16 +56,17 @@ def usb_thread():
             time.sleep(1)
             continue
 
-        to_ui.put((True, "Ready."))
+        to_ui.put((True, "Ready.", "Update"))
 
         # Wait for button
         from_ui.get()
 
         dfu.download(dev, "j4cDAC.bin", msg)
 
-	# Wait for them to ask us to do it again, I guess?
-	to_ui.put((True, "Done."))
+	to_ui.put((True, "Done.", "Exit"))
 	from_ui.get()
+	to_ui.put(("quit", None, None))
+        
 
 thread.start_new(usb_thread, ())
 

@@ -98,7 +98,8 @@ def download(dev, filename, msg):
 
     Returns True if download was successful; False otherwise.
     """ 
-    filename = os.path.join(os.environ["_MEIPASS2"], filename)
+    if "_MEIPASS2" in os.environ:
+        filename = os.path.join(os.environ["_MEIPASS2"], filename)
     try:
         file_data = file(filename, "rb").read()
     except:

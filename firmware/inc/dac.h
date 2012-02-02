@@ -94,4 +94,7 @@ int delay_line_get_delay(int color_index);
 extern int dac_current_pps;
 extern int dac_flags;
 
+#define DAC_INSTRUMENT_TIME 0
+extern uint32_t dac_cycle_count;
+
 #endif

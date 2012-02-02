@@ -30,8 +30,6 @@
 #include <playback.h>
 #include <render.h>
 
-#define DAC_INSTRUMENT_TIME 0
-
 /* Each point is 18 bytes. We buffer 1800 points = 32400 bytes.
  *
  * This gives us up to 60ms at 30k, 45ms at 40k, 36ms at 50k, or 30ms at

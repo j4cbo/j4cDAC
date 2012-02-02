@@ -107,6 +107,8 @@ bl:
 size:
 	$(PREFIX)size -A j4cDAC.elf
 	$(PREFIX)nm -anS --size-sort -t d j4cDAC.elf | grep ^2 | tail -20
+	@echo
+	@echo "->" `git describe --dirty`
 
 term:
 	../tools/miniterm/miniterm.py -b 230400 -p /dev/ttyUSB0 --rts=0

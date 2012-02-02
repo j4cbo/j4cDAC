@@ -56,6 +56,10 @@ void SysTick_Handler(void) {
 	}
 }
 
+void print_dac_cycle_count(void) {
+	outputf("dac %d", dac_cycle_count);
+}
+
 struct periodic_event {
 	void (*f)(void);
 	int period;
@@ -69,6 +73,9 @@ struct periodic_event {
 	{ dhcp_fine_tmr, 500, "dhcp f", 25 },
 	{ autoip_tmr, AUTOIP_TMR_INTERVAL, "autoip", 10 },
 	{ broadcast_send, 1000, "broadcast", 10 },
+#if DAC_INSTRUMENT_TIME
+	{ print_dac_cycle_count, 1000, "dac_cycle_count", 4 },
+#endif
 	{ eth_check_link, 100, "eth_check_link", 2 }
 };
 

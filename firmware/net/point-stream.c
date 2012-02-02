@@ -11,6 +11,15 @@
 
 #define RV __attribute__((warn_unused_result))
 
+extern const char build[];
+
+uint8_t ps_plugin[PLUGIN_SIZE] __attribute__((aligned(16)));
+static int ps_plugin_enabled;
+
+static int __attribute__((noinline)) invoke_plugin(void * dest, void * src) {
+	return ((int (*)(void*, void*))(ps_plugin + 1))(dest, src);
+}
+
 enum fsm_result {
 	NEEDMORE,
 	OK,
@@ -18,7 +27,7 @@ enum fsm_result {
 };
 
 static enum {
-	MAIN, DATA, DATA_ABORTING
+	MAIN, DATA, DATA_PLUGIN, DATA_ABORTING, INSTALL
 } ps_state;
 
 static int ps_pointsleft;
@@ -148,6 +157,40 @@ static int RV send_resp(struct tcp_pcb *pcb, char resp, char cmd, int len) {
 	return len;
 }
 
+/* send_version_resp
+ *
+ * Send our version string back to the host.
+ *
+ * This looks a lot like send_resp, but with a version string instead; also,
+ * we can't defer a version response like we can an ACK, so any error in
+ * send is fatal. (This is OK, since version queries don't happen under
+ * heavy load.)
+ *
+ * This does the same CPS-style return as send_resp.
+ */
+static int RV send_version_resp(struct tcp_pcb *pcb, int len) {
+	char buf[32];
+	memset(buf, 0, sizeof(buf));
+	strncpy(buf, build, sizeof(buf) - 1);
+
+	err_t err = tcp_write(pcb, buf, sizeof(buf), TCP_WRITE_FLAG_COPY);
+
+	/* We can't defer a version response... */
+	if (err != ERR_OK) {
+		outputf("tcp_write returned %d", err);
+		return close_conn(pcb, CONNCLOSED_SENDFAIL, len);
+	}
+
+	err = tcp_output(pcb);
+
+	if (err != ERR_OK) {
+		outputf("tcp_output returned %d", err);
+		return close_conn(pcb, CONNCLOSED_SENDFAIL, len);
+	}
+
+	return len;
+}
+
 /* recv_fsm
  *
  * Attempt to process some data from the buffer located at 'data'.
@@ -222,6 +265,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 					 sizeof(struct queue_command));
 
 		case 'd':
+		case 'D':
 			/* Data: switch into the DATA state to start reading
 			 * points into the buffer. */
 			if (len < sizeof(struct data_command))
@@ -230,7 +274,8 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 			struct data_command *h = (struct data_command *) data;
 
 			if (h->npoints) {
-				ps_state = DATA;
+				if (cmd == 'd') ps_state = DATA;
+				else ps_state = DATA_PLUGIN;
 				ps_pointsleft = h->npoints;
 
 				/* We'll send a response once we've read all
@@ -269,6 +314,23 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 			/* Ping */
 			return send_resp(pcb, RESP_ACK, cmd, 1);
 
+		case 'I':
+			/* Install plugin */
+			ps_state = INSTALL;
+			ps_pointsleft = sizeof(ps_plugin);
+			return 1;
+
+		case 'P':
+			/* Pass data to plugin */
+			if (!ps_plugin_enabled)
+				return send_resp(pcb, RESP_NAK_INVL, cmd, 17);
+			if (len < 17) return 0;
+			return send_resp(pcb, invoke_plugin(data + 1, NULL), cmd, 17);
+
+		case 'v':
+			/* Check version */
+			return send_version_resp(pcb, 1);
+
 		default:
 			outputf("unknown cmd 0x%02x", cmd);
 			return close_conn(pcb, CONNCLOSED_UNKNOWNCMD, -1);
@@ -276,7 +338,41 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 
 		return -1;
 
+	case INSTALL:
+		/* How many bytes? */
+		npoints = len;
+		if (npoints > ps_pointsleft) npoints = ps_pointsleft;
+
+		/* Copy in the data and move up */
+		memcpy(ps_plugin + sizeof(ps_plugin) - ps_pointsleft,
+		       data, npoints);
+		ps_pointsleft -= npoints;
+
+		if (!ps_pointsleft) {
+			/* Initialize */
+			outputf("invoking plugin...");
+			int ret = invoke_plugin(NULL, NULL);
+			outputf("plugin returned %d", ret);
+
+			ps_state = MAIN;
+
+			if (ret) {
+				/* Fail! */
+				ps_plugin_enabled = 0;
+				return send_resp(pcb, RESP_NAK_INVL, 'I',
+				                 npoints);
+			} else {
+				ps_plugin_enabled = 1;
+				return send_resp(pcb, RESP_ACK, 'I', npoints);
+			}
+		} else {
+			return npoints;
+		}
+
+		break;
+
 	case DATA:
+	case DATA_PLUGIN:
 		ASSERT_NOT_EQUAL(ps_pointsleft, 0);
 
 		/* We can only write a complete point at a time. */
@@ -287,6 +383,11 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		npoints = len / sizeof(struct dac_point);
 		if (npoints > ps_pointsleft)
 			npoints = ps_pointsleft;
+
+		if (ps_state == DATA_PLUGIN && !ps_plugin_enabled) {
+			ps_state = DATA_ABORTING;
+			goto handle_aborted_data;
+		}
 
 		/* How much do we have room for now? Note that dac_prepare
 		 * is a ring buffer, so it's OK if it returns less than the
@@ -318,7 +419,12 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 
 		int i;
 		for (i = 0; i < npoints; i++) {
-			dac_pack_point(addr + i, pdata + i);
+			if (ps_state == DATA) {
+				dac_pack_point(addr + i, pdata + i);
+			} else {
+				invoke_plugin(addr + i, pdata + i);
+			}
+
 		}
 
 		/* Let the DAC know we've given it more data */
@@ -327,8 +433,9 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		ps_pointsleft -= npoints;
 
 		if (!ps_pointsleft) {
+			char resp = (ps_state == DATA) ? 'd' : 'D';
 			ps_state = MAIN;
-			return send_resp(pcb, RESP_ACK, 'd',
+			return send_resp(pcb, RESP_ACK, resp,
 					 npoints * sizeof(struct dac_point));
 		} else {
 			return (npoints * sizeof(struct dac_point));

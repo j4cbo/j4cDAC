@@ -87,7 +87,7 @@ void broadcast_send(void) {
 	pkt->max_point_rate = DAC_MAX_POINT_RATE;
 
 	pkt->hw_revision = hw_board_rev;
-	pkt->sw_revision = 1;	// XXX TODO - integrate into build system
+	pkt->sw_revision = 2;
 
 	udp_send(&broadcast_pcb, p);
 	pbuf_free(p);
