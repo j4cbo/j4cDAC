@@ -26,7 +26,10 @@
 #include <string.h>
 
 #include "dac.h"
+
+#if 0
 #include <iniparser.h>
+#endif
 
 #define EXPORT __declspec(dllexport)
 
