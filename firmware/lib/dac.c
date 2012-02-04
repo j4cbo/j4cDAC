@@ -41,6 +41,11 @@ struct {
 	uint32_t count;
 	uint16_t produce;
 	uint16_t consume;
+	enum {
+		IRQ_DO_BUFFER,
+		IRQ_DO_ABSTRACT,
+		IRQ_DO_PANIC
+	} irq_do;
 	enum dac_state state;
 	enum playback_source playback_src;
 } dac_status;
@@ -119,6 +124,7 @@ int dac_start(void) {
 
 	dac_status.state = DAC_PLAYING;
 	dac_status.playback_src = playback_src;
+	dac_status.irq_do = (playback_src == SRC_ABSTRACT ? IRQ_DO_ABSTRACT : IRQ_DO_BUFFER);
 	LPC_PWM1->TCR = PWM_TCR_COUNTER_ENABLE | PWM_TCR_PWM_ENABLE;
 
 	led_set_backled(1);
@@ -312,6 +318,7 @@ void COLD dac_init() {
 	NVIC_EnableIRQ(PWM1_IRQn);
 
 	dac_status.state = DAC_IDLE;
+	dac_status.irq_do = IRQ_DO_PANIC;
 	dac_status.count = 0;
 	dac_current_pps = 0;
 
@@ -341,6 +348,7 @@ int dac_prepare(void) {
 	dac_rate_consume = 0;
 	dac_flags &= ~DAC_FLAG_STOP_ALL;
 	dac_status.state = DAC_PREPARED;
+	dac_status.irq_do = IRQ_DO_PANIC;
 
 	return 0;
 }
@@ -373,6 +381,7 @@ void NOINLINE dac_stop(int flags) {
 
 	/* Now, reset state */
 	dac_status.state = DAC_IDLE;
+	dac_status.irq_do = IRQ_DO_PANIC;
 	dac_status.count = 0;
 	dac_flags |= flags;
 
@@ -421,13 +430,23 @@ static void __attribute__((always_inline)) dac_write_point(dac_point_t *p) {
 	LPC_SSP1->DR = (p->u2 >> 4);
 }
 
+static NOINLINE COLD __attribute__((noreturn)) void dac_panic_not_playing(void) {
+	panic("dac_status not PLAYING in PWM1 IRQ");
+}
+
 /* dac_handle_abstract
  *
  * To reduce register pressure and improve performance during high-speed
  * network/file playback, the abstract generator codepath is separate from
  * the main PWM IRQ handler.
  */
-static void NOINLINE dac_handle_abstract(void) {
+void NOINLINE dac_handle_abstract(void) {
+
+	if (unlikely(dac_status.irq_do == IRQ_DO_PANIC)) {
+		dac_panic_not_playing();
+		return;
+	}
+
 	/* If we're not actually playing, produce no output. */
 	dac_point_t dp;
 	if (playback_source_flags & ABSTRACT_PLAYING) {
@@ -438,10 +457,6 @@ static void NOINLINE dac_handle_abstract(void) {
 
 	dac_write_point(&dp);
 	dac_status.count++;
-}
-
-static NOINLINE COLD __attribute__((noreturn)) void dac_panic_not_playing(void) {
-	panic("dac_status not PLAYING in PWM1 IRQ");
 }
 
 /* PQM1_IRQHandler
@@ -458,13 +473,8 @@ void PWM1_IRQHandler(void) {
 	/* Tell the interrupt handler we've handled it */
 	LPC_PWM1->IR = PWM_IR_PWMMRn(0);
 
-	if (unlikely(dac_status.playback_src == SRC_ABSTRACT)) {
+	if (unlikely(dac_status.irq_do != IRQ_DO_BUFFER)) {
 		dac_handle_abstract();
-		return;
-	}
-
-	if (unlikely(dac_status.state != DAC_PLAYING)) {
-		dac_panic_not_playing();
 		return;
 	}
 
