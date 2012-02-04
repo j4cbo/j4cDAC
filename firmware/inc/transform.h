@@ -20,7 +20,8 @@
 #include <stdint.h>
 #include <attrib.h>
 
-#define COORD_MAX	32768
+#define COORD_MAX_EXP	16
+#define COORD_MAX	(1 << COORD_MAX_EXP)
 
 #define COORD_TOO_CLOSE	150
 
@@ -44,8 +45,8 @@ void update_transform(void);
 extern int32_t transform_matrix[8];
 
 static inline int32_t ALWAYS_INLINE translate(int32_t *c, int x, int y) {
-        int32_t xy_scale = x * y / COORD_MAX;
-        return (c[0]*x + c[1]*y + c[2]*xy_scale) / COORD_MAX + c[3];
+	int32_t xy_scale = (x * y) >> COORD_MAX_EXP;
+	return ((c[0]*x + c[1]*y + c[2]*xy_scale) >> COORD_MAX_EXP) + c[3];
 }
 
 static inline int32_t ALWAYS_INLINE translate_x(int32_t x, int32_t y) {
