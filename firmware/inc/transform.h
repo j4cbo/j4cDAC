@@ -17,11 +17,13 @@
 
 #ifndef TRANSFORM_MAX
 
+#define COORD_MAX_EXP	15
+#define COORD_MAX	(1 << COORD_MAX_EXP)
+
+#ifndef __ASSEMBLER__
+
 #include <stdint.h>
 #include <attrib.h>
-
-#define COORD_MAX_EXP	16
-#define COORD_MAX	(1 << COORD_MAX_EXP)
 
 #define COORD_TOO_CLOSE	150
 
@@ -56,5 +58,7 @@ static inline int32_t ALWAYS_INLINE translate_x(int32_t x, int32_t y) {
 static inline int32_t ALWAYS_INLINE translate_y(int32_t x, int32_t y) {
         return translate(transform_matrix + 4, x, y);
 }
+
+#endif
 
 #endif

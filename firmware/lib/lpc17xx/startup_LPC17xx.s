@@ -6,7 +6,7 @@
 
 
 /* 
-//*** <<< Use Configuration Wizard in Context Menu >>> *** 
+// *** <<< Use Configuration Wizard in Context Menu >>> *** 
 */
 
 
@@ -82,7 +82,7 @@ __cs3_interrupt_vector_cortex_m:
     .long   UART1_IRQHandler            /* 22: UART1                        */
     .long   UART2_IRQHandler            /* 23: UART2                        */
     .long   UART3_IRQHandler            /* 24: UART3                        */
-    .long   PWM1_IRQHandler             /* 25: PWM1                         */
+    .long   PWM1_IRQHandler+1             /* 25: PWM1                         */
     .long   I2C0_IRQHandler             /* 26: I2C0                         */
     .long   I2C1_IRQHandler             /* 27: I2C1                         */
     .long   I2C2_IRQHandler             /* 28: I2C2                         */

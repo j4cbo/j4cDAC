@@ -78,15 +78,16 @@ static void calculate_transform(int32_t *c, int32_t *coords) {
 	int tr = coords[CORNER_TR];
 	int bl = coords[CORNER_BL];
 	int br = coords[CORNER_BR];
-	c[3] = (tl + tr + bl + br) / 4;
-	c[2] = c[3] - (tl + br) / 2;
-	c[1] = c[3] - (br + bl) / 2;
-        c[0] = -bl - c[1] + c[2] + c[3];
+	c[6] = (tl + tr + bl + br) / 4;
+	c[4] = c[6] - (tl + br) / 2;
+	c[2] = c[6] - (br + bl) / 2;
+	c[0] = -bl - c[2] + c[4] + c[6];
+	c[6] += 0x8000;
 }
 
 void update_transform(void) {
 	calculate_transform(transform_matrix, settings.transform_x);
-	calculate_transform(transform_matrix + 4, settings.transform_y);
+	calculate_transform(transform_matrix + 1, settings.transform_y);
 
 /*
 	outputf("TL: %d %d\tTR: %d %d",

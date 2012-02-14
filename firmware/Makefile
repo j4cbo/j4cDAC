@@ -1,7 +1,7 @@
 PREFIX = arm-none-eabi-
 
 INCLUDES = -Iinc -I../common/inc -Ilib/lpc17xx -Idrivers/include -I../common
-CFLAGS += -fno-common -mcpu=cortex-m3 -mthumb -O3 -g
+CFLAGS += -fno-common -mcpu=cortex-m3 -mthumb -O3 -g -fno-unroll-loops
 CFLAGS += -Wall -Werror -fdata-sections -fshort-enums -Wno-unused -Wno-address
 LDFLAGS = -Tlib/lpc17xx/lpc1758.lds -mcpu=cortex-m3 -mthumb -fwhole-program -Wl,-Map=j4cDAC.map
 
@@ -16,7 +16,7 @@ APP_SRCS += ../common/lib/vsnprintf.c
 BRD_SRCS += ../common/lib/hardware.c
 
 # Application
-BRD_SRCS += lib/dac.c
+BRD_SRCS += lib/dac.c lib/dac_asm.s
 APP_SRCS += lib/panic.c lib/lightengine.c lib/playback.c
 
 # lwIP
@@ -73,7 +73,7 @@ pc: $(PC_SRCS) $(APP_SRCS)
 	$(PREFIX)gcc $(CFLAGS) -c $< -o $@
 
 %.o: %.s
-	$(PREFIX)gcc $(CFLAGS) -c $< -o $@
+	$(PREFIX)gcc $(CFLAGS) -x assembler-with-cpp -c $< -o $@
 
 ../boot/boot.hex:
 	make -C ../boot

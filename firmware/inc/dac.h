@@ -18,6 +18,11 @@
 #ifndef DAC_H
 #define DAC_H
 
+#define DAC_BUFFER_POINTS	1800
+#define DAC_INSTRUMENT_TIME	1
+
+#ifndef __ASSEMBLER__
+
 #include <protocol.h>
 
 enum dac_state {
@@ -31,8 +36,6 @@ enum dac_state {
 #define DAC_FLAG_STOP_ESTOP	(1 << 2)
 #define DAC_FLAG_STOP_SRCSWITCH	(1 << 3)
 #define DAC_FLAG_STOP_ALL	0x0E
-
-#define DAC_BUFFER_POINTS	1800
 
 #define DAC_RATE_BUFFER_SIZE	120
 
@@ -59,10 +62,29 @@ static inline void dac_pack_point(packed_point_t *dest, dac_point_t *src) {
 	dest->y = src->y;
 
 	#define U(color) ((uint32_t)(src->color))
+/*
+       dest->irg = (src->g >> 4) | ((U(r) & 0xFFF0) << 8) | ((U(i) & 0xFFF0) << 16);
+       dest->i12 = (U(i) & 0x00F0) | ((U(u2) & 0xFFF0) << 4) | ((U(u1) & 0xFFF0) << 20);
+       dest->bf = (src->b >> 4) | (src->control & 0xF000);
+*/
+	uint32_t irg;
+	asm("bfi %0, %1, 16, 16" : "=r" (irg) : "r" (U(i)));
+	asm("bfi %0, %1, 8, 16" : "+r" (irg) : "r" (U(r)));
+	asm("bfc %0, 0, 12" : "+r" (irg));
+	asm("orr %0, %0, %1, lsr 4" : "+r" (irg) : "r" (src->g));
+	dest->irg = irg;
 
-	dest->irg = (src->g >> 4) | ((U(r) & 0xFFF0) << 8) | ((U(i) & 0xFFF0) << 16);
-	dest->i12 = (U(i) & 0x00F0) | ((U(u2) & 0xFFF0) << 4) | ((U(u1) & 0xFFF0) << 20);
-	dest->bf = (src->b >> 4) | (src->control & 0xF000);
+	uint32_t i12;
+	asm("bfi %0, %1, 16, 16" : "=r" (i12) : "r" (U(u1)));
+	asm("bfi %0, %1, 4, 16" : "+r" (i12) : "r" (U(u2)));
+	uint32_t imask = U(i);
+	asm("bfc %0, 8, 24" : "+r" (imask));
+	asm("orr %0, %0, %1" : "+r" (i12) : "r" (imask));
+	dest->i12 = i12;
+
+	uint32_t control = src->control;
+	asm("bfc %0, 0, 12" : "+r" (control));
+	dest->bf = control | (src->b >> 4);
 }
 
 #define UNPACK_X(p)	((p)->x)
@@ -94,7 +116,8 @@ int delay_line_get_delay(int color_index);
 extern int dac_current_pps;
 extern int dac_flags;
 
-#define DAC_INSTRUMENT_TIME 0
 extern uint32_t dac_cycle_count;
+
+#endif
 
 #endif

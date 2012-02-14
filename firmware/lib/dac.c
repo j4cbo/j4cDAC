@@ -30,25 +30,52 @@
 #include <playback.h>
 #include <render.h>
 
-/* Each point is 18 bytes. We buffer 1800 points = 32400 bytes.
+/* Each point is 14 bytes. We buffer 1800 points.
  *
  * This gives us up to 60ms at 30k, 45ms at 40k, 36ms at 50k, or 30ms at
  * 60k.
  */
-static packed_point_t dac_buffer[DAC_BUFFER_POINTS] AHB0;
+packed_point_t dac_buffer[DAC_BUFFER_POINTS] AHB0;
 
-struct {
+#define DAC_MAX_COLOR_DELAY	16
+
+union color_control {
+	struct {
+		uint8_t blue_produce;
+		uint8_t green_produce;
+		uint8_t red_produce;
+		uint8_t color_consume;
+	};
+	uint32_t word;
+};
+
+volatile struct {
 	uint32_t count;
 	uint16_t produce;
 	uint16_t consume;
+
 	enum {
-		IRQ_DO_BUFFER,
+		IRQ_DO_BUFFER = 14,
 		IRQ_DO_ABSTRACT,
 		IRQ_DO_PANIC
 	} irq_do;
 	enum dac_state state;
 	enum playback_source playback_src;
-} dac_status;
+	uint8_t pad;
+
+	/* Color channels */
+	uint32_t blue_scale;
+	uint32_t blue_offset;
+	uint16_t blue_buffer[DAC_MAX_COLOR_DELAY];
+	union color_control color_control;
+	uint32_t red_scale;
+	uint32_t red_offset;
+	uint16_t red_buffer[DAC_MAX_COLOR_DELAY];
+	uint32_t green_scale;
+	uint32_t green_offset;
+	uint16_t green_buffer[DAC_MAX_COLOR_DELAY];
+	uint32_t transform_matrix[8];
+} dac_control;
 
 /* Buffer for point rate changes.
  */
@@ -57,20 +84,6 @@ static int dac_rate_produce;
 static volatile int dac_rate_consume;
 
 uint32_t dac_cycle_count;
-
-/* Color channel delay lines.
- */
-#define DAC_MAX_COLOR_DELAY	16
-struct delay_line {
-	uint16_t buffer[DAC_MAX_COLOR_DELAY];
-	uint8_t produce;
-	uint8_t consume;
-};
-
-/* This looks weird. Using a struct to group the red and green delay
- * lines together cuts down on some address loads. */
-static struct { struct delay_line red, green; } delay_lines;
-static struct delay_line blue_delay;
 
 /* Internal state. */
 int dac_current_pps;
@@ -110,7 +123,7 @@ int dac_set_rate(int points_per_second) {
  * specified point rate.
  */
 int dac_start(void) {
-	if (dac_status.state != DAC_PREPARED) {
+	if (dac_control.state != DAC_PREPARED) {
 		outputf("dac: not starting - not prepared");
 		return -1;
 	}
@@ -122,9 +135,9 @@ int dac_start(void) {
 
 	outputf("dac: starting");
 
-	dac_status.state = DAC_PLAYING;
-	dac_status.playback_src = playback_src;
-	dac_status.irq_do = (playback_src == SRC_ABSTRACT ? IRQ_DO_ABSTRACT : IRQ_DO_BUFFER);
+	dac_control.state = DAC_PLAYING;
+	dac_control.playback_src = playback_src;
+	dac_control.irq_do = (playback_src == SRC_ABSTRACT ? IRQ_DO_ABSTRACT : IRQ_DO_BUFFER);
 	LPC_PWM1->TCR = PWM_TCR_COUNTER_ENABLE | PWM_TCR_PWM_ENABLE;
 
 	led_set_backled(1);
@@ -137,7 +150,7 @@ int dac_start(void) {
  * Queue up a point rate change.
  */
 int dac_rate_queue(int points_per_second) {
-	if (dac_status.state == DAC_IDLE) {
+	if (dac_control.state == DAC_IDLE) {
 		outputf("drq rejected: idle");
 		return -1;
 	}
@@ -171,36 +184,36 @@ int dac_rate_queue(int points_per_second) {
  * give by dac_request_addr().
  */
 int dac_request(void) {
-	int consume = dac_status.consume;
+	int consume = dac_control.consume;
 	int ret;
 
-	if (dac_status.state == DAC_IDLE)
+	if (dac_control.state == DAC_IDLE)
 		return -1;
 
 /*
-	outputf("d_r: p %d, c %d", dac_status.produce, consume);
+	outputf("d_r: p %d, c %d", dac_control.produce, consume);
 */
 
-	if (dac_status.produce >= consume) {
+	if (dac_control.produce >= consume) {
 		/* The read pointer is behind the write pointer, so we can
 		 * go ahead and fill the buffer up to the end. */
 		if (consume == 0) {
 			/* But not if consume = 0, since the buffer can only
 			 * ever become one word short of full. */
-			ret = (DAC_BUFFER_POINTS - dac_status.produce) - 1;
+			ret = (DAC_BUFFER_POINTS - dac_control.produce) - 1;
 		} else {
-			ret = DAC_BUFFER_POINTS - dac_status.produce;
+			ret = DAC_BUFFER_POINTS - dac_control.produce;
 		}
 	} else {
 		/* We can only fil up as far as the write pointer. */
-		ret = (consume - dac_status.produce) - 1;
+		ret = (consume - dac_control.produce) - 1;
 	}
 
 	return ret;
 }
 
 packed_point_t *dac_request_addr(void) {
-	return &dac_buffer[dac_status.produce];
+	return &dac_buffer[dac_control.produce];
 }
 
 /* dac_advance
@@ -212,9 +225,9 @@ packed_point_t *dac_request_addr(void) {
  * than dac_request allowed, but it should not write *more*.
  */
 void dac_advance(int count) {
-	if (dac_status.state == DAC_PREPARED || dac_status.state == DAC_PLAYING) {
-		int new_produce = (dac_status.produce + count) % DAC_BUFFER_POINTS;
-		dac_status.produce = new_produce;
+	if (dac_control.state == DAC_PREPARED || dac_control.state == DAC_PLAYING) {
+		int new_produce = (dac_control.produce + count) % DAC_BUFFER_POINTS;
+		dac_control.produce = new_produce;
 	}
 }
 
@@ -223,24 +236,30 @@ void dac_advance(int count) {
  * Return the number of points of delay in the given delay line.
  */
 int delay_line_get_delay(int color_index) {
-	struct delay_line *dl;
-	if (color_index == 0) dl = &delay_lines.red;
-	else if (color_index == 1) dl = &delay_lines.green;
-	else dl = &blue_delay;
-	return (dl->produce - dl->consume + DAC_MAX_COLOR_DELAY)
-		% DAC_MAX_COLOR_DELAY;
+	union color_control cc = dac_control.color_control;
+	int produce;
+	if (color_index == 0) produce = cc.red_produce;
+	else if (color_index == 1) produce = cc.green_produce;
+	else produce = cc.blue_produce;
+	return (produce - cc.color_consume + DAC_MAX_COLOR_DELAY) % DAC_MAX_COLOR_DELAY;
 }
 
 /* delay_line_reset
  *
- * Reset a delay line's buffer, produce, and consume pointers.
+ * Reset the delay lines' buffers.
  */
-static void delay_line_reset(struct delay_line *dl) {
-	memset(&dl->buffer, 0, ARRAY_NELEMS(dl->buffer));
-	int delay = (dl->produce - dl->consume + DAC_MAX_COLOR_DELAY)
-		% DAC_MAX_COLOR_DELAY;
-	dl->produce = delay;
-	dl->consume = 0;
+static void delay_line_reset(void) {
+	memset(&dac_control.red_buffer, 0, sizeof(&dac_control.red_buffer));
+	memset(&dac_control.green_buffer, 0, sizeof(&dac_control.green_buffer));
+	memset(&dac_control.blue_buffer, 0, sizeof(&dac_control.blue_buffer));
+}
+
+static void move_data_forward(volatile uint16_t *buf, int n) {
+	uint16_t buf2[DAC_MAX_COLOR_DELAY];
+	int i;
+	for (i = 0; i < DAC_MAX_COLOR_DELAY; i++) buf2[i] = buf[i];
+	for (i = 0; i < DAC_MAX_COLOR_DELAY; i++)
+		buf[i] = buf2[(i + n) % DAC_MAX_COLOR_DELAY];
 }
 
 /* delay_line_set_delay
@@ -251,34 +270,87 @@ static void delay_line_reset(struct delay_line *dl) {
  * Increasing it will cause intermediate points to be repeated once.
  */
 void delay_line_set_delay(int color_index, int delay) {
-	struct delay_line *dl;
-	if (color_index == 0) dl = &delay_lines.red;
-	else if (color_index == 1) dl = &delay_lines.green;
-	else dl = &blue_delay;
+	uint32_t produce;
+	int i;
+
 	if (delay < 0) delay = 0;
 	if (delay >= DAC_MAX_COLOR_DELAY) delay = DAC_MAX_COLOR_DELAY - 1;
 
-	__disable_irq();
-
-	int cur_delay = (dl->produce - dl->consume + DAC_MAX_COLOR_DELAY)
-		% DAC_MAX_COLOR_DELAY;
+	int cur_delay = delay_line_get_delay(color_index);
 	int offset = delay - cur_delay;
-	if (offset < 0) {
-		/* Just move the consume pointer up a bit, dropping
-		 * some points */
-		dl->consume = (dl->consume - offset) % DAC_MAX_COLOR_DELAY;
+	outputf("cur delay %d; offset %d", cur_delay, offset);
+
+	if (offset >= 0) {
+		/* Repeat some color points. This only requires changing
+		 * our one channel's produce pointer and buffer, not the
+		 * global consume pointer. */
+
+		if (color_index == 0) {
+			__disable_irq();
+			produce = dac_control.color_control.red_produce;
+			volatile uint16_t *data = dac_control.red_buffer;
+			uint16_t repvalue = data[produce];
+			for (i = 0; i < offset; i++) {
+				produce = (produce + 1) % DAC_MAX_COLOR_DELAY;
+				data[produce] = repvalue;
+			}
+			dac_control.color_control.red_produce = produce;
+			__enable_irq();
+		} else if (color_index == 1) {
+			__disable_irq();
+			produce = dac_control.color_control.green_produce;
+			volatile uint16_t *data = dac_control.green_buffer;
+			uint16_t repvalue = data[produce];
+			for (i = 0; i < offset; i++) {
+				produce = (produce + 1) % DAC_MAX_COLOR_DELAY;
+				data[produce] = repvalue;
+			}
+			dac_control.color_control.green_produce = produce;
+			__enable_irq();
+		} else {
+			__disable_irq();
+			produce = dac_control.color_control.blue_produce;
+			volatile uint16_t *data = dac_control.blue_buffer;
+			uint16_t repvalue = data[produce];
+			for (i = 0; i < offset; i++) {
+				produce = (produce + 1) % DAC_MAX_COLOR_DELAY;
+				data[produce] = repvalue;
+			}
+			dac_control.color_control.blue_produce = produce;
+			__enable_irq();
+		}
+
 	} else {
-		/* Repeat some color points */
-		uint16_t repvalue = dl->buffer[dl->produce];
-		int i;
-		for (i = 0; i < offset; i++) {
-			dl->produce = (dl->produce + 1) % DAC_MAX_COLOR_DELAY;
-			dl->buffer[dl->produce] = repvalue;
+		/* Move the consume pointer up a bit - but this means that we
+		 * also have to update the other two channels. */
+		int count = -offset;
+
+		if (color_index == 0) {
+			__disable_irq();
+			move_data_forward(dac_control.green_buffer, count);
+			move_data_forward(dac_control.blue_buffer, count);
+			dac_control.color_control.word =
+				(dac_control.color_control.word + 0x01000101)
+				& 0x0f0f0f0f;
+			__enable_irq();
+		} else if (color_index == 1) {
+			__disable_irq();
+			move_data_forward(dac_control.red_buffer, count);
+			move_data_forward(dac_control.blue_buffer, count);
+			dac_control.color_control.word =
+				(dac_control.color_control.word + 0x01010001)
+				& 0x0f0f0f0f;
+			__enable_irq();
+		} else {
+			__disable_irq();
+			move_data_forward(dac_control.red_buffer, count);
+			move_data_forward(dac_control.green_buffer, count);
+			dac_control.color_control.word =
+				(dac_control.color_control.word + 0x01010100)
+				& 0x0f0f0f0f;
+			__enable_irq();
 		}
 	}
-	uint8_t p = dl->produce, c = dl->consume;
-
-	__enable_irq();
 }
 
 /* dac_init
@@ -317,17 +389,17 @@ void COLD dac_init() {
 	NVIC_SetPriority(PWM1_IRQn, 0);
 	NVIC_EnableIRQ(PWM1_IRQn);
 
-	dac_status.state = DAC_IDLE;
-	dac_status.irq_do = IRQ_DO_PANIC;
-	dac_status.count = 0;
+	dac_control.state = DAC_IDLE;
+	dac_control.irq_do = IRQ_DO_PANIC;
+	dac_control.count = 0;
 	dac_current_pps = 0;
 
-	delay_lines.red.produce = delay_lines.red.consume = 0;
-	delay_lines.green.produce = delay_lines.green.consume = 0;
-	blue_delay.produce = blue_delay.consume = 0;
-	delay_line_reset(&delay_lines.red);
-	delay_line_reset(&delay_lines.green);
-	delay_line_reset(&blue_delay);
+	dac_control.color_control.word = 0;
+	delay_line_reset();
+
+	dac_control.red_scale = COORD_MAX;
+	dac_control.green_scale = COORD_MAX;
+	dac_control.blue_scale = COORD_MAX;
 }
 
 /* dac_configure
@@ -336,19 +408,19 @@ void COLD dac_init() {
  * reset call after the DAC stops and before the first time it is started.
  */
 int dac_prepare(void) {
-	if (dac_status.state != DAC_IDLE)
+	if (dac_control.state != DAC_IDLE)
 		return -1;
 
 	if (le_get_state() != LIGHTENGINE_READY)
 		return -1;
 
-	dac_status.produce = 0;
-	dac_status.consume = 0;
+	dac_control.produce = 0;
+	dac_control.consume = 0;
 	dac_rate_produce = 0;
 	dac_rate_consume = 0;
 	dac_flags &= ~DAC_FLAG_STOP_ALL;
-	dac_status.state = DAC_PREPARED;
-	dac_status.irq_do = IRQ_DO_PANIC;
+	dac_control.state = DAC_PREPARED;
+	dac_control.irq_do = IRQ_DO_PANIC;
 
 	return 0;
 }
@@ -380,26 +452,15 @@ void NOINLINE dac_stop(int flags) {
 	LPC_PINCON->PINSEL4 |= (1 << 8);
 
 	/* Now, reset state */
-	dac_status.state = DAC_IDLE;
-	dac_status.irq_do = IRQ_DO_PANIC;
-	dac_status.count = 0;
+	dac_control.state = DAC_IDLE;
+	dac_control.irq_do = IRQ_DO_PANIC;
+	dac_control.count = 0;
 	dac_flags |= flags;
 
-	delay_line_reset(&delay_lines.red);
-	delay_line_reset(&delay_lines.green);
-	delay_line_reset(&blue_delay);
+	delay_line_reset();
 }
 
-/* Delay the red, green, and blue lines if needed
- */
-static void ALWAYS_INLINE delay_line_write(struct delay_line *dl, uint16_t in) {
-	dl->produce = (dl->produce + 1) % ARRAY_NELEMS(dl->buffer);
-	dl->consume = (dl->consume + 1) % ARRAY_NELEMS(dl->buffer);
-	dl->buffer[dl->produce] = in;
-	LPC_SSP1->DR = dl->buffer[dl->consume];
-}
-
-static void NOINLINE dac_pop_rate_change(void) {
+void dac_pop_rate_change(void) {
 	int rate_consume = dac_rate_consume;
 	if (rate_consume != dac_rate_produce) {
 		dac_set_rate(dac_rate_buffer[rate_consume]);
@@ -410,6 +471,7 @@ static void NOINLINE dac_pop_rate_change(void) {
 	}
 }
 
+#if 0
 static void __attribute__((always_inline)) dac_write_point(dac_point_t *p) {
 
 	#define MASK_XY(v)	((((v) >> 4) + 0x800) & 0xFFF)
@@ -429,9 +491,10 @@ static void __attribute__((always_inline)) dac_write_point(dac_point_t *p) {
 	LPC_SSP1->DR = (p->u1 >> 4) | 0x1000;
 	LPC_SSP1->DR = (p->u2 >> 4);
 }
+#endif
 
 static NOINLINE COLD __attribute__((noreturn)) void dac_panic_not_playing(void) {
-	panic("dac_status not PLAYING in PWM1 IRQ");
+	panic("dac_control not PLAYING in PWM1 IRQ");
 }
 
 /* dac_handle_abstract
@@ -440,9 +503,11 @@ static NOINLINE COLD __attribute__((noreturn)) void dac_panic_not_playing(void) 
  * network/file playback, the abstract generator codepath is separate from
  * the main PWM IRQ handler.
  */
-void NOINLINE dac_handle_abstract(void) {
+void NOINLINE dac_handle_abstract() {
 
-	if (unlikely(dac_status.irq_do == IRQ_DO_PANIC)) {
+	LPC_PWM1->IR = PWM_IR_PWMMRn(0);
+
+	if (unlikely(dac_control.irq_do == IRQ_DO_PANIC)) {
 		dac_panic_not_playing();
 		return;
 	}
@@ -455,78 +520,12 @@ void NOINLINE dac_handle_abstract(void) {
 		memset(&dp, 0, sizeof(dp));
 	}
 
-	dac_write_point(&dp);
-	dac_status.count++;
-}
-
-/* PQM1_IRQHandler
- *
- * This is called for every point, and is responsible for filling the SSP's
- * transmit FIFO with whatever point data is necessary.
- */
-void PWM1_IRQHandler(void) {
-#if DAC_INSTRUMENT_TIME
-	uint32_t t1 = SysTick->VAL;
-	asm volatile("" ::: "memory");
-#endif
-
-	/* Tell the interrupt handler we've handled it */
-	LPC_PWM1->IR = PWM_IR_PWMMRn(0);
-
-	if (unlikely(dac_status.irq_do != IRQ_DO_BUFFER)) {
-		dac_handle_abstract();
-		return;
-	}
-
-	int consume = dac_status.consume;
-
-	/* Are we out of buffer space? If so, shut the lasers down. */
-	if (consume == dac_status.produce) {
-		dac_stop(DAC_FLAG_STOP_UNDERFLOW);
-		return;
-	}
-
-	packed_point_t *p = &dac_buffer[consume];
-
-	/* Move the consume pointer up and write it back to dac_status */
-	consume++;
-	if (consume >= DAC_BUFFER_POINTS)
-		consume = 0;
-
-	dac_status.consume = consume;
-	dac_status.count++;
-
-	/* Change the point rate? */
-	if (unlikely(p->bf & DAC_CTRL_RATE_CHANGE)) {
-		dac_pop_rate_change();
-	}
-
-	#define MASK_XY(v)      ((((v) >> 4) + 0x800) & 0xFFF)
-
-	delay_line_write(&blue_delay, (UNPACK_B(p) >> 4) | 0x3000);
-
-	uint32_t xi = UNPACK_X(p), yi = UNPACK_Y(p);
-	int32_t x = translate_x(xi, yi);
-	int32_t y = translate_y(xi, yi);
-	LPC_SSP1->DR = MASK_XY(x) | 0x7000;
-	LPC_SSP1->DR = MASK_XY(y) | 0x6000;
-
-	delay_line_write(&delay_lines.red, (UNPACK_R(p) >> 4) | 0x4000);
-	delay_line_write(&delay_lines.green, (UNPACK_G(p) >> 4) | 0x2000);
-
-	LPC_SSP1->DR = (UNPACK_I(p) >> 4) | 0x5000;
-	LPC_SSP1->DR = (UNPACK_U1(p) >> 4) | 0x1000;
-	LPC_SSP1->DR = (UNPACK_U2(p) >> 4);
-
-#if DAC_INSTRUMENT_TIME
-	uint32_t t2 = SysTick->VAL;
-	if ((t1 - t2) < 2500)
-		dac_cycle_count = t1 - t2;
-#endif
+	//dac_write_point(&dp);
+	dac_control.count++;
 }
 
 enum dac_state dac_get_state(void) {
-	return dac_status.state;
+	return dac_control.state;
 }
 
 /* dac_fullness
@@ -534,7 +533,7 @@ enum dac_state dac_get_state(void) {
  * Returns the number of points currently in the buffer.
  */
 int dac_fullness(void) {
-	int fullness = dac_status.produce - dac_status.consume;
+	int fullness = dac_control.produce - dac_control.consume;
 	if (fullness < 0)
 		fullness += DAC_BUFFER_POINTS;
 	return fullness;
@@ -547,7 +546,7 @@ int dac_fullness(void) {
 void shutter_set(int state) {
 	if (state) {
 		__disable_irq();
-		if (dac_status.state == DAC_PLAYING) {
+		if (dac_control.state == DAC_PLAYING) {
 			LPC_GPIO2->FIOSET = (1 << DAC_SHUTTER_PIN);
 			dac_flags |= DAC_FLAG_SHUTTER;
 		}
@@ -571,12 +570,23 @@ void impl_dac_pack_point(packed_point_t *dest, dac_point_t *src) {
 	dac_pack_point(dest, src);
 }
 
+int32_t __attribute__((used)) impl_translate(int32_t xi, int32_t yi) {
+	int32_t x = translate_x(xi, yi);
+	int32_t y = translate_y(xi, yi);
+	return x ^ y;
+}
+
 /* dac_get_count
  *
  * Return the number of points played by the DAC.
  */
 uint32_t dac_get_count() {
-	return dac_status.count;
+	return dac_control.count;
+}
+
+void dac_stop_underflow() {
+	LPC_PWM1->IR = PWM_IR_PWMMRn(0);
+	dac_stop(DAC_FLAG_STOP_UNDERFLOW);
 }
 
 INITIALIZER(hardware, dac_init);
