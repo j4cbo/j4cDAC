@@ -161,13 +161,29 @@ static void geom_set_offset(const char *path, int32_t offset_x, int32_t offset_y
 static void geom_set_rdelay(const char *path, int32_t delay) {
 	delay_line_set_delay(0, delay);
 }
-
 static void geom_set_gdelay(const char *path, int32_t delay) {
 	delay_line_set_delay(1, delay);
 }
-
 static void geom_set_bdelay(const char *path, int32_t delay) {
 	delay_line_set_delay(2, delay);
+}
+static void geom_set_rgain(const char *path, int32_t gain) {
+	color_corr_set_gain(0, gain);
+}
+static void geom_set_ggain(const char *path, int32_t gain) {
+	color_corr_set_gain(1, gain);
+}
+static void geom_set_bgain(const char *path, int32_t gain) {
+	color_corr_set_gain(2, gain);
+}
+static void geom_set_roffset(const char *path, int32_t offset) {
+	color_corr_set_offset(0, offset << 12);
+}
+static void geom_set_goffset(const char *path, int32_t offset) {
+	color_corr_set_offset(1, offset << 12);
+}
+static void geom_set_boffset(const char *path, int32_t offset) {
+	color_corr_set_offset(2, offset << 12);
 }
 
 TABLE_ITEMS(param_handler, correction_param_updaters,
@@ -185,4 +201,10 @@ TABLE_ITEMS(param_handler, correction_param_updaters,
 	{ "/geom/rdelay", PARAM_TYPE_I1, { .f1 = geom_set_rdelay }, PARAM_MODE_INT, 0, 15 },
 	{ "/geom/gdelay", PARAM_TYPE_I1, { .f1 = geom_set_gdelay }, PARAM_MODE_INT, 0, 15 },
 	{ "/geom/bdelay", PARAM_TYPE_I1, { .f1 = geom_set_bdelay }, PARAM_MODE_INT, 0, 15 },
+	{ "/geom/rgain", PARAM_TYPE_I1, { .f1 = geom_set_rgain }, PARAM_MODE_FIXED, FIXED(-10), FIXED(10) },
+	{ "/geom/ggain", PARAM_TYPE_I1, { .f1 = geom_set_ggain }, PARAM_MODE_FIXED, FIXED(-10), FIXED(10) },
+	{ "/geom/bgain", PARAM_TYPE_I1, { .f1 = geom_set_bgain }, PARAM_MODE_FIXED, FIXED(-10), FIXED(10) },
+	{ "/geom/roffset", PARAM_TYPE_I1, { .f1 = geom_set_roffset }, PARAM_MODE_FIXED, FIXED(-1), FIXED(1) },
+	{ "/geom/goffset", PARAM_TYPE_I1, { .f1 = geom_set_goffset }, PARAM_MODE_FIXED, FIXED(-1), FIXED(1) },
+	{ "/geom/boffset", PARAM_TYPE_I1, { .f1 = geom_set_boffset }, PARAM_MODE_FIXED, FIXED(-1), FIXED(1) },
 )

@@ -64,15 +64,15 @@ volatile struct {
 	uint8_t pad;
 
 	/* Color channels */
-	uint32_t blue_scale;
-	uint32_t blue_offset;
+	int32_t blue_gain;
+	int32_t blue_offset;
 	uint16_t blue_buffer[DAC_MAX_COLOR_DELAY];
 	union color_control color_control;
-	uint32_t red_scale;
-	uint32_t red_offset;
+	int32_t red_gain;
+	int32_t red_offset;
 	uint16_t red_buffer[DAC_MAX_COLOR_DELAY];
-	uint32_t green_scale;
-	uint32_t green_offset;
+	int32_t green_gain;
+	int32_t green_offset;
 	uint16_t green_buffer[DAC_MAX_COLOR_DELAY];
 	uint32_t transform_matrix[8];
 } dac_control;
@@ -353,6 +353,32 @@ void delay_line_set_delay(int color_index, int delay) {
 	}
 }
 
+/* color_corr_get_offset, color_corr_get_gain,
+ * color_corr_set_offset, color_corr_set_gain
+ *
+ * Get/set the gain/offset of a color channel.
+ */
+uint32_t color_corr_get_offset(int color_index) {
+	if (color_index == 0) return dac_control.red_offset;
+	else if (color_index == 1) return dac_control.green_offset;
+	else return dac_control.blue_offset;
+}
+uint32_t color_corr_get_gain(int color_index) {
+	if (color_index == 0) return dac_control.red_gain;
+	else if (color_index == 1) return dac_control.green_gain;
+	else return dac_control.blue_gain;
+}
+void color_corr_set_offset(int color_index, int32_t offset) {
+	if (color_index == 0) dac_control.red_offset = offset;
+	else if (color_index == 1) dac_control.green_offset = offset;
+	else dac_control.blue_offset = offset;
+}
+void color_corr_set_gain(int color_index, int32_t gain) {
+	if (color_index == 0) dac_control.red_gain = gain;
+	else if (color_index == 1) dac_control.green_gain = gain;
+	else dac_control.blue_gain = gain;
+}
+
 /* dac_init
  *
  * Initialize the DAC. This must be called once after reset.
@@ -397,9 +423,9 @@ void COLD dac_init() {
 	dac_control.color_control.word = 0;
 	delay_line_reset();
 
-	dac_control.red_scale = COORD_MAX;
-	dac_control.green_scale = COORD_MAX;
-	dac_control.blue_scale = COORD_MAX;
+	dac_control.red_gain = COORD_MAX;
+	dac_control.green_gain = COORD_MAX;
+	dac_control.blue_gain = COORD_MAX;
 }
 
 /* dac_configure

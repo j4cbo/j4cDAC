@@ -112,6 +112,10 @@ uint32_t dac_get_count();
 
 void delay_line_set_delay(int color_index, int delay);
 int delay_line_get_delay(int color_index);
+uint32_t color_corr_get_offset(int color_index);
+uint32_t color_corr_get_gain(int color_index);
+void color_corr_set_offset(int color_index, int32_t offset);
+void color_corr_set_gain(int color_index, int32_t gain);
 
 extern int dac_current_pps;
 extern int dac_flags;
