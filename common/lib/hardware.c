@@ -76,6 +76,9 @@ void hw_dac_zero_all_channels(void) {
 	/* Force an LDAC */
 	hw_dac_write(0xA002);
 
+	/* Close shutter */
+	LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_PIN);
+
 	led_set_backled(0);
 }
 

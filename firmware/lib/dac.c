@@ -473,6 +473,7 @@ void NOINLINE dac_stop(int flags) {
 
 	/* Clear out all the DAC channels. */
 	hw_dac_zero_all_channels();
+	dac_flags &= ~DAC_FLAG_SHUTTER;
 
 	/* Give LDAC back to the PWM hardware */
 	LPC_PINCON->PINSEL4 |= (1 << 8);
