@@ -324,4 +324,18 @@ void osc_send_string(const char *path, const char *value) {
 	pbuf_free(p);
 }
 
+int osc_parameter_matches(const char *handler, const char *packet) {
+	while (1) {
+		if (*handler == '*')
+			return 1;
+		else if (*handler != *packet)
+			return 0;
+		else if (*handler == '\0')
+			return 1;
+
+		handler++;
+		packet++;
+	}
+}	
+
 INITIALIZER(protocol, osc_init)

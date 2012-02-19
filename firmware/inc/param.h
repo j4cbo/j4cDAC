@@ -54,8 +54,10 @@ void param_invocation_dump(const struct param_handler *h,
 extern const volatile param_handler param_handler_table[0];
 extern const volatile param_handler param_handler_table_end[0];
 
+int osc_parameter_matches(const char *handler, const char *packet);
+
 #define foreach_matching_handler(h, cmpaddr)				\
 	for (h = param_handler_table; h < param_handler_table_end; h++)	\
-		if (h->f0 && !strcmp(h->address, cmpaddr))
+		if (h->f0 && osc_parameter_matches(h->address, cmpaddr))
 
 #endif

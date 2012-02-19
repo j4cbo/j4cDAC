@@ -22,6 +22,8 @@
 #include <stdint.h>
 #include <serial.h>
 #include <string.h>
+#include <stdlib.h>
+#include <param.h>
 
 #define DMX_TIMER	LPC_TIM1
 #define DMX_IRQHandler	TIMER1_IRQHandler
@@ -100,5 +102,15 @@ void DMX_IRQHandler(void) {
 		DMX_TIMER->IR = 4;
 	}
 }
+
+void dmx_FPV_param(const char *path, int32_t v) {
+	int index = atoi(path + 13);
+	if (index < 1 || index > DMX_CHANNELS) return;
+	dmx_message[index] = v;
+}
+
+TABLE_ITEMS(param_handler, dmx_osc_handlers,
+	{ "/dmx/channel/*", PARAM_TYPE_I1, { .f1 = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
+)
 
 INITIALIZER(hardware, dmx_init);
