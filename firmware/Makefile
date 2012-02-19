@@ -16,7 +16,7 @@ APP_SRCS += ../common/lib/vsnprintf.c
 BRD_SRCS += ../common/lib/hardware.c
 
 # Application
-BRD_SRCS += lib/dac.c lib/dac_asm.s
+BRD_SRCS += lib/dac.c lib/dac_asm.s lib/dmx.c
 APP_SRCS += lib/panic.c lib/lightengine.c lib/playback.c
 
 # lwIP

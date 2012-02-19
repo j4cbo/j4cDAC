@@ -25,6 +25,7 @@
 #define UARTnFCR_TX_Reset		(1 << 2)
 #define UARTnTER_TX_Enable		(1 << 7)
 #define UARTnLCR_8bit			(3 << 0)
+#define UARTnLCR_2stop			(1 << 2)
 #define UARTnLCR_DLAB			(1 << 7)
 #define UARTnLSR_THR_Empty		(1 << 5)
 
@@ -53,5 +54,21 @@
 #define I2C_I2CONCLR_SIC		(1 << 3)
 #define I2C_I2CONCLR_STAC		(1 << 5)
 #define I2C_I2CONCLR_I2ENC		(1 << 6)
+
+#define DMACC_Control_SBSIZE_4  (1 << 12)
+#define DMACC_Control_DBSIZE_4  (1 << 15)
+#define DMACC_Control_SBSIZE_8  (2 << 12)
+#define DMACC_Control_DBSIZE_8  (2 << 15)
+#define DMACC_Control_SWIDTH_8  (0 << 18)
+#define DMACC_Control_DWIDTH_8  (0 << 21)
+#define DMACC_Control_SI        (1 << 26)
+#define DMACC_Control_DI        (1 << 27)
+
+#define DMACC_Config_SrcPeripheral_SSP0Rx       (1 << 1)
+#define DMACC_Config_DestPeripheral_SSP0Tx      (0 << 6)
+#define DMACC_Config_DestPeripheral_UART1Tx	(10 << 6)
+#define DMACC_Config_M2P        (1 << 11)
+#define DMACC_Config_P2M        (2 << 11)
+#define DMACC_Config_E          (1 << 0)
 
 #endif

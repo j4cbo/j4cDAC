@@ -40,18 +40,6 @@
 #define TOKEN_MULTI_BLOCK	0xFC
 #define TOKEN_STOP_TRAN		0xFD
 
-#define DMACC_Control_SBSIZE_4	(1 << 12)
-#define DMACC_Control_DBSIZE_4	(1 << 15)
-#define DMACC_Control_SWIDTH_8	(0 << 18)
-#define DMACC_Control_DWIDTH_8	(0 << 21)
-#define DMACC_Control_DI	(1 << 27)
-
-#define DMACC_Config_SrcPeripheral_SSP0Rx	(1 << 1)
-#define DMACC_Config_DestPeripheral_SSP0Tx	(0 << 6)
-#define DMACC_Config_M2P	(1 << 11)
-#define DMACC_Config_P2M	(2 << 11)
-#define DMACC_Config_E		(1 << 0)
-
 static uint16_t ffff = 0xffff;
 
 static uint8_t sdcard_spi_recv(void);
