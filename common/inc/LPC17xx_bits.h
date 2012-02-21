@@ -55,6 +55,8 @@
 #define I2C_I2CONCLR_STAC		(1 << 5)
 #define I2C_I2CONCLR_I2ENC		(1 << 6)
 
+#define DMACC_Control_SBSIZE_1  (0 << 12)
+#define DMACC_Control_DBSIZE_1  (0 << 15)
 #define DMACC_Control_SBSIZE_4  (1 << 12)
 #define DMACC_Control_DBSIZE_4  (1 << 15)
 #define DMACC_Control_SBSIZE_8  (2 << 12)
@@ -65,10 +67,12 @@
 #define DMACC_Control_DI        (1 << 27)
 
 #define DMACC_Config_SrcPeripheral_SSP0Rx       (1 << 1)
+#define DMACC_Config_SrcPeripheral_UART1Rx	(11 << 1)
 #define DMACC_Config_DestPeripheral_SSP0Tx      (0 << 6)
 #define DMACC_Config_DestPeripheral_UART1Tx	(10 << 6)
 #define DMACC_Config_M2P        (1 << 11)
 #define DMACC_Config_P2M        (2 << 11)
 #define DMACC_Config_E          (1 << 0)
+#define DMACC_Config_H          (1 << 18)
 
 #endif
