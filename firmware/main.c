@@ -51,7 +51,7 @@ void SysTick_Handler(void) {
 	/* If we're in an estop condition, slow-blink the LED */
 	if (time % 500 == 0) {
 		led_set_frontled(1);
-	} else if (time % 500 == 450 && le_get_state() == LIGHTENGINE_ESTOP) {
+	} else if (time % 500 == 450 && le_state == LIGHTENGINE_ESTOP) {
 		led_set_frontled(0);
 	}
 }
