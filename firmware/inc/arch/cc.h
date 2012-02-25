@@ -1,6 +1,7 @@
 #ifndef _ARCH_CC_H
 #define _ARCH_CC_H
 
+#include <LPC17xx.h>
 #include <stdint.h>
 #include <serial.h>
 
@@ -25,14 +26,11 @@ typedef uint32_t mem_ptr_t;
 #endif
 
 static inline uint16_t LWIP_PLATFORM_HTONS(uint16_t in) {
-	return (in >> 8) | (in << 8);
+	return rev16(in);
 }
 
 static inline uint32_t LWIP_PLATFORM_HTONL(uint32_t in) {
-	return ((in & 0xff) << 24) |
-	       ((in & 0xff00) << 8) |
-	       ((in & 0xff0000UL) >> 8) |
-	       ((in & 0xff000000UL) >> 24);
+	return rev32(in);
 }
 
 #define LWIP_PLATFORM_BYTESWAP 1

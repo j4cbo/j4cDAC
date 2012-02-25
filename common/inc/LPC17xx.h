@@ -1076,4 +1076,15 @@ typedef struct
  * @}
  */
 
+static inline uint16_t rev16(uint16_t v) {
+	uint16_t result;
+	asm volatile ("rev16 %0, %1" : "=r" (result) : "r" (v));
+	return result;
+}
+static inline uint32_t rev32(uint32_t v) {
+	uint32_t result;
+	asm volatile ("rev %0, %1" : "=r" (result) : "r" (v));
+	return result;
+}
+
 #endif  // __LPC17xx_H__
