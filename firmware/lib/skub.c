@@ -19,6 +19,7 @@
 #include <assert.h>
 #include <attrib.h>
 #include <LPC17xx.h>
+#include <serial.h>
 #include <core_cm3.h>
 
 /* The heap */
