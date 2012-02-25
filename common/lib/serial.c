@@ -74,10 +74,6 @@ void serial_send(const char *buf, int len) {
 	}
 }
 
-void serial_send_str(const char *buf) {
-	serial_send(buf, strlen(buf));
-}
-
 void outputf(const char *fmt, ...) {
 	va_list va;
 	char buffer[80];
