@@ -27,6 +27,8 @@ enum le_state {
 	LIGHTENGINE_ESTOP = 3,
 };
 
+extern enum le_state le_state;
+
 #define ESTOP_PACKET		(1<<0)
 #define ESTOP_INPUT		(1<<1)
 #define ESTOP_INPUT_CUR		(1<<2)
