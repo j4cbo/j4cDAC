@@ -27,6 +27,7 @@ int ilda_open(const char * fname);
 
 int ilda_read_points(int max_points, packed_point_t *p);
 void ilda_reset_file(void);
+extern int fplay_error_detail;
 
 /* playback_refill
  *
@@ -74,7 +75,7 @@ static void playback_refill(void) {
 	i = ilda_read_points(dlen, ptr);
 
 	if (i < 0) {
-		outputf("err: %d", i);
+		outputf((const char *)(-i), fplay_error_detail);
 		playback_source_flags &= ~ILDA_PLAYER_PLAYING;
 	} else if (i == 0) {
 		ilda_reset_file();

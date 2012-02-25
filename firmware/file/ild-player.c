@@ -24,10 +24,18 @@
 #include <dac.h>
 #include <file_player.h>
 #include <ff.h>
+#include <LPC17xx.h>
 
-#define SMALL_FRAME_THRESHOLD	300
+#define SMALL_FRAME_THRESHOLD	200
 
-char fplay_small_frame_buffer[6 * SMALL_FRAME_THRESHOLD] AHB0;
+struct sfb {
+	uint16_t x;
+	uint16_t y;
+	uint8_t i;
+	uint8_t r;
+	uint8_t g;
+	uint8_t b;
+} fplay_small_frame_buffer[SMALL_FRAME_THRESHOLD] AHB0;
 
 static FIL fplay_file;
 static enum {
@@ -64,6 +72,8 @@ int ilda_current_fps;
 
 static const uint8_t ilda_palette_64[];
 static const uint8_t ilda_palette_256[];
+
+int fplay_error_detail;
 
 /* calculate_intensity
  *
@@ -109,46 +119,36 @@ int fplay_open(const char * fname) {
 	return 0;
 }
 
+#define BAIL(s)	return -((int)s)
+#define BAILV(s, v) do { fplay_error_detail=(v); return -((int)s); } while(0)
+
 /* fplay_read
  *
- * A thin wrapper around fatfs's f_read. Returns -1 if an error occurs,
- * otherwise returns the number of bytes read.
+ * A thin wrapper around fatfs's f_read. Bails out if a fatfs error
+ * occurs; otherwise, returns the number of bytes read.
  */
 static unsigned int fplay_read(void *buf, int n) {
 	unsigned int bytes_read;
 
 	FRESULT res = f_read(&fplay_file, buf, n, &bytes_read);
 	if (res != FR_OK) {
-		outputf("fplay_read: error %d", res);
-		return -1;
+		fplay_error_detail = res;
+		BAIL("fplay_read: fatfs err %d");
 	}
 
 	return bytes_read;
 }
 
-struct wav_header_part2 {
-	uint32_t fmt_size;
-	uint16_t audio_format;
-	uint16_t num_channels;
-	uint32_t sample_rate;
-	uint32_t byte_rate;
-	uint16_t block_align;
-	uint16_t bits_per_sample;
-} __attribute__((packed));
-
-static const char *wav_errors[] = {
-	"ok",
-	"data read error",
-	"<16 bits",
-	"bad audio format",
-	"bad channel count",
-	"byte rate mismatch",
-	"block align too small",
-	"bad bit depth",
-	"short extended header",
-	"no data header",
-	"bad extended fmt"
-};
+/* fplay_read_check
+ *
+ * A helper macro around fplay_read: checks that the number of bytes read
+ * was as expected.
+ */
+#define fplay_read_check(addr, len) do {	\
+	int res = fplay_read((addr), (len));	\
+	if (res < 0) return res;		\
+	if (res != (len)) BAIL("short read");	\
+} while(0)
 
 /* wav_read_file_header
  *
@@ -157,10 +157,18 @@ static const char *wav_errors[] = {
 static int wav_read_file_header(int file_size) {
 
 	/* fmt chunk */
-	struct wav_header_part2 pt2;
-	if (fplay_read(&pt2, sizeof(pt2)) != sizeof(pt2)) return -1;
+	struct wav_header_part2 {
+		uint32_t fmt_size;
+		uint16_t audio_format;
+		uint16_t num_channels;
+		uint32_t sample_rate;
+		uint32_t byte_rate;
+		uint16_t block_align;
+		uint16_t bits_per_sample;
+	} __attribute__((packed)) pt2;
+	fplay_read_check(&pt2, sizeof(pt2));
 
-	if (pt2.fmt_size < 16) return -2;
+	if (pt2.fmt_size < 16) BAILV("audio fmt chunk too short: %d bytes", pt2.fmt_size);
 
 	int is_extended;
 
@@ -169,45 +177,51 @@ static int wav_read_file_header(int file_size) {
 	else if (pt2.audio_format == 0xFFFE)
 		is_extended = 1;
 	else
-		return -3;
+		BAILV("bad audio fmt: 0x%04x", pt2.audio_format);
 
-	if (pt2.num_channels < 5 || pt2.num_channels > 8) return -4;
+	if (pt2.num_channels < 5 || pt2.num_channels > 8)
+		BAILV("bad channel count: %d", pt2.num_channels);
 	wav_channels = pt2.num_channels;
 	int point_rate = pt2.sample_rate;
-	if (pt2.byte_rate != point_rate * wav_channels * 2) return -5;
-	if (pt2.block_align < wav_channels * 2 || pt2.block_align > 16)
-		return -6;
+	if (pt2.byte_rate != point_rate * wav_channels * 2)
+		BAIL("byte rate mismatch");
+	if (pt2.block_align < wav_channels * 2)
+		BAILV("block align too small: %d", pt2.block_align);
+	if (pt2.block_align > 16)
+		BAILV("block align too large: %d", pt2.block_align);
 	wav_block_align = pt2.block_align;
-	if (pt2.bits_per_sample != 16) return -7;
+	if (pt2.bits_per_sample != 16)
+		BAIL("16-bit samples required");
 
 	char buf[8];
 	int fmt_size_left = pt2.fmt_size - 16;
 
 	if (fmt_size_left >= 22 && is_extended) {
-		fplay_read(buf, 8);
+		fplay_read_check(buf, 8);
 		uint16_t actual_type;
-		fplay_read(&actual_type, 2);
-		if (actual_type != 1) return -10;
+		fplay_read_check(&actual_type, 2);
+		if (actual_type != 1)
+			BAILV("bad extended audio fmt: 0x%04x", actual_type);
 		fmt_size_left -= 10;
 	} else if (is_extended)
-		return -8;
+		BAILV("extended hdr too short: need 22 bytes, got %d", fmt_size_left);
 
 	/* Consume the rest of the format block, if any */
 	while (fmt_size_left > 0) {
-		fplay_read(buf, fmt_size_left > 8 ? 8 : fmt_size_left);
+		fplay_read_check(buf, fmt_size_left > 8 ? 8 : fmt_size_left);
 		fmt_size_left -= 8;
 	}
 
 	/* Now read data header */
-	if (fplay_read(buf, 8) != 8) return -1;
+	fplay_read_check(buf, 8);
 
 	/* Ignore fact chunk if present */
 	if (!memcmp(buf, "fact", 4)) {
-		if (fplay_read(buf, 4) != 4) return -1;
-		if (fplay_read(buf, 8) != 8) return -1;
+		fplay_read_check(buf, 4);
+		fplay_read_check(buf, 8);
 	}
 	
-	if (memcmp(buf, "data", 4)) return -9;
+	if (memcmp(buf, "data", 4)) BAIL("no data header");
 
 	int data_size = *(uint32_t *)(buf + 4);
 	if (data_size > file_size - 36) data_size = file_size - 36;
@@ -217,11 +231,10 @@ static int wav_read_file_header(int file_size) {
 	fplay_repeat_count = 1;
 	fplay_state = STATE_WAV;
 
-	outputf("playing %d pps", point_rate);
 	dac_set_rate(point_rate);
 
 	/* Phew! */
-	return 0;
+	return 1;
 }
 
 /* ilda_read_frame_header
@@ -233,11 +246,11 @@ static int ilda_read_frame_header(void) {
 	uint8_t buf[8];
 
 	/* Throw away "frame name" and "company name" */
-	if (fplay_read(buf, 8) != 8) return -1;
-	if (fplay_read(buf, 8) != 8) return -1;
+	fplay_read_check(buf, 8);
+	fplay_read_check(buf, 8);
 
 	/* Read the rest of the header */
-	if (fplay_read(buf, 8) != 8) return -1;
+	fplay_read_check(buf, 8);
 
 	/* The rest of the header contains total points, frame number,
 	 * total frames, scanner head, and "future". We only care about
@@ -313,20 +326,14 @@ static void ilda_tc_point(dac_point_t *p, int r, int g, int b, int flags) {
  * Parse a point.
  */
 static void wav_parse_16bit_point(dac_point_t *p, uint16_t *words) {
-	switch (wav_channels) {
-	case 8:
-		p->u2 = words[7];
-	case 7:
-		p->u1 = words[6];
-	case 6:
-		p->i = words[5];
-	default:
-		p->x = words[0];
-		p->y = words[1];
-		p->r = words[2];
-		p->g = words[3];
-		p->b = words[4];
-	}
+	p->u2 = words[7];
+	p->u1 = words[6];
+	p->i = words[5];
+	p->x = words[0];
+	p->y = words[1];
+	p->r = words[2];
+	p->g = words[3];
+	p->b = words[4];
 }
 
 
@@ -338,24 +345,19 @@ int fplay_read_header(void) {
 	char buf[8];
 
 	int ret = fplay_read(buf, 8);
-	if (ret == 0)
-		return 0;
-	else if (ret != 8)
-		return -1;
+	if (ret == 0) return 0;
+	else if (ret != 8) BAIL("short read");
 
 	if (!memcmp(buf, "RIFF", 4)) {
 		uint32_t wav_file_size = *(uint32_t *)(buf + 4);
-		if (fplay_read(buf, 8) != 8) return -1;
-		if (memcmp(buf, "WAVEfmt ", 8)) return -1;
-		ret = wav_read_file_header(wav_file_size);
-		if (ret <= 0 && ret >= -10)
-			outputf("wav_read_file_header: %s", wav_errors[-ret]);
-		return ret;
+		fplay_read_check(buf, 8);
+		if (memcmp(buf, "WAVEfmt ", 8)) BAIL("RIFF file not WAV");
+		return wav_read_file_header(wav_file_size);
 	}
 
 	/* If it's not WAV, it had better be ILDA */
 	if (memcmp(buf, "ILDA\0\0\0", 7))
-		return -1;
+		BAIL("file is not WAV or ILDA");
 
 	fplay_state = buf[7];
 
@@ -366,10 +368,9 @@ int fplay_read_header(void) {
 	case STATE_ILDA_4:
 	case STATE_ILDA_5:
 		/* 2D, 3D, and formats 4 and 5 */
-		if (ilda_read_frame_header() < 0)
-			return -1;
-		if (fplay_points_left < 0)
-			return -1;
+		ret = ilda_read_frame_header();
+		if (ret < 0) return ret;
+		if (fplay_points_left < 0) BAIL("negative points in frame");
 
 		/* Zero-length means end of file */
 		if (fplay_points_left == 0)
@@ -384,12 +385,13 @@ int fplay_read_header(void) {
 		break;
 
 	default:
-		outputf("ilda: bad format %d", fplay_state);
-		return -1;
+		BAILV("ilda: bad format %d", fplay_state);
 	}
 
-	return 0;
+	return 1;
 }
+
+#define ILDA_MAX_POINTS_PER_LOOP	25
 
 /* ilda_read_points
  *
@@ -398,104 +400,139 @@ int fplay_read_header(void) {
  * Returns 0 if the end of the file has been reached, -1 if an
  * error occurs, or the number of bytes actually written otherwise.
  */
-int ilda_read_points(int max_points, packed_point_t *pp) {
-	uint8_t buf[16];
-	int i;
 
+static inline void save_small_frame(struct sfb *sfb, struct dac_point *p) {
+	if (ilda_frame_pointcount <= SMALL_FRAME_THRESHOLD) {
+		sfb->x = p->x;
+		sfb->y = p->y;
+		sfb->i = p->i >> 8;
+		sfb->r = p->r >> 8;
+		sfb->g = p->g >> 8;
+		sfb->b = p->b >> 8;
+	}
+}
+
+int NOINLINE ilda_do_read_points(int points, packed_point_t *pp);
+
+int ilda_read_points(int points, packed_point_t *pp) {
 	if (fplay_state == STATE_BETWEEN_FRAMES) {
-		if (fplay_read_header() < 0)
-			return -1;
+		int res = fplay_read_header();
+		if (res <= 0) return res;
 	}
 
+	return ilda_do_read_points(points, pp);
+}
+
+int NOINLINE ilda_do_read_points(int points, packed_point_t *pp) {
+	int i;
+
+	union {
+		uint16_t words[8 * ILDA_MAX_POINTS_PER_LOOP];
+		uint8_t bytes[16 * ILDA_MAX_POINTS_PER_LOOP];
+	} ilda_buffer;
+
 	/* Now that we have some actual data, read from the file. */
-	if (max_points > fplay_points_left)
-		max_points = fplay_points_left;
+	if (points > fplay_points_left)
+		points = fplay_points_left;
 
-	for (i = 0; i < max_points; i++) {
-		int pt_num = ilda_frame_pointcount - fplay_points_left + i;
-		char *sfb_ptr = fplay_small_frame_buffer + (6 * pt_num);
-		dac_point_t p = { 0 };
+	if (points > ILDA_MAX_POINTS_PER_LOOP)
+		points = ILDA_MAX_POINTS_PER_LOOP;
 
-		switch (fplay_state) {
-		case STATE_ILDA_0:
-			/* 3D palettized */
-			if (fplay_read(buf, 8) != 8) return -1;
+	dac_point_t p = { 0 };
+	int pt_num = ilda_frame_pointcount - fplay_points_left;
+	struct sfb* sfb_ptr = fplay_small_frame_buffer + pt_num;
 
-			p.x = buf[0] << 8 | buf[1];
-			p.y = buf[2] << 8 | buf[3];
-			ilda_palette_point(&p, buf[6] << 8 | buf[7]);
-			break;
+	switch (fplay_state) {
+	case STATE_ILDA_0:
+		/* 3D w/ palette */
+		fplay_read_check(ilda_buffer.bytes, 8 * points);
+		for (i = 0; i < points; i++) {
+			p.x = rev16(ilda_buffer.words[4*i]);
+			p.y = rev16(ilda_buffer.words[4*i + 1]);
+			ilda_palette_point(&p, rev16(ilda_buffer.words[4*i + 3]));
+			save_small_frame(sfb_ptr, &p);
+			dac_pack_point(pp, &p);
+			sfb_ptr++;
+			pp++;
+		}
 
-		case STATE_ILDA_1:
-			/* 2D palettized */
-			if (fplay_read(buf, 6) != 6) return -1;
+		break;
 
-			p.x = buf[0] << 8 | buf[1];
-			p.y = buf[2] << 8 | buf[3];
-			ilda_palette_point(&p, buf[4] << 8 | buf[5]);
-			break;
-
-		case STATE_ILDA_4:
-			/* 3D truecolor */
-			if (fplay_read(buf, 10) != 10) return -1;
+	case STATE_ILDA_1:
+		/* 2D w/ palette */
+		fplay_read_check(ilda_buffer.bytes, 6 * points);
+		for (i = 0; i < points; i++) {
+			p.x = rev16(ilda_buffer.words[3*i]);
+			p.y = rev16(ilda_buffer.words[3*i + 1]);
+			ilda_palette_point(&p, rev16(ilda_buffer.words[3*i + 2]));
+			save_small_frame(sfb_ptr, &p);
+			dac_pack_point(pp, &p);
+			sfb_ptr++;
+			pp++;
+		}
+		break;
 	
-			p.x = buf[0] << 8 | buf[1];
-			p.y = buf[2] << 8 | buf[3];
-			ilda_tc_point(&p, buf[9], buf[8], buf[7], buf[6]);
-			break;
-
-		case STATE_ILDA_5:
-			/* 2D truecolor */
-			if (fplay_read(buf, 8) != 8) return -1;
-
-			p.x = buf[0] << 8 | buf[1];
-			p.y = buf[2] << 8 | buf[3];
-			ilda_tc_point(&p, buf[7], buf[6], buf[5], buf[4]);
-			break;
-
-		case STATE_WAV:
-			/* WAV */
-			if (fplay_read(buf, wav_block_align)
-				!= wav_block_align) return -1;
-			wav_parse_16bit_point(&p, (uint16_t *)buf);
-			break;
-
-		case STATE_SMALL_FRAME:
-			/* Small frame replay */
-			p.x = sfb_ptr[0] << 8 | (sfb_ptr[2] & 0xF0);
-			p.y = sfb_ptr[1] << 8 | (sfb_ptr[2] << 4);
-			p.r = sfb_ptr[3] << 8;
-			p.g = sfb_ptr[4] << 8;
-			p.b = sfb_ptr[5] << 8;
-			int max = p.r;
-			if (p.g > max) max = p.g;
-			if (p.b > max) max = p.b;
-			p.i = max;
-			break;
-
-		default:
-			panic("fplay_state: bad value");
-			return -1;
+	case STATE_ILDA_4:
+		/* 3D truecolor */
+		fplay_read_check(ilda_buffer.bytes, 10 * points);
+		for (i = 0; i < points; i++) {
+			p.x = rev16(ilda_buffer.words[5*i]);
+			p.y = rev16(ilda_buffer.words[5*i + 1]);
+			uint8_t *b = ilda_buffer.bytes + 10*i;
+			ilda_tc_point(&p, b[9], b[8], b[7], b[6]);
+			save_small_frame(sfb_ptr, &p);
+			dac_pack_point(pp, &p);
+			sfb_ptr++;
+			pp++;
 		}
+		break;
 
-		/* Save this point into the small frame buf, if needed */
-		if (ilda_frame_pointcount <= SMALL_FRAME_THRESHOLD &&
-		    fplay_state != STATE_SMALL_FRAME) {
-			sfb_ptr[0] = p.y >> 8;
-			sfb_ptr[1] = p.x >> 8;
-			sfb_ptr[2] = (p.x & 0xF0) | ((p.y & 0xF0) >> 4);
-			sfb_ptr[3] = p.r >> 8;
-			sfb_ptr[4] = p.g >> 8;
-			sfb_ptr[5] = p.b >> 8;
+	case STATE_ILDA_5:
+		/* 2D truecolor */
+		fplay_read_check(ilda_buffer.bytes, 8 * points);
+		for (i = 0; i < points; i++) {
+			p.x = rev16(ilda_buffer.words[4*i]);
+			p.y = rev16(ilda_buffer.words[4*i + 1]);
+			uint8_t *b = ilda_buffer.bytes + 8*i;
+			ilda_tc_point(&p, b[7], b[6], b[5], b[4]);
+			save_small_frame(sfb_ptr, &p);
+			dac_pack_point(pp, &p);
+			sfb_ptr++;
+			pp++;
 		}
+		break;
 
-		dac_pack_point(pp, &p);
+	case STATE_WAV:
+		/* WAV */
+		fplay_read_check(ilda_buffer.bytes, wav_block_align * points);
+		for (i = 0; i < points; i++) {
+			wav_parse_16bit_point(&p, ilda_buffer.words + i * 8);
+			dac_pack_point(pp, &p);
+			pp++;
+		}
+		break;
 
-		pp++;
+	case STATE_SMALL_FRAME:
+		/* Small frame replay */
+		for (i = 0; i < points; i++) {
+			p.x = sfb_ptr->x;
+			p.y = sfb_ptr->y;
+			p.i = sfb_ptr->i << 8;
+			p.r = sfb_ptr->r << 8;
+			p.g = sfb_ptr->g << 8;
+			p.b = sfb_ptr->b << 8;
+			sfb_ptr ++;
+			dac_pack_point(pp, &p);
+			pp++;
+		}
+		break;
+
+	default:
+		panic("fplay_state: bad value");
 	}
 
 	/* Now that we've read points, advance */
-	fplay_points_left -= max_points;
+	fplay_points_left -= points;
 
 	/* Do we need to move to the next frame, or repeat this one? */
 	if (!fplay_points_left) {
@@ -518,7 +555,7 @@ int ilda_read_points(int max_points, packed_point_t *pp) {
 		}
 	}
 
-	return max_points;
+	return points;
 }
 
 static const uint8_t ilda_palette_64[] = {
