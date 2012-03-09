@@ -578,6 +578,7 @@ static err_t ps_accept_FPV_tcp_accept(void *arg, struct tcp_pcb *pcb, err_t err)
 
 	/* Call process_packet whenever we get data. */
 	tcp_recv(pcb, process_packet_FPV_tcp_recv);
+	ps_state = MAIN;
 
 	return ERR_OK;
 }
