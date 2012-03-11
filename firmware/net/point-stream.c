@@ -8,6 +8,7 @@
 #include <broadcast.h>
 #include <protocol.h>
 #include <tables.h>
+#include <skub.h>
 
 #define RV __attribute__((warn_unused_result))
 
@@ -26,37 +27,42 @@ enum fsm_result {
 	FAIL
 };
 
-static enum {
-	MAIN, DATA, DATA_PLUGIN, DATA_ABORTING, INSTALL
-} ps_state;
-
-static int ps_pointsleft;
-
 #define PS_DEFERRED_ACK_MAX	24
-
-static struct {
-	char cmd;
-	char resp;
-} ps_deferred_ack_queue[PS_DEFERRED_ACK_MAX];
-
-static uint8_t ps_deferred_ack_produce;
-static uint8_t ps_deferred_ack_consume;
 
 /* Set PS_BUFFER_SIZE to the largest contiguous amount of data that the
  * recv_fsm may need. Currently, this is 18 bytes, sizeof(struct dac_point).
  */
 #define PS_BUFFER_SIZE		18
 
-static uint8_t ps_buffer[PS_BUFFER_SIZE];
-static int ps_buffered;
+typedef struct stream_conn_t {
+	int pointsleft;
+	int buffered;
+
+	struct {
+		char cmd;
+		char resp;
+	} deferred_ack_queue[PS_DEFERRED_ACK_MAX];
+
+	uint8_t deferred_ack_produce;
+	uint8_t deferred_ack_consume;
+
+	uint8_t buffer[PS_BUFFER_SIZE];
+
+	enum {
+		MAIN, DATA, DATA_PLUGIN, DATA_ABORTING, INSTALL
+	} state;
+
+} stream_conn_t;
+
+#define ct_assert(e) ((void)sizeof(char[1 - 2*!(e)]))
 
 /* close_conn
  *
  * Close the current connection, and record why.
  */
-static int close_conn(struct tcp_pcb *pcb, uint16_t reason, int k) {
+static int close_conn(struct tcp_pcb * pcb, uint16_t reason, int k) {
 	outputf("close_conn: %d", reason);
-	tcp_arg(pcb, NULL);
+	skub_free_sz(pcb->callback_arg);
 	tcp_sent(pcb, NULL);
 	tcp_recv(pcb, NULL);
 	tcp_close(pcb);
@@ -64,36 +70,37 @@ static int close_conn(struct tcp_pcb *pcb, uint16_t reason, int k) {
 }
 
 
-static int ps_defer_ack(char cmd, char resp) {
-	if ((ps_deferred_ack_produce + 1) % PS_DEFERRED_ACK_MAX
-	     == ps_deferred_ack_consume) {
+static int ps_defer_ack(stream_conn_t * s, char cmd, char resp) {
+	if ((s->deferred_ack_produce + 1) % PS_DEFERRED_ACK_MAX
+	     == s->deferred_ack_consume) {
 		return -1;
 	}
 
-	ps_deferred_ack_queue[ps_deferred_ack_produce].cmd = cmd;
-	ps_deferred_ack_queue[ps_deferred_ack_produce].resp = resp;
-	ps_deferred_ack_produce = (ps_deferred_ack_produce + 1) % \
-		PS_DEFERRED_ACK_MAX;
+	uint8_t prod = s->deferred_ack_produce;
+	s->deferred_ack_queue[prod].cmd = cmd;
+	s->deferred_ack_queue[prod].resp = resp;
+	s->deferred_ack_produce = (prod + 1) % PS_DEFERRED_ACK_MAX;
 
 	return 0;
 }
 
 static int ps_send_deferred_acks(struct tcp_pcb *pcb) {
+	stream_conn_t * s = pcb->callback_arg;
 
-	int num = (ps_deferred_ack_produce + PS_DEFERRED_ACK_MAX
-	           - ps_deferred_ack_consume) % PS_DEFERRED_ACK_MAX;
+	int num = (s->deferred_ack_produce + PS_DEFERRED_ACK_MAX
+	           - s->deferred_ack_consume) % PS_DEFERRED_ACK_MAX;
 	if (num) {
 		outputf("%d deferred acks\n", num);
 	}
 
 	int count = 0;
-	int consume = ps_deferred_ack_consume;
+	int consume = s->deferred_ack_consume;
 	err_t err = 0;
 
-	while (consume != ps_deferred_ack_produce) {
+	while (consume != s->deferred_ack_produce) {
 		struct dac_response response;
-		response.response = ps_deferred_ack_queue[consume].resp;
-		response.command = ps_deferred_ack_queue[consume].cmd;
+		response.response = s->deferred_ack_queue[consume].resp;
+		response.command = s->deferred_ack_queue[consume].cmd;
 		fill_status(&response.dac_status);
 
 		err = tcp_write(pcb, &response, sizeof(response),
@@ -106,7 +113,7 @@ static int ps_send_deferred_acks(struct tcp_pcb *pcb) {
 		consume = (consume + 1) % PS_DEFERRED_ACK_MAX;
 	}
 
-	ps_deferred_ack_consume = consume;
+	s->deferred_ack_consume = consume;
 
 	if (err == ERR_MEM)
 		err = 0;
@@ -137,7 +144,7 @@ static int RV send_resp(struct tcp_pcb *pcb, char resp, char cmd, int len) {
 			      TCP_WRITE_FLAG_COPY);
 
 	if (err == ERR_MEM) {
-		if (ps_defer_ack(cmd, resp) < 0) {
+		if (ps_defer_ack(pcb->callback_arg, cmd, resp) < 0) {
 			outputf("!!! DROPPING ACK !!!");
 		} else {
 			outputf("deferring ACK");
@@ -204,9 +211,10 @@ static int RV send_version_resp(struct tcp_pcb *pcb, int len) {
  */
 static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 	uint8_t cmd = *data;
+	stream_conn_t *s = pcb->callback_arg;
 	int npoints;
 
-	switch (ps_state) {
+	switch (s->state) {
 	case MAIN:
 		switch (cmd) {
 		case 'p':
@@ -274,9 +282,9 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 			struct data_command *h = (struct data_command *) data;
 
 			if (h->npoints) {
-				if (cmd == 'd') ps_state = DATA;
-				else ps_state = DATA_PLUGIN;
-				ps_pointsleft = h->npoints;
+				if (cmd == 'd') s->state = DATA;
+				else s->state = DATA_PLUGIN;
+				s->pointsleft = h->npoints;
 
 				/* We'll send a response once we've read all
 				 * of the data. */
@@ -316,8 +324,8 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 
 		case 'I':
 			/* Install plugin */
-			ps_state = INSTALL;
-			ps_pointsleft = sizeof(ps_plugin);
+			s->state = INSTALL;
+			s->pointsleft = sizeof(ps_plugin);
 			return 1;
 
 		case 'P':
@@ -341,39 +349,47 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 	case INSTALL:
 		/* How many bytes? */
 		npoints = len;
-		if (npoints > ps_pointsleft) npoints = ps_pointsleft;
+		if (npoints > s->pointsleft) npoints = s->pointsleft;
 
 		/* Copy in the data and move up */
-		memcpy(ps_plugin + sizeof(ps_plugin) - ps_pointsleft,
+		memcpy(ps_plugin + sizeof(ps_plugin) - s->pointsleft,
 		       data, npoints);
-		ps_pointsleft -= npoints;
+		s->pointsleft -= npoints;
 
-		if (!ps_pointsleft) {
-			/* Initialize */
-			outputf("invoking plugin...");
-			int ret = invoke_plugin(NULL, NULL);
-			outputf("plugin returned %d", ret);
-
-			ps_state = MAIN;
-
-			if (ret) {
-				/* Fail! */
-				ps_plugin_enabled = 0;
-				return send_resp(pcb, RESP_NAK_INVL, 'I',
-				                 npoints);
-			} else {
-				ps_plugin_enabled = 1;
-				return send_resp(pcb, RESP_ACK, 'I', npoints);
-			}
-		} else {
+		/* Still some left? */
+		if (s->pointsleft)
 			return npoints;
+
+		s->state = MAIN;
+
+		/* First byte must be nonzero */
+		if (!ps_plugin[0]) {
+			ps_plugin_enabled = 0;
+			outputf("bad plugin");
+			return send_resp(pcb, RESP_NAK_INVL, 'I',
+			                 npoints);
+		}
+
+		/* Initialize */
+		outputf("invoking plugin...");
+		int ret = invoke_plugin(NULL, NULL);
+		outputf("plugin returned %d", ret);
+
+		if (ret) {
+			/* Fail! */
+			ps_plugin_enabled = 0;
+			return send_resp(pcb, RESP_NAK_INVL, 'I',
+			                 npoints);
+		} else {
+			ps_plugin_enabled = 1;
+			return send_resp(pcb, RESP_ACK, 'I', npoints);
 		}
 
 		break;
 
 	case DATA:
 	case DATA_PLUGIN:
-		ASSERT_NOT_EQUAL(ps_pointsleft, 0);
+		ASSERT_NOT_EQUAL(s->pointsleft, 0);
 
 		/* We can only write a complete point at a time. */
 		if (len < sizeof(struct dac_point))
@@ -381,11 +397,11 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 
 		/* How many bytes of data is it our business to write? */
 		npoints = len / sizeof(struct dac_point);
-		if (npoints > ps_pointsleft)
-			npoints = ps_pointsleft;
+		if (npoints > s->pointsleft)
+			npoints = s->pointsleft;
 
-		if (ps_state == DATA_PLUGIN && !ps_plugin_enabled) {
-			ps_state = DATA_ABORTING;
+		if (s->state == DATA_PLUGIN && !ps_plugin_enabled) {
+			s->state = DATA_ABORTING;
 			goto handle_aborted_data;
 		}
 
@@ -403,9 +419,9 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 			if (nready == 0) {
 				outputf("overflow: wanted to write %d", npoints);
 			} else {
-				outputf("underflow: pl %d np %d r %d", ps_pointsleft, npoints, nready);
+				outputf("underflow: pl %d np %d r %d", s->pointsleft, npoints, nready);
 			}
-			ps_state = DATA_ABORTING;
+			s->state = DATA_ABORTING;
 
 			/* Danger: goto. This could probably be structured
 			 * better... */
@@ -419,7 +435,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 
 		int i;
 		for (i = 0; i < npoints; i++) {
-			if (ps_state == DATA) {
+			if (s->state == DATA) {
 				dac_pack_point(addr + i, pdata + i);
 			} else {
 				invoke_plugin(addr + i, pdata + i);
@@ -430,11 +446,11 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		/* Let the DAC know we've given it more data */
 		dac_advance(npoints);
 
-		ps_pointsleft -= npoints;
+		s->pointsleft -= npoints;
 
-		if (!ps_pointsleft) {
-			char resp = (ps_state == DATA) ? 'd' : 'D';
-			ps_state = MAIN;
+		if (!s->pointsleft) {
+			char resp = (s->state == DATA) ? 'd' : 'D';
+			s->state = MAIN;
 			return send_resp(pcb, RESP_ACK, resp,
 					 npoints * sizeof(struct dac_point));
 		} else {
@@ -442,7 +458,7 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 		}
 
 	case DATA_ABORTING:
-		ASSERT_NOT_EQUAL(ps_pointsleft, 0);
+		ASSERT_NOT_EQUAL(s->pointsleft, 0);
 
 		/* We can only consume a complete point at a time. */
 		if (len < sizeof(struct dac_point))
@@ -450,14 +466,14 @@ static int recv_fsm(struct tcp_pcb *pcb, uint8_t * data, int len) {
 
 		/* How many points do we have? */
 		npoints = len / sizeof(struct dac_point);
-		if (npoints > ps_pointsleft)
-			npoints = ps_pointsleft;
+		if (npoints > s->pointsleft)
+			npoints = s->pointsleft;
 
 handle_aborted_data:
-		ps_pointsleft -= npoints;
+		s->pointsleft -= npoints;
 
-		if (!ps_pointsleft) {
-			ps_state = MAIN;
+		if (!s->pointsleft) {
+			s->state = MAIN;
 			return send_resp(pcb, RESP_NAK_INVL, 'd',
 					 npoints * sizeof(struct dac_point));
 		} else {
@@ -475,6 +491,7 @@ handle_aborted_data:
 err_t process_packet_FPV_tcp_recv(struct tcp_pcb * pcb, struct pbuf * pbuf,
 		     err_t err) {
 	struct pbuf * p = pbuf;
+	struct stream_conn_t * s = pcb->callback_arg;
 
 	if (p == NULL) {
 		return close_conn(pcb, CONNCLOSED_USER, ERR_OK);
@@ -485,27 +502,27 @@ err_t process_packet_FPV_tcp_recv(struct tcp_pcb * pcb, struct pbuf * pbuf,
 		uint8_t *data_ptr = p->payload;
 		int fsar = 0;
 
-		if (ps_buffered) {
+		if (s->buffered) {
 			/* There's some leftover data from the last pbuf that
 			 * we processed, so copy it in first. */
-			int more = PS_BUFFER_SIZE - ps_buffered;
+			int more = PS_BUFFER_SIZE - s->buffered;
 			if (more > data_left)
 				more = data_left;
 
 			ASSERT_NOT_EQUAL(more, 0);
 
-			memcpy(ps_buffer + ps_buffered, data_ptr, more);
+			memcpy(s->buffer + s->buffered, data_ptr, more);
 
-			fsar = recv_fsm(pcb, ps_buffer, ps_buffered + more);
+			fsar = recv_fsm(pcb, s->buffer, s->buffered + more);
 
 			/* We still may not yet have enough. This should only
 			 * happen becuase we're out of data in this pbuf, not
-			 * because we couldn't fit it all in ps_buffer. */
+			 * because we couldn't fit it all in the buffer. */
 			if (fsar == 0) {
 				ASSERT_EQUAL(data_left, more);
 				data_ptr += more;
 				data_left -= more;
-				ps_buffered += more;
+				s->buffered += more;
 			} else if (fsar < 0) {
 				break;
 			} else {
@@ -515,20 +532,20 @@ err_t process_packet_FPV_tcp_recv(struct tcp_pcb * pcb, struct pbuf * pbuf,
 				 * the pbuf - if not, something's wrong, since
 				 * we should have processed the previous
 				 * command before now. */
-				ASSERT(fsar > ps_buffered);
+				ASSERT(fsar > s->buffered);
 
 				/* Consume only what we actually used from the
 				 * buffer, so that the next recv_fsm call can
 				 * point directly at the buffer. */
-				data_ptr += (fsar - ps_buffered);
-				data_left -= (fsar - ps_buffered);
-				ps_buffered = 0;
+				data_ptr += (fsar - s->buffered);
+				data_left -= (fsar - s->buffered);
+				s->buffered = 0;
 			}
 		}
 
 		/* At this point, there should be no more buffered data. */
 		if (data_left)
-			ASSERT_EQUAL(ps_buffered, 0);
+			ASSERT_EQUAL(s->buffered, 0);
 
 		/* Now that we've dealt with playing out anything that was
 		 * buffered with a previous pbuf, let's deal with this one. */
@@ -538,8 +555,8 @@ err_t process_packet_FPV_tcp_recv(struct tcp_pcb * pcb, struct pbuf * pbuf,
 			if (fsar == 0) {
 				/* There isn't enough. */
 				ASSERT(data_left < PS_BUFFER_SIZE);
-				memcpy(ps_buffer, data_ptr, data_left);
-				ps_buffered = data_left;
+				memcpy(s->buffer, data_ptr, data_left);
+				s->buffered = data_left;
 				data_left = 0;
 			} else if (fsar < 0) {
 				break;
@@ -572,13 +589,21 @@ static err_t ps_accept_FPV_tcp_accept(void *arg, struct tcp_pcb *pcb, err_t err)
 	 */
 	LWIP_UNUSED_ARG(err);
 
+	stream_conn_t * s = skub_alloc_sz(sizeof(stream_conn_t));
+	if (!s) {
+		return ERR_MEM;
+	}
+	memset(s, 0, sizeof(*s));
+
+	outputf("conn");
+
 	/* Send a hello packet. */
 	if (send_resp(pcb, RESP_ACK, '?', 0) < 0)
 		return ERR_MEM;
 
 	/* Call process_packet whenever we get data. */
 	tcp_recv(pcb, process_packet_FPV_tcp_recv);
-	ps_state = MAIN;
+	pcb->callback_arg = s;
 
 	return ERR_OK;
 }
