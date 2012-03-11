@@ -1,4 +1,5 @@
-PREFIX = arm-none-eabi-
+PREFIX = /usr/local/arm-2011.09/bin/arm-none-eabi-
+CC = $(PREFIX)gcc
 
 INCLUDES = -Iinc -I../common/inc -Ilib/lpc17xx -Idrivers/include -I../common
 CFLAGS += -fno-common -mcpu=cortex-m3 -mthumb -O3 -g -fno-unroll-loops
@@ -70,10 +71,10 @@ pc: $(PC_SRCS) $(APP_SRCS)
 	gcc $(PC_SRCS) $(APP_SRCS) $(INCLUDES) -DPC_BUILD -o pc -Wall -g -m32
 
 %.o: %.c
-	$(PREFIX)gcc $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 %.o: %.s
-	$(PREFIX)gcc $(CFLAGS) -x assembler-with-cpp -c $< -o $@
+	$(CC) $(CFLAGS) -x assembler-with-cpp -c $< -o $@
 
 ../boot/boot.hex:
 	make -C ../boot
@@ -88,8 +89,8 @@ j4cDAC.bin: j4cDAC.hex
 	../tools/image.py $< $@
 
 j4cDAC.elf: $(OBJS)
-	$(PREFIX)gcc $(CFLAGS) -c ../common/lib/build_id.c -o build_id.o -DBUILDID=\"`git describe --dirty`\"
-	$(PREFIX)gcc $(LDFLAGS) $(OBJS) build_id.o -o j4cDAC.elf
+	$(CC) $(CFLAGS) -c ../common/lib/build_id.c -o build_id.o -DBUILDID=\"`git describe --dirty`\"
+	$(CC) $(LDFLAGS) $(OBJS) build_id.o -o j4cDAC.elf
 
 .PHONY: clean flash bl size term
 
