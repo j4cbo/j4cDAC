@@ -149,7 +149,7 @@ unsigned __stdcall FindDACs(void *_bogus) {
 		LeaveCriticalSection(&dac_list_lock);
 
 		/* Make a new DAC entry */
-		dac_t * new_dac = malloc(sizeof(dac_t));
+		dac_t * new_dac = (dac_t *)malloc(sizeof(dac_t));
 		if (!new_dac) {
 			flog("!! malloc(sizeof(dac_t)) failed\n");
 			continue;
@@ -197,6 +197,8 @@ bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 			fp = fopen(fn, "a");
 			flog("== DLL Loaded ==\n");
 		}
+
+		flog("== DLL Init ==\n");
 
 		// Initialize Winsock
 		WSADATA wsaData;
