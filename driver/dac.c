@@ -21,8 +21,6 @@
 
 #include <stdio.h>
 #include <math.h>
-#include <sys/time.h>
-#include <time.h>
 #include <string.h>
 
 #include "dac.h"

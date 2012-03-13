@@ -24,6 +24,7 @@
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
 #include <process.h>
+#include <time.h>
 
 #include <protocol.h>
 #include "j4cDAC.h"

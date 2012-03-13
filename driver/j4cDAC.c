@@ -21,9 +21,10 @@
 
 #include <stdio.h>
 #include <math.h>
-#include <sys/time.h>
-#include <time.h>
 #include <string.h>
+#ifndef MSVC
+#include <sys/time.h>
+#endif
 
 #include "dac.h"
 
