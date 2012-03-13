@@ -27,10 +27,6 @@
 
 #include "dac.h"
 
-#if 0
-#include <iniparser.h>
-#endif
-
 #define EXPORT __declspec(dllexport)
 
 /* Globals
@@ -227,41 +223,6 @@ bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 		DWORD pc = GetPriorityClass(GetCurrentProcess());
 		flog("Process priority class: %d\n", pc);
 		if (!pc) flog("Error: %d\n", GetLastError());
-#if 0
-	char fn[MAX_PATH];
-	/* Load up the INI */
-	snprintf(fn, sizeof(fn), "%s\\j4cDAC.ini", dll_fn);
-	flog("Loading file: %s\n", fn);
-	dictionary *d = iniparser_load(fn);
-
-	if (!d) {
-		flog("Failed to open ini file.\n");
-		return 0;
-	}
-
-	// Parse ini
-	const char * host = iniparser_getstring(d, "network:host", NULL);
-	if (!host) {
-		flog("!! No host given in config file.\n");
-		return 0;
-	}
-	//char * host = strdup(hosts);
-
-	const char * port = iniparser_getstring(d, "network:port", "7654");
-
-	dac_t * new_dac = malloc(sizeof(dac_t));
-	dac_init(new_dac);
-
-	if (dac_open_connection(new_dac, host, port) < 0) {
-		iniparser_freedict(d);
-		return 0;
-	}
-
-	iniparser_freedict(d);
-
-	flog("Ready.\n");
-
-#endif
 
 	} else if (reason == DLL_PROCESS_DETACH) {
 		WSACleanup();
