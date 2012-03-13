@@ -19,6 +19,7 @@
 #ifndef DAC_H
 #define DAC_H
 
+#include <windows.h>
 #include <shlwapi.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>

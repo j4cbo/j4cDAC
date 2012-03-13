@@ -28,7 +28,15 @@
 
 #include "dac.h"
 
+#ifdef __cplusplus
+#define EXPORT extern "C"
+#endif
+
+#ifdef MSVC
+#include <gettimeofday.h>
+#else
 #define EXPORT __declspec(dllexport)
+#endif
 
 /* Globals
  */

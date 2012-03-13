@@ -1,8 +1,13 @@
+#ifdef __cplusplus
+#define J4CDAC_API extern "c"
+#else
 #define J4CDAC_API
-
 #define bool int
+#endif
 
+#ifndef MSVC
 #include <stdint.h>
+#endif
 
 struct EL_Pnt_s {
 	uint16_t X;
@@ -32,6 +37,16 @@ struct ThreadHandles_s {
 };
 
 J4CDAC_API bool __stdcall DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved);
+
+J4CDAC_API int __stdcall EtherDreamGetCardNum(void);
+J4CDAC_API void __stdcall EtherDreamGetDeviceName(const int *CardNum, char *buf, int max);
+J4CDAC_API bool __stdcall EtherDreamOpenDevice(const int *CardNum);
+J4CDAC_API bool __stdcall EtherDreamWriteFrame(const int *CardNum, const struct EAD_Pnt_s* data,
+	int Bytes, uint16_t PPS, uint16_t Reps);
+J4CDAC_API int __stdcall EtherDreamGetStatus(const int *CardNum);
+J4CDAC_API bool __stdcall EtherDreamStop(const int *CardNum);
+J4CDAC_API bool __stdcall EtherDreamCloseDevice(const int *CardNum);
+J4CDAC_API bool __stdcall EtherDreamClose(void);
 
 /* EasyLase API */
 J4CDAC_API int __stdcall EasyLaseGetCardNum(void);

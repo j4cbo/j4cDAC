@@ -25,6 +25,8 @@
 
 #include "dac.h"
 
+#include <mmsystem.h>
+
 #define DEBUG_THRESHOLD		800
 
 extern dac_t * dac_list;
