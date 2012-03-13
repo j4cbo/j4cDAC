@@ -68,6 +68,14 @@ struct buffer_item {
 	int idx;
 };
 
+enum dac_state {
+	ST_DISCONNECTED,
+	ST_READY,
+	ST_RUNNING,
+	ST_BROKEN,
+	ST_SHUTDOWN
+};
+
 /* DAC
  */
 typedef struct dac_s {
@@ -83,13 +91,7 @@ typedef struct dac_s {
 	int32_t dac_id;
 	char mac_address[6];
 
-	enum {
-		ST_DISCONNECTED,
-		ST_READY,
-		ST_RUNNING,
-		ST_BROKEN,
-		ST_SHUTDOWN
-	} state;
+	enum dac_state state;
 
 	struct dac_s * next;
 } dac_t;
