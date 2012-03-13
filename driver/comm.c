@@ -36,7 +36,7 @@
  */
 #define ct_assert(e) ((void)sizeof(char[1 - 2*!(e)]))
 
-int dac_sendall(dac_t *d, void *data, int len);
+int dac_sendall(dac_t *d, const char *data, int len);
 
 /* Log a socket error to the j4cDAC driver log file.
  */
@@ -290,7 +290,7 @@ int dac_disconnect(dac_t *d) {
 	return 0;
 }
 
-int dac_sendall(dac_t *d, void *data, int len) {
+int dac_sendall(dac_t *d, const char *data, int len) {
 	do {
 		int res = wait_for_write(d, 1500000);
 		if (res < 0) {
@@ -369,7 +369,7 @@ int dac_send_data(dac_t *d, struct dac_point *data, int npoints, int rate) {
 		b.command = 'b';
 		b.point_rate = rate;
 		b.low_water_mark = 0;
-		if ((res = dac_sendall(d, &b, sizeof(b))) < 0)
+		if ((res = dac_sendall(d, (const char *)&b, sizeof(b))) < 0)
 			return res;
 
 		d->conn.begin_sent = 1;
@@ -390,7 +390,7 @@ int dac_send_data(dac_t *d, struct dac_point *data, int npoints, int rate) {
 	ct_assert(sizeof(d->conn.local_buffer) == 18008);
 
 	/* Write the data */
-	if ((res = dac_sendall(d, &d->conn.local_buffer,
+	if ((res = dac_sendall(d, (const char *)&d->conn.local_buffer,
 		8 + npoints * sizeof(struct dac_point))) < 0)
 		return res;
 
