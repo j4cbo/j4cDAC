@@ -80,12 +80,11 @@ void dac_close_connection(dac_t *d) {
 	LeaveCriticalSection(&d->buffer_lock);
 
 	int rv = WaitForSingleObject(d->workerthread, 250);
-	if (rv != WAIT_OBJECT_0)
-		flogd(d, "Exit thread timed out.\n");
-
-	if (d->state == ST_READY) {
-		CloseHandle(d->workerthread);
+	if (rv != WAIT_OBJECT_0) {
+		flogd(d, "Exit worker thread timed out.\n");
+		TerminateThread(d->workerthread,-1);
 	}
+	CloseHandle(d->workerthread);
 
 	dac_disconnect(d);
 	d->state = ST_DISCONNECTED;
@@ -178,7 +177,7 @@ int do_write_frame(dac_t *d, const void * data, int bytes, int pps,
 	int internal_reps = 250 / points;
 	char * bigdata = NULL;
 	if (internal_reps) {
-		bigdata = malloc(bytes * internal_reps);
+		bigdata = (char *)malloc(bytes * internal_reps);
 		int i;
 		for (i = 0; i < internal_reps; i++) {
 			memcpy(bigdata + i*bytes, data, bytes);
@@ -212,11 +211,13 @@ unsigned __stdcall LoopUpdate(void *dv){
 	res = SetThreadPriority(GetCurrentThread, THREAD_PRIORITY_TIME_CRITICAL);
 	flogd(d, "SetThreadPriority ret %d\n");
 
+#ifdef CHANGE_TIMER
 	if (timeBeginPeriod(1) == TIMERR_NOERROR) {
 		flogd(d, "Timer set to 1ms\n");
 	} else {
 		flogd(d, "Timer error\n");
 	}
+#endif
 
 	EnterCriticalSection(&d->buffer_lock);
 
@@ -234,7 +235,9 @@ unsigned __stdcall LoopUpdate(void *dv){
 				flogd(d, "!! WFSO failed: %lu\n",
 					GetLastError());
 				d->state = ST_BROKEN;
+#ifdef CHANGE_TIMER
 				timeEndPeriod(1);
+#endif
 				return 0;
 			}
 		}
@@ -242,7 +245,9 @@ unsigned __stdcall LoopUpdate(void *dv){
 		if (d->state != ST_RUNNING) {
 			flogd(d, "L: Shutting down.\n");
 			LeaveCriticalSection(&d->buffer_lock);
+#ifdef CHANGE_TIMER
 			timeEndPeriod(1);
+#endif
 			return 0;
 		}
 
@@ -305,7 +310,9 @@ unsigned __stdcall LoopUpdate(void *dv){
 			EnterCriticalSection(&d->buffer_lock);
 			d->state = ST_BROKEN;
 			LeaveCriticalSection(&d->buffer_lock);
+#ifdef CHANGE_TIMER
 			timeEndPeriod(1);
+#endif
 			return 1;
 		}
 
@@ -345,6 +352,8 @@ unsigned __stdcall LoopUpdate(void *dv){
 		 * and again. */ 
 	}
 
+#ifdef CHANGE_TIMER
 	timeEndPeriod(1);
+#endif
 	return 0;
 }

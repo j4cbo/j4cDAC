@@ -236,10 +236,14 @@ bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 		if (!pc) flog("Error: %d\n", GetLastError());
 
 	} else if (reason == DLL_PROCESS_DETACH) {
+		EtherDreamClose();
+
 		WSACleanup();
 		DeleteCriticalSection(&dac_list_lock);
 
+#ifdef CHANGE_TIMER
 		timeEndPeriod(1);
+#endif
 
 		if (fp) {
 			flog("== DLL Unloaded ==\n");
@@ -330,8 +334,13 @@ EXPORT bool __stdcall EtherDreamClose(void){
 	flog("== Close ==\n");
 	time_to_go = 1;
 	WSACancelBlockingCall();
-	if (WaitForSingleObject(watcherthread, 1000) == WAIT_TIMEOUT) {
-		flog("!! watcher thread timed out\n");
+	if (!fucked && watcherthread) {
+		if (WaitForSingleObject(watcherthread, 1200) != WAIT_OBJECT_0) {
+			TerminateThread(watcherthread, -1);
+			flog("!! Had to kill watcher thread on exit.\n");
+		}
+		CloseHandle(watcherthread);
+		watcherthread = NULL;
 	}
 	do_close();
 	return 0;
@@ -342,6 +351,7 @@ EXPORT bool __stdcall EtherDreamOpenDevice(const int *CardNum) {
 	dac_t *d = dac_get(*CardNum);
 	if (!d) return 0;
 	if (dac_open_connection(d) < 0) return 0;
+	flogd(d, "device opened\n");
 	return 1;
 }
 
