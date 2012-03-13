@@ -262,7 +262,7 @@ int dac_connect(dac_t *d, const char *host, const char *port) {
 	res = setsockopt(conn->sock, IPPROTO_TCP, TCP_NODELAY,
 		(char *)&ndelay, sizeof(ndelay));
 	if (res == SOCKET_ERROR) {
-		log_socket_error(d, "setsockopt");
+		log_socket_error(d, "setsockopt TCP_NODELAY");
 		closesocket(conn->sock);
 		conn->sock = INVALID_SOCKET;
 		return -1;

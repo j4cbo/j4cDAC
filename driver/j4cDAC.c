@@ -110,7 +110,7 @@ unsigned __stdcall FindDACs(void *_bogus) {
 
 	int opt = 1;
 	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt)) < 0) {
-		log_socket_error(NULL, "setsockopt");
+		log_socket_error(NULL, "setsockopt SO_REUSEADDR");
 		return 1;
 	}
 
