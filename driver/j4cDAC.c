@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include <sys/stat.h>
 #ifndef MSVC
 #include <sys/time.h>
 #endif
@@ -82,7 +83,7 @@ int timeval_subtract (struct timeval *res, struct timeval *x,
 
 /* Logging
  */
-void flog (char *fmt, ...) {
+void trace (dac_t *d, char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 
@@ -92,7 +93,12 @@ void flog (char *fmt, ...) {
 	LONGLONG time_diff = time.QuadPart - timer_start.QuadPart;
 	LONGLONG v = (time_diff * 1000000) / timer_freq.QuadPart;
 
-	fprintf(fp, "[%d.%06d] ", (int)(v / 1000000), (int)(v % 1000000));
+	if (d) {
+		fprintf(fp, "[%d.%06d] %06x ", (int)(v / 1000000), (int)(v % 1000000), d->dac_id & 0xffffff);
+	} else {
+		fprintf(fp, "[%d.%06d]        ", (int)(v / 1000000), (int)(v % 1000000));
+	}
+
 	vfprintf(fp, fmt, args);
 	va_end(args);
 }
@@ -130,7 +136,7 @@ unsigned __stdcall FindDACs(void *_bogus) {
 		return 1;
 	}
 
-	flog("_: listening for DACs...\n");
+	trace(NULL, "_: listening for DACs...\n");
 
 	while(!time_to_go) {
 		struct sockaddr_in src;
@@ -160,7 +166,7 @@ unsigned __stdcall FindDACs(void *_bogus) {
 		/* Make a new DAC entry */
 		dac_t * new_dac = (dac_t *)malloc(sizeof(dac_t));
 		if (!new_dac) {
-			flog("!! malloc(sizeof(dac_t)) failed\n");
+			trace(NULL, "!! malloc(sizeof(dac_t)) failed\n");
 			continue;
 		}
 		dac_init(new_dac);
@@ -173,13 +179,13 @@ unsigned __stdcall FindDACs(void *_bogus) {
 		strncpy(host, inet_ntoa(src.sin_addr), sizeof(host) - 1);
 		host[sizeof(host) - 1] = 0;
 
-		flog("_: Found new DAC: %s\n", inet_ntoa(src.sin_addr));
+		trace(NULL, "_: Found new DAC: %s\n", inet_ntoa(src.sin_addr));
 
 		new_dac->state = ST_DISCONNECTED;
 		dac_list_insert(new_dac);
 	}
 
-	flog("_: Exiting\n");
+	trace(NULL, "_: Exiting\n");
 
 	return 0;
 }
@@ -202,18 +208,27 @@ bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 
 		/* Log file */
 		if (!fp) {
+			struct stat st;
+			int should_trunc = 1;
+
 			snprintf(fn, sizeof(fn), "%s\\j4cDAC.txt", dll_fn);
-			fp = fopen(fn, "a");
-			flog("== DLL Loaded ==\n");
+
+			if (!stat(fn, &st) && st.st_size < 1000000)
+				should_trunc = 0;
+
+			fp = fopen(fn, should_trunc ? "w" : "a");
+			fprintf(fp, "----------\n");
+			fflush(fp);
+			trace(NULL, "== DLL Loaded ==\n");
 		}
 
-		flog("== DLL Init ==\n");
+		trace(NULL, "== DLL Init ==\n");
 
 		// Initialize Winsock
 		WSADATA wsaData;
 		int res = WSAStartup(MAKEWORD(2,2), &wsaData);
 		if (res != 0) {
-			flog("!! WSAStartup failed: %d\n", res);
+			trace(NULL, "!! WSAStartup failed: %d\n", res);
 			fucked = 1;
 		}
 
@@ -223,7 +238,7 @@ bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 		// Start up a thread looking for broadcasts
 		watcherthread = (HANDLE)_beginthreadex(NULL, 0, &FindDACs, NULL, 0, NULL);
 		if (!watcherthread) {
-			flog("!! BeginThreadEx error: %s\n", strerror(errno));
+			trace(NULL, "!! BeginThreadEx error: %s\n", strerror(errno));
 			fucked = 1;
 		}
 
@@ -232,8 +247,8 @@ bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 		SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
 
 		DWORD pc = GetPriorityClass(GetCurrentProcess());
-		flog("Process priority class: %d\n", pc);
-		if (!pc) flog("Error: %d\n", GetLastError());
+		trace(NULL, "Process priority class: %d\n", pc);
+		if (!pc) trace(NULL, "Error: %d\n", GetLastError());
 
 	} else if (reason == DLL_PROCESS_DETACH) {
 		EtherDreamClose();
@@ -246,7 +261,7 @@ bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 #endif
 
 		if (fp) {
-			flog("== DLL Unloaded ==\n");
+			trace(NULL, "== DLL Unloaded ==\n");
 			fclose(fp);
 			fp = NULL;
 		}
@@ -259,13 +274,13 @@ bool __stdcall DllMain(HANDLE hModule, DWORD reason, LPVOID lpReserved) {
 EXPORT int __stdcall EtherDreamGetStatus(const int *CardNum) {
 	dac_t *d = dac_get(*CardNum);
 	if (!d) {
-		flogd(d, "M: GetStatus(%d) return -1\n", *CardNum);
+		trace(d, "M: GetStatus(%d) return -1\n", *CardNum);
 		return -1;
 	}
 
 	int st = dac_get_status(d);
 	if (st == GET_STATUS_BUSY) {
-		flogd(d, "M: bouncing\n");
+		trace(d, "M: bouncing\n");
 		Sleep(2);
 	}
 
@@ -285,7 +300,7 @@ static void do_close(void) {
 
 EXPORT int __stdcall EtherDreamGetCardNum(void){
 
-	flog("== EtherDreamGetCardNum ==\n");
+	trace(NULL, "== EtherDreamGetCardNum ==\n");
 
 	/* Clean up any already opened DACs */
 	do_close();
@@ -297,7 +312,7 @@ EXPORT int __stdcall EtherDreamGetCardNum(void){
 	timeval_subtract(&tv_diff, &tv, &load_time);
 	int ms_left = 1100 - ((tv_diff.tv_sec * 1000) + 
 	                      (tv_diff.tv_usec / 1000));
-	flog("Waiting %d milliseconds.\n", ms_left);
+	trace(NULL, "Waiting %d milliseconds.\n", ms_left);
 	Sleep(ms_left);
 
 	/* Count how many DACs we have. */
@@ -311,14 +326,14 @@ EXPORT int __stdcall EtherDreamGetCardNum(void){
 	}
 	LeaveCriticalSection(&dac_list_lock);
 
-	flog("Found %d DACs.\n", count);
+	trace(NULL, "Found %d DACs.\n", count);
 
 	return count;
 }
 
 EXPORT bool __stdcall EtherDreamStop(const int *CardNum){
 	dac_t *d = dac_get(*CardNum);
-	flogd(d, "== Stop(%d) ==\n", *CardNum);
+	trace(d, "== Stop(%d) ==\n", *CardNum);
 	if (!d) return 0;
 	EnterCriticalSection(&d->buffer_lock);
 	if (d->state == ST_READY)
@@ -331,13 +346,13 @@ EXPORT bool __stdcall EtherDreamStop(const int *CardNum){
 }
 
 EXPORT bool __stdcall EtherDreamClose(void){
-	flog("== Close ==\n");
+	trace(NULL, "== Close ==\n");
 	time_to_go = 1;
 	WSACancelBlockingCall();
 	if (!fucked && watcherthread) {
 		if (WaitForSingleObject(watcherthread, 1200) != WAIT_OBJECT_0) {
 			TerminateThread(watcherthread, -1);
-			flog("!! Had to kill watcher thread on exit.\n");
+			trace(NULL, "!! Had to kill watcher thread on exit.\n");
 		}
 		CloseHandle(watcherthread);
 		watcherthread = NULL;
@@ -351,7 +366,7 @@ EXPORT bool __stdcall EtherDreamOpenDevice(const int *CardNum) {
 	dac_t *d = dac_get(*CardNum);
 	if (!d) return 0;
 	if (dac_open_connection(d) < 0) return 0;
-	flogd(d, "device opened\n");
+	trace(d, "device opened\n");
 	return 1;
 }
 
@@ -461,7 +476,7 @@ EXPORT void __stdcall EtherDreamGetDeviceName(const int *CardNum, char *buf, int
  */
 EXPORT int __stdcall EzAudDacGetCardNum(void) {
 
-	flog("== EzAudDacGetCardNum ==\n");
+	trace(NULL, "== EzAudDacGetCardNum ==\n");
 
 	/* Clean up any already opened DACs */
 	do_close();
@@ -473,7 +488,7 @@ EXPORT int __stdcall EzAudDacGetCardNum(void) {
 	timeval_subtract(&tv_diff, &tv, &load_time);
 	int ms_left = 1100 - ((tv_diff.tv_sec * 1000) + 
 	                      (tv_diff.tv_usec / 1000));
-	flog("Waiting %d milliseconds.\n", ms_left);
+	trace(NULL, "Waiting %d milliseconds.\n", ms_left);
 	Sleep(ms_left);
 
 	/* Count how many DACs we have. Along the way, open them */
@@ -488,7 +503,7 @@ EXPORT int __stdcall EzAudDacGetCardNum(void) {
 	}
 	LeaveCriticalSection(&dac_list_lock);
 
-	flog("Found %d DACs.\n", count);
+	trace(NULL, "Found %d DACs.\n", count);
 
 	return count;
 }
@@ -498,17 +513,17 @@ EXPORT int __stdcall EasyLaseGetCardNum(void) {
 }
 
 EXPORT int __stdcall EasyLaseSend(const int *CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t KPPS) {
-	flog("ELSend called: card %d, %d bytes, %d kpps\n", *CardNum, Bytes, KPPS);
+	trace(NULL, "ELSend called: card %d, %d bytes, %d kpps\n", *CardNum, Bytes, KPPS);
 	return 1;
 }
 
 EXPORT int __stdcall EasyLaseWriteFrameUncompressed(const int *CardNum, const struct EL_Pnt_s* data, int Bytes, uint16_t PPS) {
-	flog(" ELWFU called: card %d, %d bytes, %d pps\n", *CardNum, Bytes, PPS);
+	trace(NULL, " ELWFU called: card %d, %d bytes, %d pps\n", *CardNum, Bytes, PPS);
 	return 1;
 }
 
 EXPORT int __stdcall EasyLaseReConnect() {
-	flog(" ELReConnect called.\n");
+	trace(NULL, " ELReConnect called.\n");
 	return 0;
 }
 

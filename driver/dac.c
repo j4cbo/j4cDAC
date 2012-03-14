@@ -53,7 +53,7 @@ int dac_open_connection(dac_t *d) {
 
 	// Connect to the DAC
 	if (dac_connect(d, host, "7765") < 0) {
-		flogd(d, "!! DAC connection failed.\n");
+		trace(d, "!! DAC connection failed.\n");
 		return -1;
 	}
 
@@ -63,11 +63,11 @@ int dac_open_connection(dac_t *d) {
 
 	d->workerthread = (HANDLE)_beginthreadex(NULL, 0, &LoopUpdate, d, 0, NULL);
 	if (!d->workerthread) {
-		flogd(d, "!! Begin thread error: %s\n", strerror(errno));
+		trace(d, "!! Begin thread error: %s\n", strerror(errno));
 		return -1;
 	}
 
-	flogd(d, "Ready.\n");
+	trace(d, "Ready.\n");
 
 	return 0;
 }
@@ -81,7 +81,7 @@ void dac_close_connection(dac_t *d) {
 
 	int rv = WaitForSingleObject(d->workerthread, 250);
 	if (rv != WAIT_OBJECT_0) {
-		flogd(d, "Exit worker thread timed out.\n");
+		trace(d, "Exit worker thread timed out.\n");
 		TerminateThread(d->workerthread,-1);
 	}
 	CloseHandle(d->workerthread);
@@ -127,7 +127,7 @@ struct buffer_item *buf_get_write(dac_t *d) {
 	int write = (d->buffer_read + d->buffer_fullness) % BUFFER_NFRAMES;
 	LeaveCriticalSection(&d->buffer_lock);
 
-	flogd(d, "M: Writing to index %d\n", write);
+	trace(d, "M: Writing to index %d\n", write);
 
 	return &d->buffer[write];
 }
@@ -166,7 +166,7 @@ int do_write_frame(dac_t *d, const void * data, int bytes, int pps,
 
 	/* If not ready for a new frame, bail */
 	if (dac_get_status(d) != GET_STATUS_READY) {
-		flogd(d, "M: NOT READY: %d points, %d reps\n", points, reps);
+		trace(d, "M: NOT READY: %d points, %d reps\n", points, reps);
 		return 0;
 	}
 
@@ -186,7 +186,7 @@ int do_write_frame(dac_t *d, const void * data, int bytes, int pps,
 		data = bigdata;
 	}
 
-	flogd(d, "M: Writing: %d/%d points, %d reps, %d pps\n",
+	trace(d, "M: Writing: %d/%d points, %d reps, %d pps\n",
 		points, convert(NULL, NULL, bytes), reps, pps);
 
 	struct buffer_item *next = buf_get_write(d);
@@ -209,13 +209,13 @@ unsigned __stdcall LoopUpdate(void *dv){
 
 	int res;
 	res = SetThreadPriority(GetCurrentThread, THREAD_PRIORITY_TIME_CRITICAL);
-	flogd(d, "SetThreadPriority ret %d\n");
+	trace(d, "SetThreadPriority ret %d\n");
 
 #ifdef CHANGE_TIMER
 	if (timeBeginPeriod(1) == TIMERR_NOERROR) {
-		flogd(d, "Timer set to 1ms\n");
+		trace(d, "Timer set to 1ms\n");
 	} else {
-		flogd(d, "Timer error\n");
+		trace(d, "Timer error\n");
 	}
 #endif
 
@@ -226,13 +226,13 @@ unsigned __stdcall LoopUpdate(void *dv){
 		while (d->state == ST_READY) {
 			LeaveCriticalSection(&d->buffer_lock);
 
-			flogd(d, "L: Waiting...\n");
+			trace(d, "L: Waiting...\n");
 
 			int res = WaitForSingleObject(d->loop_go, INFINITE);
 
 			EnterCriticalSection(&d->buffer_lock);
 			if (res != WAIT_OBJECT_0) {
-				flogd(d, "!! WFSO failed: %lu\n",
+				trace(d, "!! WFSO failed: %lu\n",
 					GetLastError());
 				d->state = ST_BROKEN;
 #ifdef CHANGE_TIMER
@@ -243,7 +243,7 @@ unsigned __stdcall LoopUpdate(void *dv){
 		}
 
 		if (d->state != ST_RUNNING) {
-			flogd(d, "L: Shutting down.\n");
+			trace(d, "L: Shutting down.\n");
 			LeaveCriticalSection(&d->buffer_lock);
 #ifdef CHANGE_TIMER
 			timeEndPeriod(1);
@@ -275,7 +275,7 @@ unsigned __stdcall LoopUpdate(void *dv){
 
 			if (d->conn.resp.dac_status.buffer_fullness < DEBUG_THRESHOLD
 			    || expected_fullness < DEBUG_THRESHOLD)
-				flogd(d, "L: b %d + %d - %d = %d, w %d om %d st %d\n",
+				trace(d, "L: b %d + %d - %d = %d, w %d om %d st %d\n",
 					d->conn.resp.dac_status.buffer_fullness,
 					d->conn.unacked_points,
 					iu, expected_fullness, cap,
@@ -332,7 +332,7 @@ unsigned __stdcall LoopUpdate(void *dv){
 			b->repeatcount--;
 		} else if (d->buffer_fullness > 1) {
 			/* Move to the next frame */
-			flogd(d, "L: advancing frame - buffer fullness %d\n",
+			trace(d, "L: advancing frame - buffer fullness %d\n",
 				d->buffer_fullness);
 			d->buffer_fullness--;
 			d->buffer_read++;
@@ -340,7 +340,7 @@ unsigned __stdcall LoopUpdate(void *dv){
 				d->buffer_read = 0;
 		} else if (b->repeatcount >= 0) {
 			/* Stop playing until we get a new frame. */
-			flogd(d, "L: returning to idle\n");
+			trace(d, "L: returning to idle\n");
 			d->state = ST_READY;
 		} else {
 			/* Repeat this frame */

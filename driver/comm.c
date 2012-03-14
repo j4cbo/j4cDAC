@@ -47,7 +47,7 @@ void log_socket_error(dac_t *d, const char *call) {
 	FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, err, 0,
 		buf, sizeof(buf), 0);
 
-	flogd(d, "!! Socket error in %s: %d: %s\n", call, err, buf);
+	trace(d, "!! Socket error in %s: %d: %s\n", call, err, buf);
 }
 
 
@@ -109,7 +109,7 @@ int dac_read_bytes(dac_t *d, char *buf, int len) {
 			d->conn.sock = INVALID_SOCKET;
 			return -1;
 		} else if (res == 0) {
-			flogd(d, "!! Read from DAC timed out.\n");
+			trace(d, "!! Read from DAC timed out.\n");
 			closesocket(d->conn.sock);
 			d->conn.sock = INVALID_SOCKET;
 			return -1;
@@ -158,13 +158,13 @@ int dac_read_resp(dac_t *d, int timeout) {
 void dac_dump_resp(dac_t *d) {
 	dac_conn_t *conn = &d->conn;
 	struct dac_status *st = &conn->resp.dac_status;
-	flogd(d, "Protocol %d / LE %d / playback %d / source %d\n",
+	trace(d, "Protocol %d / LE %d / playback %d / source %d\n",
 		0 /* st->protocol */, st->light_engine_state,
 		st->playback_state, st->source);
-	flogd(d, "Flags: LE %x, playback %x, source %x\n",
+	trace(d, "Flags: LE %x, playback %x, source %x\n",
 		st->light_engine_flags, st->playback_flags,
 		st->source_flags);
-	flogd(d, "Buffer: %d points, %d pps, %d total played\n",
+	trace(d, "Buffer: %d points, %d pps, %d total played\n",
 		st->buffer_fullness, st->point_rate, st->point_count);
 }
 
@@ -184,11 +184,11 @@ int dac_connect(dac_t *d, const char *host, const char *port) {
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
-	flogd(d, "Calling getaddrinfo: \"%s\", \"%s\"\n", host, port);
+	trace(d, "Calling getaddrinfo: \"%s\", \"%s\"\n", host, port);
 
 	int res = getaddrinfo(host, port, &hints, &result);
 	if (res != 0) {
-		flogd(d, "getaddrinfo failed: %d\n", res);
+		trace(d, "getaddrinfo failed: %d\n", res);
 		return -1;
 	}
 
@@ -233,7 +233,7 @@ int dac_connect(dac_t *d, const char *host, const char *port) {
 		conn->sock = INVALID_SOCKET;
 		return -1;
 	} else if (res == 0) {
-		flogd(d, "Connection to %s timed out.\n", host);
+		trace(d, "Connection to %s timed out.\n", host);
 		closesocket(conn->sock);
 		conn->sock = INVALID_SOCKET;
 		return -1;
@@ -268,7 +268,7 @@ int dac_connect(dac_t *d, const char *host, const char *port) {
 		return -1;
 	}
 
-	flogd(d, "Connected.\n");
+	trace(d, "Connected.\n");
 
 	// After we connect, the host will send an initial status response. 
 	dac_read_resp(d, DEFAULT_TIMEOUT);
@@ -279,7 +279,7 @@ int dac_connect(dac_t *d, const char *host, const char *port) {
 	dac_read_resp(d, DEFAULT_TIMEOUT);
 	dac_dump_resp(d);
 
-	flogd(d, "Sent.\n");
+	trace(d, "Sent.\n");
 
 	return 0;
 }
@@ -296,7 +296,7 @@ int dac_sendall(dac_t *d, const char *data, int len) {
 		if (res < 0) {
 			return -1;
 		} else if (res == 0) {
-			flogd(d, "write timed out\n");
+			trace(d, "write timed out\n");
 		}
 
 		res = send(d->conn.sock, data, len, 0);
@@ -320,7 +320,7 @@ int check_data_response(dac_t *d) {
 
 	if (conn->resp.command == 'd') {
 		if (conn->ackbuf_prod == conn->ackbuf_cons) {
-			flogd(d, "!! Protocol error: didn't expect data ack\n");
+			trace(d, "!! Protocol error: didn't expect data ack\n");
 			return -1;
 		}
 		conn->unacked_points -= conn->ackbuf[conn->ackbuf_cons];
@@ -330,7 +330,7 @@ int check_data_response(dac_t *d) {
 	}
 
 	if (conn->resp.response != 'a' && conn->resp.response != 'I') {
-		flogd(d, "!! Protocol error: ACK for '%c' got '%c' (%d)\n",
+		trace(d, "!! Protocol error: ACK for '%c' got '%c' (%d)\n",
 			conn->resp.command,
 			conn->resp.response, conn->resp.response);
 		return -1;
@@ -346,7 +346,7 @@ int dac_send_data(dac_t *d, struct dac_point *data, int npoints, int rate) {
 	/* Write the header */
 
 	if (st->playback_state == 0) {
-		flogd(d, "L: Sending prepare command...\n");
+		trace(d, "L: Sending prepare command...\n");
 		char c = 'p';
 		if ((res = dac_sendall(d, &c, sizeof(c))) < 0)
 			return res;
@@ -358,12 +358,12 @@ int dac_send_data(dac_t *d, struct dac_point *data, int npoints, int rate) {
 		while (d->conn.pending_meta_acks)
 			dac_get_acks(d, 1500);
 
-		flogd(d, "L: prepare ACKed\n");
+		trace(d, "L: prepare ACKed\n");
 	}
 
 	if (st->buffer_fullness > 1600 && st->playback_state == 1 \
 	    && !d->conn.begin_sent) {
-		flogd(d, "L: Sending begin command...\n");
+		trace(d, "L: Sending begin command...\n");
 
 		struct begin_command b;
 		b.command = 'b';

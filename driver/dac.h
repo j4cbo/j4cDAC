@@ -98,10 +98,7 @@ typedef struct dac_s {
 	struct dac_s * next;
 } dac_t;
 
-void flog (char *fmt, ...);
-
-#define flogd(d, fmt, ...) \
-  flog("%06x: " fmt, ((d)?((d)->dac_id&0xffffff):0xffffff), ##__VA_ARGS__)
+void trace (dac_t *d, char *fmt, ...);
 
 /* dac.c */
 int dac_init(dac_t *d);
