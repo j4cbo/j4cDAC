@@ -80,7 +80,7 @@ PWM1_IRQHandler:
 	/* Time to handle blue+flags */
 	ldrh r2, [r5, 12]			/*	&c		bf			point			*/
 
-	tst r2, (1<<14)
+	tst r2, (1<<15)
 	strh r1, [r0, -14]			/*	&c					point			*/
 	bne .L.goto_dac_pop_rate_change
 .L.back_from_pop_rate_change:
