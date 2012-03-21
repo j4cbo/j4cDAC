@@ -141,6 +141,7 @@ int dac_start(void) {
 	LPC_PWM1->TCR = PWM_TCR_COUNTER_ENABLE | PWM_TCR_PWM_ENABLE;
 
 	led_set_backled(1);
+	shutter_set(1);
 
 	return 0;
 }

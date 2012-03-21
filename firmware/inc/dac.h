@@ -109,6 +109,7 @@ int dac_fullness(void);
 int dac_set_rate(int points_per_second);
 int dac_rate_queue(int points_per_second);
 uint32_t dac_get_count();
+void shutter_set(int state);
 
 void delay_line_set_delay(int color_index, int delay);
 int delay_line_get_delay(int color_index);
