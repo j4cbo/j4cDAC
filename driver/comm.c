@@ -279,7 +279,18 @@ int dac_connect(dac_t *d, const char *host, const char *port) {
 	dac_read_resp(d, DEFAULT_TIMEOUT);
 	dac_dump_resp(d);
 
-	trace(d, "Sent.\n");
+	if (d->sw_revision >= 2) {
+		c = 'v';
+		dac_sendall(d, &c, 1);
+		res = dac_read_bytes(d, d->version, sizeof(d->version));
+		if (res < 0)
+			return res;
+
+		trace(d, "DAC version: %.*s\n", sizeof(d->version), d->version);
+	} else {
+		memset(d->version, 0, sizeof(d->version));
+		trace(d, "DAC version old!\n");
+	}
 
 	return 0;
 }

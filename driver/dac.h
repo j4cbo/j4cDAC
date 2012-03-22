@@ -91,9 +91,12 @@ typedef struct dac_s {
 	struct in_addr addr;
 	dac_conn_t conn;
 	int32_t dac_id;
+	int sw_revision;
 	char mac_address[6];
 
 	enum dac_state state;
+
+	char version[32];
 
 	struct dac_s * next;
 } dac_t;

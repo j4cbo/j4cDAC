@@ -174,6 +174,7 @@ unsigned __stdcall FindDACs(void *_bogus) {
 		memcpy(new_dac->mac_address, buf.mac_address, 6);
 		new_dac->dac_id = (1 << 31) | (buf.mac_address[3] << 16) \
 			| (buf.mac_address[4] << 8) | buf.mac_address[5];
+		new_dac->sw_revision = buf.sw_revision;
 
 		char host[40];
 		strncpy(host, inet_ntoa(src.sin_addr), sizeof(host) - 1);
