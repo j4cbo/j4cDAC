@@ -281,8 +281,12 @@ EXPORT int __stdcall EtherDreamGetStatus(const int *CardNum) {
 
 	int st = dac_get_status(d);
 	if (st == GET_STATUS_BUSY) {
-		trace(d, "M: bouncing\n");
+		d->bounce_count++;
+		if (d->bounce_count > 20)
+			trace(d, "M: bouncing\n");
 		Sleep(2);
+	} else {
+		d->bounce_count = 0;
 	}
 
 	return st;

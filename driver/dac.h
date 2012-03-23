@@ -84,6 +84,7 @@ typedef struct dac_s {
 	CRITICAL_SECTION buffer_lock;
 	struct buffer_item buffer[BUFFER_NFRAMES];
 	int buffer_read, buffer_fullness;
+	int bounce_count;
 
 	HANDLE workerthread;
 	HANDLE loop_go;
