@@ -329,7 +329,7 @@ unsigned __stdcall LoopUpdate(void *dv){
 			b->repeatcount--;
 		} else if (d->buffer_fullness > 1) {
 			/* Move to the next frame */
-			trace(d, "L: advancing frame - buffer fullness %d\n",
+			trace(d, "L: advancing - b %d\n",
 				d->buffer_fullness);
 			d->buffer_fullness--;
 			d->buffer_read++;
