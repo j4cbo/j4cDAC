@@ -126,9 +126,6 @@ struct buffer_item *buf_get_write(dac_t *d) {
 	EnterCriticalSection(&d->buffer_lock);
 	int write = (d->buffer_read + d->buffer_fullness) % BUFFER_NFRAMES;
 	LeaveCriticalSection(&d->buffer_lock);
-
-	trace(d, "M: Writing to index %d\n", write);
-
 	return &d->buffer[write];
 }
 
