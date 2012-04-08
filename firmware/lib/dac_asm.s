@@ -211,11 +211,11 @@ PWM1_IRQHandler:
 	bx lr
 
 .L.goto_dac_pop_rate_change:
-	push { r0, lr }
+	push { r0, r2, lr }
 	movw r0, :lower16:dac_pop_rate_change
 	movt r0, :upper16:dac_pop_rate_change
 	blx r0
-	pop { r0, lr }
+	pop { r0, r2, lr }
 	b .L.back_from_pop_rate_change
 
 .L.goto_dac_handle_abstract:
