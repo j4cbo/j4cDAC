@@ -1,5 +1,6 @@
 PREFIX = /usr/local/arm-2011.09/bin/arm-none-eabi-
 CC = $(PREFIX)gcc
+BUILDID=`git describe --dirty`
 
 INCLUDES = -Iinc -I../common/inc -Ilib/lpc17xx -Idrivers/include -I../common
 CFLAGS += -fno-common -mcpu=cortex-m3 -mthumb -O3 -g -fno-unroll-loops
@@ -89,7 +90,7 @@ j4cDAC.bin: j4cDAC.hex
 	../tools/image.py $< $@
 
 j4cDAC.elf: $(OBJS)
-	$(CC) $(CFLAGS) -c ../common/lib/build_id.c -o build_id.o -DBUILDID=\"`git describe --dirty`\"
+	$(CC) $(CFLAGS) -c ../common/lib/build_id.c -o build_id.o -DBUILDID=\"$(BUILDID)\"
 	$(CC) $(LDFLAGS) $(OBJS) build_id.o -o j4cDAC.elf
 
 .PHONY: clean flash bl size term
@@ -109,7 +110,7 @@ size:
 	$(PREFIX)size -A j4cDAC.elf
 	$(PREFIX)nm -anS --size-sort -t d j4cDAC.elf | grep ^2 | tail -20
 	@echo
-	@echo "->" `git describe --dirty`
+	@echo "->" $(BUILDID)
 
 term:
 	../tools/miniterm/miniterm.py -b 230400 -p /dev/ttyUSB0 --rts=0
