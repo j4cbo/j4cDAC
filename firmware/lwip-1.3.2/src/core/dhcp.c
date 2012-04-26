@@ -889,6 +889,9 @@ dhcp_bind(struct netif *netif)
   }
 #endif /* LWIP_DHCP_AUTOIP_COOP */
 
+  uint8_t *ip = (uint8_t *)&dhcp->offered_ip_addr;
+  outputf("dhcp: ip %d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+
   LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_STATE, ("dhcp_bind(): IP: 0x%08"X32_F"\n", dhcp->offered_ip_addr.addr));
   netif_set_ipaddr(netif, &dhcp->offered_ip_addr);
   LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_STATE, ("dhcp_bind(): SN: 0x%08"X32_F"\n", sn_mask.addr));
@@ -1450,8 +1453,9 @@ dhcp_get_option(struct pbuf *pbuf, u8_t opt, int max, void *buf)
   struct pbuf *p = pbuf;
 
   #define ADVANCE(n) {				\
-    offset += (n);				\
-    bytes_left -= (n);				\
+    int x = (n);				\
+    offset += x;				\
+    bytes_left -= x;				\
     if (bytes_left <= 0) p = 0;			\
     else while (p && (offset > p->len)) {	\
       offset -= p->len; p = p->next;		\
