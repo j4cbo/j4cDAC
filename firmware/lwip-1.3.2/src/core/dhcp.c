@@ -1530,6 +1530,7 @@ dhcp_get_option(struct pbuf *pbuf, u8_t opt, int max, void *buf)
       }
     }
   }
+  if (!p) return 0;
 
   int len = READBYTE();
   if (len > max) len = max;
