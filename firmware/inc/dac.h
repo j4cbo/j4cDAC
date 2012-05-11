@@ -62,11 +62,11 @@ static inline void dac_pack_point(packed_point_t *dest, dac_point_t *src) {
 	dest->y = src->y;
 
 	#define U(color) ((uint32_t)(src->color))
-/*
+#ifndef __arm__
        dest->irg = (src->g >> 4) | ((U(r) & 0xFFF0) << 8) | ((U(i) & 0xFFF0) << 16);
        dest->i12 = (U(i) & 0x00F0) | ((U(u2) & 0xFFF0) << 4) | ((U(u1) & 0xFFF0) << 20);
        dest->bf = (src->b >> 4) | (src->control & 0xF000);
-*/
+#else
 	uint32_t irg;
 	asm("bfi %0, %1, 16, 16" : "=r" (irg) : "r" (U(i)));
 	asm("bfi %0, %1, 8, 16" : "+r" (irg) : "r" (U(r)));
@@ -85,6 +85,7 @@ static inline void dac_pack_point(packed_point_t *dest, dac_point_t *src) {
 	uint32_t control = src->control;
 	asm("bfc %0, 0, 12" : "+r" (control));
 	dest->bf = control | (src->b >> 4);
+#endif
 }
 
 #define UNPACK_X(p)	((p)->x)

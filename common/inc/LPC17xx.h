@@ -1078,12 +1078,20 @@ typedef struct
 
 static inline uint16_t rev16(uint16_t v) {
 	uint16_t result;
+#ifdef __arm__
 	asm volatile ("rev16 %0, %1" : "=r" (result) : "r" (v));
+#else
+	result = (v << 8) | (v >> 8);
+#endif
 	return result;
 }
 static inline uint32_t rev32(uint32_t v) {
 	uint32_t result;
+#ifdef __arm__
 	asm volatile ("rev %0, %1" : "=r" (result) : "r" (v));
+#else
+	result = (v >> 24) | (v << 24) | ((v&0xff00) << 8) | ((v&0xff0000) >> 8);
+#endif
 	return result;
 }
 
