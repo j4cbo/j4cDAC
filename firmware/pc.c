@@ -18,22 +18,22 @@
 #include <tables.h>
 #include <lightengine.h>
 #include <playback.h>
-#include <ilda-player.h>
+#include <dac_settings.h>
+#include <file_player.h>
 
-int table_hardware_ready = 1;
-int table_protocol_ready = 1;
-int table_poll_ready = 0;
+dac_settings_t settings;
 
 FILE *outputf_file;
 
 void outputf(const char *fmt, ...) {
 	if (!outputf_file) {
-		outputf_file = fopen("out.log", "w");
+		otputf_file = fopen("etherdream-pc.log", "w");
 	}
 	char buf[160];
 	va_list va;
 	va_start(va, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, va);
+	printf("%s\n", buf);
 	fprintf(outputf_file, "%s\n", buf);
 	fflush(outputf_file);
 }
@@ -41,10 +41,6 @@ void outputf(const char *fmt, ...) {
 int playback_source_flags;
 enum playback_source playback_src;
 int dac_flags, dac_count, dac_current_pps;
-
-void eth_get_mac(uint8_t *mac) {
-	memcpy(mac, "\x00\x11\x22\x33\x44\x55", 6);
-}
 
 int playback_source_flags;
 
@@ -69,72 +65,6 @@ TABLE(initializer_t, protocol);
 TABLE(initializer_t, hardware);
 TABLE(initializer_t, poll);
 
-void playback_refill() {
-	int i;
-
-	if (playback_src == SRC_NETWORK)
-		return;
-
-	int dlen = dac_request();
-	packed_point_t *ptr = dac_request_addr();
-
-	/* Have we underflowed? */
-	if (dlen < 0) {
-		if (le_get_state() != LIGHTENGINE_READY)
-			return;
-
-		outputf("*U*");
-		dac_prepare();
-		return;
-	}
-
-	/* If we don't have any more room... */
-	if (dlen == 0) {
-		if (dac_get_state() == DAC_PREPARED)
-			dac_start();
-		return;
-	}
-
-	switch (playback_src) {
-	case SRC_ILDAPLAYER:
-		if (!(playback_source_flags & ILDA_PLAYER_PLAYING))
-			break;
-
-		outputf("%d", dlen);
-
-		i = ilda_read_points(dlen, ptr);
-
-		if (i < 0) {
-			outputf("err: %d", i);
-			playback_source_flags &= ~ILDA_PLAYER_PLAYING;
-		} else if (i == 0) {
-			ilda_reset_file();
-
-			if (playback_source_flags & ILDA_PLAYER_REPEAT) {
-				outputf("rep");
-			} else {
-				outputf("done");
-
-				/* If the whole file didn't fit in the
-				 * buffer, we may have to start it now. */
-				dlen = 0;
-
-				playback_source_flags &= ~ILDA_PLAYER_PLAYING;
-			}
-		} else {
-			dac_advance(i);
-		}
-
-		break;
-	default:
-		panic("bad playback source");
-	}
-
-	/* If the buffer is nearly full, start it up */
-	if (dlen < 200 && dac_get_state() == DAC_PREPARED)
-		dac_start();
-}
-
 uint64_t startup_time = 0;
 
 int get_time() {
@@ -149,7 +79,17 @@ int get_time() {
 	}
 }
 
-void early_setup(void) {
+void bail(void) {
+	printf("=== Terminating ===\n");
+	fflush(stdout);
+	fflush(stderr);
+	_Exit(0);
+}
+
+const thunk_t bail_thunk_begin __attribute__((section(".fini_array.0"))) = bail;
+const thunk_t bail_thunk_end __attribute__((section(".fini_array.~"))) = bail;
+
+int main() {
 	outputf("=== j4cDAC ===");
 
 	outputf("skub_init()");
@@ -157,51 +97,25 @@ void early_setup(void) {
 
 	outputf("lwip_init()");
 	lwip_init();
-}
 
-const thunk_t early_setup_thunk INIT_ARRAY("0") = early_setup;
+	outputf("Calling initializers...");
+	int i;
 
-void hardware_header(void) {
-	outputf("== hardware ==");
-}
-const thunk_t hardware_header_thunk INIT_ARRAY("hardware.0") = hardware_header; 
-
-void protocol_header(void) {
-	outputf("== protocol ==");
-}
-const thunk_t protocol_header_thunk INIT_ARRAY("protocol.0") = protocol_header; 
-
-int main() {
-	outputf("ilda player");
-	ilda_open("ildatest.ild");
-
-	outputf("Entering main loop...");
+	for (i = 0; i < TABLE_LENGTH(hardware); i++) {
+		printf("initializing %s\n", hardware_table[i].name);
+		hardware_table[i].f();
+	}
 
 	playback_src = SRC_ILDAPLAYER;
-/*
-	playback_source_flags = ILDA_PLAYER_PLAYING | ILDA_PLAYER_REPEAT;
-*/
-//	__enable_irq();
-	int i;
 
 	/* This might have taken some time... */
 	for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
 		events_last[i] = events[i].start;
 	}
 
-	dac_set_rate(12000);
-	ilda_set_fps_limit(30);
-
-	table_poll_ready = 1;
-
 	while (1) {
-		/* If we're playing from something other than the network,
-		 * refill the point buffer. */
-		playback_refill();
-
 		/* Check the stuff we check on each loop iteration. */
 		for (i = 0; i < TABLE_LENGTH(poll); i++) {
-			printf("calling poll...\n");
 			poll_table[i].f();
 		}
 
@@ -210,12 +124,33 @@ int main() {
 		/* Check for periodic events */
 		for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
 			if (time > events_last[i] + events[i].period) {
-				printf("%s\n", events[i].msg);
 				events[i].f();
 				events_last[i] += events[i].period;
 			}
 		}
-
-		usleep(5000);
 	}
 }
+
+/* DAC Stubs */
+uint32_t color_corr_get_offset(int color_index) {
+	return 0;
+}
+uint32_t color_corr_get_gain(int color_index) {
+	return 0;
+}
+void color_corr_set_offset(int color_index, int32_t offset) {
+}
+void color_corr_set_gain(int color_index, int32_t gain) {
+}
+int delay_line_get_delay(int color_index) {
+	return 0;
+}
+void delay_line_set_delay(int color_index, int delay) {
+}
+void serial_send(const char *buf, int len) {
+	printf("== %.*s ==", len, buf);
+}
+uint32_t dac_get_count(void) { return 0; }
+char build[32] = "wharrgarbl";
+int hw_board_rev = 0;
+uint8_t mac_address[] = { 0, 1, 2, 3, 4, 5 };
