@@ -60,19 +60,23 @@ typedef struct {
 	const char * name;
 } initializer_t;
 
+#ifndef TABLE_PREFIX
+#define TABLE_PREFIX ".table."
+#endif
+
 #define TABLE_ITEMS(typ, sym, ...) const typ sym[] \
-	__attribute__((section(".table." #typ ".1"))) = { __VA_ARGS__ };
+	__attribute__((section(TABLE_PREFIX #typ ".1"))) = { __VA_ARGS__ };
 
 #define TABLE(typ, name) \
-	const volatile typ name##_table[0] __attribute__((section(".table." #name )));		\
-	const volatile typ name##_table_end[0] __attribute__((section(".table." #name ".END")));
+	const volatile typ name##_table[0] __attribute__((section(TABLE_PREFIX #name )));		\
+	const volatile typ name##_table_end[0] __attribute__((section(TABLE_PREFIX #name ".END")));
 
 #define INITIALIZER(table, f) const initializer_t f##_ptr \
-	__attribute__((section(".table." #table ".1." #f))) = { f, #f };
+	__attribute__((section(TABLE_PREFIX #table ".1." #f))) = { f, #f };
 
 #define INITIALIZER_TABLE(name) \
-	const volatile initializer_t name##_table[0] __attribute__((section(".table." #name )));		\
-	const volatile initializer_t name##_table_end[0] __attribute__((section(".table." #name ".END")));
+	const volatile initializer_t name##_table[0] __attribute__((section(TABLE_PREFIX #name )));		\
+	const volatile initializer_t name##_table_end[0] __attribute__((section(TABLE_PREFIX #name ".END")));
 
 #define TABLE_LENGTH(name)	(name##_table_end - name##_table)
 
