@@ -95,12 +95,6 @@ void dmx_init(void) {
 
 	memset(dmx_message, 0, sizeof(dmx_message));
 	memset(dmx_input_buffer, 0, sizeof(dmx_input_buffer));
-	for(i = 0; i < sizeof(dmx_message); i++) {
-		dmx_message[i] = i;
-	}
-	for(i = 0; i < sizeof(dmx_input_buffer); i++) {
-		dmx_input_buffer[i] = 42;
-	}
 
 	/* Start transmission! */
 	DMX_TIMER->TCR = TnTCR_Counter_Enable;
