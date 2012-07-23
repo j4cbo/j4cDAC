@@ -58,4 +58,52 @@
  */
 #define ARRAY_NELEMS(arr)	(sizeof(arr) / sizeof(arr[0]))
 
+/* emergency_exit_0(block)
+ * emergency_exit_1(param, block)
+ * emergency_exit_2(p1, p2, block)
+ *
+ * Call block in another function. This is used to defeat an optimization
+ * bug in GCC (as of 4.6.3, at least), in which functions with any calls
+ * to other functions - even noreturn functions like panic() - will have
+ * a significantly overweight and unnecessary stack frame. This can be
+ * a performance issue for things like interrupt handlers.
+ *
+ * These macros fool the compiler into thinking that no call exists,
+ * allowing for better code output. Make sure the passed block does not
+ * return - calling panic() unconditionally will do fine.
+ *
+ * Usage example:
+ *       emergency_exit_1(state, {
+ *               panic("Bogus state %d", state);
+ *        });
+ */
+#define emergency_exit_thunk(line) _emergency_exit_ ## line
+#define emergency_exit_thunk2(line) emergency_exit_thunk(line)
+
+#define emergency_exit_0(block) do { 					\
+	void __attribute__((used, noreturn))				\
+		emergency_exit_thunk2(__LINE__)	(void) { block }	\
+	asm volatile("mov pc, %0" : :					\
+		"r"(emergency_exit_thunk2(__LINE__)));			\
+	__builtin_unreachable(); 					\
+	} while(0);
+
+#define emergency_exit_1(p1, block) do { 				\
+	void __attribute__((used, noreturn))				\
+		emergency_exit_thunk2(__LINE__)			 	\
+		(typeof(p1) p1) { block }				\
+	asm volatile("mov r0, %0 \n mov pc, %1" : :			\
+		"r"(p1), "r"(emergency_exit_thunk2(__LINE__)) : "r0");	\
+	__builtin_unreachable(); 					\
+	} while(0);
+
+#define emergency_exit_2(p1, p2, block) do {				\
+	void __attribute__((used)) emergency_exit_thunk2(__LINE__) 	\
+		(typeof(p1) p1, typeof(p2) p2) { block }		\
+	asm volatile("mov r0, %0 \n mov r1, %1 \n mov pc, %2" : :	\
+		"r"(p1), "r"(p2), "r"(emergency_exit_thunk2(__LINE__))	\
+		: "r0", "r1");						\
+	__builtin_unreachable(); 					\
+	} while(0);
+
 #endif

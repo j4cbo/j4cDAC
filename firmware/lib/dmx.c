@@ -37,11 +37,14 @@
 uint8_t dmx_message[DMX_CHANNELS + 1] AHB0;
 uint8_t dmx_input_buffer[DMX_CHANNELS] AHB0;
 
-int dmx_rx_position;
-enum {
-	DMX_RX_IGNORE,
-	DMX_RX_GOT_BREAK,
-	DMX_RX_ACTIVE
+struct {
+	enum {
+		DMX_RX_IGNORE,
+		DMX_RX_GOT_BREAK,
+		DMX_RX_ACTIVE
+	} state;
+	uint8_t unrecognized_start_code;
+	int position;
 } dmx_rx_state;
 
 /* dmx_init_uart
@@ -105,9 +108,13 @@ void dmx_init(void) {
 	DMX_RX_UART->IER = (1 << 2) | (1<<0);
 }
 
+static __attribute__((used)) void dmx_irq_fail(uint32_t iir) {
+}
+
 void UART1_IRQHandler(void) {
-static int c;
-	uint32_t iir = DMX_RX_UART->IIR;
+	LPC_UART_TypeDef *uart = DMX_RX_UART;
+
+	uint32_t iir = uart->IIR;
 	uint32_t lsr;
 	uint8_t ch;
 
@@ -118,48 +125,51 @@ static int c;
 
 	case 0x6:
 		/* Break received */
-		lsr = DMX_RX_UART->LSR;
-		ch = DMX_RX_UART->RBR;
+		lsr = uart->LSR;
+		ch = uart->RBR;
 		if (lsr & (1 << 4)) {
-			dmx_rx_state = DMX_RX_GOT_BREAK;
+			dmx_rx_state.state = DMX_RX_GOT_BREAK;
 		}
 
 		break;
 	case 0x4:
 		/* RX */
-		lsr = DMX_RX_UART->LSR;
-		ch = DMX_RX_UART->RBR;
+		lsr = uart->LSR;
+		ch = uart->RBR;
 
-		if (dmx_rx_state == DMX_RX_ACTIVE) {
-			dmx_input_buffer[dmx_rx_position++] = ch;
-			if (dmx_rx_position == DMX_CHANNELS)
-				dmx_rx_state = DMX_RX_IGNORE;
+		switch (dmx_rx_state.state) {
+		case DMX_RX_IGNORE:
+			return;
+
+		case DMX_RX_GOT_BREAK:
+			/* Is this a data packet? */
+			if (ch != 0) {
+				dmx_rx_state.unrecognized_start_code = ch;
+				dmx_rx_state.state = DMX_RX_IGNORE;
+			} else {
+				dmx_rx_state.state = DMX_RX_ACTIVE;
+				dmx_rx_state.position = 0;
+			}
+
+			return;
+
+		default:
+			dmx_input_buffer[dmx_rx_state.position++] = ch;
+			if (dmx_rx_state.position == DMX_CHANNELS)
+				dmx_rx_state.state = DMX_RX_IGNORE;
+
 			return;
 		}
-
-		if (dmx_rx_state == DMX_RX_IGNORE)
-			return;
-
-		/* Is this a data packet? */
-		if (ch != 0) {
-			outputf("?%d", ch);
-			dmx_rx_state = DMX_RX_IGNORE;
-			return;
-		}
-
-		c=0;
-		dmx_rx_state = DMX_RX_ACTIVE;
-		break;
-
-	case 0xc:
-		panic("rx timeout");
 
 	case 0x2:
 		/* THR empty - ignore */
-		break;
+		return;
 
 	default:
-		panic("unk int %x", iir >> 1);
+		emergency_exit_1(iir, { 
+			panic("DMX IRQ: bogus interrupt %x", iir >> 1);
+		});
+		break;
 	}
 }
 
@@ -183,8 +193,10 @@ void DMX_TX_IRQHandler(void) {
 			| DMACC_Config_DestPeripheral_UART1Tx \
 			| DMACC_Config_E;
 		DMX_TIMER->IR = 4;
-	} else {
-		ASSERT_EQUAL(ir, 0);
+	} else if (ir != 0) {
+		emergency_exit_1(ir, {
+			panic("DMX TX: unexpected IR 0x%08x", ir);
+		});
 	}
 }
 
