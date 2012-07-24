@@ -70,6 +70,8 @@
 #define DMACC_Config_SrcPeripheral_UART1Rx	(11 << 1)
 #define DMACC_Config_DestPeripheral_SSP0Tx      (0 << 6)
 #define DMACC_Config_DestPeripheral_UART1Tx	(10 << 6)
+#define DMACC_Config_DestPeripheral_UART2Tx	(12 << 6)
+#define DMACC_Config_DestPeripheral_UART3Tx	(14 << 6)
 #define DMACC_Config_M2P        (1 << 11)
 #define DMACC_Config_P2M        (2 << 11)
 #define DMACC_Config_E          (1 << 0)

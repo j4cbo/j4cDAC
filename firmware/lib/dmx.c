@@ -27,15 +27,20 @@
 
 #define DMX_TIMER		LPC_TIM1
 #define DMX_TX_IRQHandler	TIMER1_IRQHandler
-#define DMX_TX_UART		((LPC_UART_TypeDef *) LPC_UART1_BASE)
-#define DMX_TX_DMA		LPC_GPDMACH2
+#define DMX_TX1_DMA		LPC_GPDMACH2
+#define DMX_TX2_DMA		LPC_GPDMACH3
+#define DMX_TX3_DMA		LPC_GPDMACH4
 
 #define DMX_RX_UART		((LPC_UART_TypeDef *) LPC_UART1_BASE)
 
 #define DMX_BAUD		250000
 
-uint8_t dmx_message[DMX_CHANNELS + 1] AHB0;
+uint8_t dmx_universe_1[DMX_CHANNELS + 1] AHB0;
+uint8_t dmx_universe_2[DMX_CHANNELS + 1];
+uint8_t dmx_universe_3[DMX_CHANNELS + 1];
 uint8_t dmx_input_buffer[DMX_CHANNELS] AHB0;
+
+uint8_t dmx_tx_enabled_universes;
 
 struct {
 	enum {
@@ -47,11 +52,34 @@ struct {
 	int position;
 } dmx_rx_state;
 
-/* dmx_init_uart
+static LPC_UART_TypeDef * const dmx_uarts[] = {
+	0,	// Channel 0 is bogus
+	((LPC_UART_TypeDef *) LPC_UART1_BASE),
+	((LPC_UART_TypeDef *) LPC_UART2_BASE),
+	((LPC_UART_TypeDef *) LPC_UART3_BASE),
+};
+
+static uint8_t * const dmx_buffers[] = {
+	0,	// Channel 0 is bogus
+	dmx_universe_1,
+	dmx_universe_2,
+	dmx_universe_3,
+};
+
+/* dmx_enable_universe
  *
- * Reset the UART and set it up for DMX transmit or receive.
+ * Enable the UART for a given DMX output and set flags to start
+ * transmitting. Returns 0 on success, -1 if universe is invalid.
  */
-void dmx_init_uart(LPC_UART_TypeDef *uart) {
+int dmx_enable_universe(int universe) {
+	if (universe < 1 || universe > 3)
+		return -1;
+
+	if (dmx_tx_enabled_universes & (1 << universe))
+		return 0;
+
+	LPC_UART_TypeDef *uart = dmx_uarts[universe];
+
 	uart->FCR = UARTnFCR_FIFO_Enable | UARTnFCR_RX_Reset \
 		| UARTnFCR_TX_Reset;
 	uart->FCR = 0;
@@ -64,6 +92,9 @@ void dmx_init_uart(LPC_UART_TypeDef *uart) {
 	uart->FDR = 0x10;
 	uart->FCR = UARTnFCR_FIFO_Enable;
 	uart->TER |= UARTnTER_TX_Enable;
+
+	dmx_tx_enabled_universes |= (1 << universe);
+	return 0;
 }
 
 void dmx_init(void) {
@@ -86,17 +117,23 @@ void dmx_init(void) {
 	DMX_TIMER->MCR = 02111;
 
 	/* DMA for data */
-	DMX_TX_DMA->DMACCConfig = DMACC_Config_M2P
+	DMX_TX1_DMA->DMACCConfig = DMACC_Config_M2P
 		| DMACC_Config_DestPeripheral_UART1Tx;
-	DMX_TX_DMA->DMACCLLI = 0;
-	DMX_TX_DMA->DMACCDestAddr = (uint32_t)&DMX_TX_UART->THR;
-
-	dmx_init_uart(DMX_TX_UART);
+	DMX_TX1_DMA->DMACCLLI = 0;
+	DMX_TX1_DMA->DMACCDestAddr = (uint32_t)&LPC_UART1->THR;
+	DMX_TX2_DMA->DMACCConfig = DMACC_Config_M2P
+		| DMACC_Config_DestPeripheral_UART2Tx;
+	DMX_TX2_DMA->DMACCLLI = 0;
+	DMX_TX2_DMA->DMACCDestAddr = (uint32_t)&LPC_UART2->THR;
+	DMX_TX3_DMA->DMACCConfig = DMACC_Config_M2P
+		| DMACC_Config_DestPeripheral_UART3Tx;
+	DMX_TX3_DMA->DMACCLLI = 0;
+	DMX_TX3_DMA->DMACCDestAddr = (uint32_t)&LPC_UART3->THR;
 
 	NVIC_SetPriority(TIMER1_IRQn, 0);
 	NVIC_EnableIRQ(TIMER1_IRQn);
 
-	memset(dmx_message, 0, sizeof(dmx_message));
+	memset(dmx_universe_1, 0, sizeof(dmx_message));
 	memset(dmx_input_buffer, 0, sizeof(dmx_input_buffer));
 
 	/* Start transmission! */
@@ -106,9 +143,6 @@ void dmx_init(void) {
 	NVIC_SetPriority(UART1_IRQn, 0);
 	NVIC_EnableIRQ(UART1_IRQn);
 	DMX_RX_UART->IER = (1 << 2) | (1<<0);
-}
-
-static __attribute__((used)) void dmx_irq_fail(uint32_t iir) {
 }
 
 void UART1_IRQHandler(void) {
@@ -173,25 +207,54 @@ void UART1_IRQHandler(void) {
 	}
 }
 
+#define DMX_DMACCControl_FLAGS \
+	(DMX_CHANNELS + 1) | DMACC_Control_SWIDTH_8 | DMACC_Control_DWIDTH_8 \
+	| DMACC_Control_SI | DMACC_Control_SBSIZE_1 | DMACC_Control_DBSIZE_1;
+
 void DMX_TX_IRQHandler(void) {
 	uint32_t ir = DMX_TIMER->IR;
+	uint8_t universes = dmx_tx_enabled_universes;
 	if (ir & 1) {
 		/* Start break */
-		DMX_TX_UART->LCR = UARTnLCR_8bit | UARTnLCR_2stop | (1 << 6);
+		if (universes & (1 << 1))
+			LPC_UART1->LCR = UARTnLCR_8bit | UARTnLCR_2stop | (1 << 6);
+		if (universes & (1 << 2))
+			LPC_UART2->LCR = UARTnLCR_8bit | UARTnLCR_2stop | (1 << 6);
+		if (universes & (1 << 3))
+			LPC_UART3->LCR = UARTnLCR_8bit | UARTnLCR_2stop | (1 << 6);
 		DMX_TIMER->IR = 1;
 	} else if (ir & 2) {
 		/* Stop break */
-		DMX_TX_UART->LCR = UARTnLCR_8bit | UARTnLCR_2stop;
+		if (universes & (1 << 1))
+			LPC_UART2->LCR = UARTnLCR_8bit | UARTnLCR_2stop;
+		if (universes & (1 << 2))
+			LPC_UART2->LCR = UARTnLCR_8bit | UARTnLCR_2stop;
+		if (universes & (1 << 3))
+			LPC_UART2->LCR = UARTnLCR_8bit | UARTnLCR_2stop;
 		DMX_TIMER->IR = 2;
 	} else if (ir & 4) {
 		/* Start write */
-		DMX_TX_DMA->DMACCSrcAddr = (uint32_t)dmx_message;
-		DMX_TX_DMA->DMACCControl = (DMX_CHANNELS + 1) | DMACC_Control_SWIDTH_8 \
-			| DMACC_Control_DWIDTH_8 | DMACC_Control_SI \
-			| DMACC_Control_SBSIZE_1 | DMACC_Control_DBSIZE_1;
-		DMX_TX_DMA->DMACCConfig = DMACC_Config_M2P \
-			| DMACC_Config_DestPeripheral_UART1Tx \
-			| DMACC_Config_E;
+		if (universes & (1 << 1)) {
+			DMX_TX1_DMA->DMACCSrcAddr = (uint32_t)dmx_universe_1;
+			DMX_TX1_DMA->DMACCControl = DMX_DMACCControl_FLAGS;
+			DMX_TX1_DMA->DMACCConfig =
+				  DMACC_Config_DestPeripheral_UART1Tx
+				| DMACC_Config_M2P | DMACC_Config_E;
+		}
+		if (universes & (1 << 2)) {
+			DMX_TX2_DMA->DMACCSrcAddr = (uint32_t)dmx_universe_2;
+			DMX_TX2_DMA->DMACCControl = DMX_DMACCControl_FLAGS;
+			DMX_TX2_DMA->DMACCConfig =
+				  DMACC_Config_DestPeripheral_UART2Tx
+				| DMACC_Config_M2P | DMACC_Config_E;
+		}
+		if (universes & (1 << 3)) {
+			DMX_TX3_DMA->DMACCSrcAddr = (uint32_t)dmx_universe_3;
+			DMX_TX3_DMA->DMACCControl = DMX_DMACCControl_FLAGS;
+			DMX_TX3_DMA->DMACCConfig =
+				  DMACC_Config_DestPeripheral_UART3Tx
+				| DMACC_Config_M2P | DMACC_Config_E;
+		}
 		DMX_TIMER->IR = 4;
 	} else if (ir != 0) {
 		emergency_exit_1(ir, {
@@ -200,14 +263,42 @@ void DMX_TX_IRQHandler(void) {
 	}
 }
 
-void dmx_FPV_param(const char *path, int32_t v) {
-	int index = atoi(path + 13);
-	if (index < 1 || index > DMX_CHANNELS) return;
-	dmx_message[index] = v;
+void dmx_set_channel(int universe, int channel, int32_t v) {
+	if (channel < 1 || channel > DMX_CHANNELS) return;
+	if (v < 0) v = 0;
+	if (v > 255) v = 255;
+
+	if (dmx_enable_universe(universe) < 0)
+		return;
+
+	dmx_buffers[universe][channel] = v;
 }
 
+void dmx_FPV_param(const char *path, int32_t v) {
+	dmx_set_channel(path[4] - '0', atoi(path + 14), v);
+}
+
+#if 0
+void dmx_multi_FPV_param(const char *path, int32_t *vs, int n) {
+	int universe = path[4] - '0';
+	int i;
+	if (dmx_enable_universe(universe) < 0)
+		return;
+	for (i = 0; i < n; i++) {
+		dmx_set_channel(universe, n, vs[i]);
+	}
+}
+#endif
+
 TABLE_ITEMS(param_handler, dmx_osc_handlers,
-	{ "/dmx/channel/*", PARAM_TYPE_I1, { .f1 = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
+	{ "/dmx1/channel/*", PARAM_TYPE_I1, { .f1 = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
+	{ "/dmx2/channel/*", PARAM_TYPE_I1, { .f1 = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
+	{ "/dmx3/channel/*", PARAM_TYPE_I1, { .f1 = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
+#if 0
+	{ "/dmx1", PARAM_TYPE_INTN, { .fn = dmx_multi_FPV_param }, PARAM_MODE_INT, 0, 255 },
+	{ "/dmx2", PARAM_TYPE_INTN, { .fn = dmx_multi_FPV_param }, PARAM_MODE_INT, 0, 255 },
+	{ "/dmx3", PARAM_TYPE_INTN, { .fn = dmx_multi_FPV_param }, PARAM_MODE_INT, 0, 255 },
+#endif
 )
 
 INITIALIZER(hardware, dmx_init);
