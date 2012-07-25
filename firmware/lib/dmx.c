@@ -133,7 +133,9 @@ void dmx_init(void) {
 	NVIC_SetPriority(TIMER1_IRQn, 0);
 	NVIC_EnableIRQ(TIMER1_IRQn);
 
-	memset(dmx_universe_1, 0, sizeof(dmx_message));
+	memset(dmx_universe_1, 0, sizeof(dmx_universe_1));
+	memset(dmx_universe_2, 0, sizeof(dmx_universe_2));
+	memset(dmx_universe_3, 0, sizeof(dmx_universe_3));
 	memset(dmx_input_buffer, 0, sizeof(dmx_input_buffer));
 
 	/* Start transmission! */
@@ -226,11 +228,11 @@ void DMX_TX_IRQHandler(void) {
 	} else if (ir & 2) {
 		/* Stop break */
 		if (universes & (1 << 1))
-			LPC_UART2->LCR = UARTnLCR_8bit | UARTnLCR_2stop;
+			LPC_UART1->LCR = UARTnLCR_8bit | UARTnLCR_2stop;
 		if (universes & (1 << 2))
 			LPC_UART2->LCR = UARTnLCR_8bit | UARTnLCR_2stop;
 		if (universes & (1 << 3))
-			LPC_UART2->LCR = UARTnLCR_8bit | UARTnLCR_2stop;
+			LPC_UART3->LCR = UARTnLCR_8bit | UARTnLCR_2stop;
 		DMX_TIMER->IR = 2;
 	} else if (ir & 4) {
 		/* Start write */
@@ -278,27 +280,25 @@ void dmx_FPV_param(const char *path, int32_t v) {
 	dmx_set_channel(path[4] - '0', atoi(path + 14), v);
 }
 
-#if 0
 void dmx_multi_FPV_param(const char *path, int32_t *vs, int n) {
+	if (n < 2) return;
 	int universe = path[4] - '0';
 	int i;
 	if (dmx_enable_universe(universe) < 0)
 		return;
-	for (i = 0; i < n; i++) {
-		dmx_set_channel(universe, n, vs[i]);
+	int32_t base_channel = vs[0];
+	for (i = 0; i < n-1; i++) {
+		dmx_set_channel(universe, base_channel + i, vs[i + 1]);
 	}
 }
-#endif
 
 TABLE_ITEMS(param_handler, dmx_osc_handlers,
 	{ "/dmx1/channel/*", PARAM_TYPE_I1, { .f1 = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
 	{ "/dmx2/channel/*", PARAM_TYPE_I1, { .f1 = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
 	{ "/dmx3/channel/*", PARAM_TYPE_I1, { .f1 = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
-#if 0
-	{ "/dmx1", PARAM_TYPE_INTN, { .fn = dmx_multi_FPV_param }, PARAM_MODE_INT, 0, 255 },
-	{ "/dmx2", PARAM_TYPE_INTN, { .fn = dmx_multi_FPV_param }, PARAM_MODE_INT, 0, 255 },
-	{ "/dmx3", PARAM_TYPE_INTN, { .fn = dmx_multi_FPV_param }, PARAM_MODE_INT, 0, 255 },
-#endif
+	{ "/dmx1", PARAM_TYPE_IN, { .fi = dmx_multi_FPV_param }, PARAM_MODE_INT, 0, 255 },
+	{ "/dmx2", PARAM_TYPE_IN, { .fi = dmx_multi_FPV_param }, PARAM_MODE_INT, 0, 255 },
+	{ "/dmx3", PARAM_TYPE_IN, { .fi = dmx_multi_FPV_param }, PARAM_MODE_INT, 0, 255 },
 )
 
 INITIALIZER(hardware, dmx_init);

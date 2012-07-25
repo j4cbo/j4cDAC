@@ -23,6 +23,4 @@
 
 #define DMX_CHANNELS	512
 
-extern uint8_t dmx_message[DMX_CHANNELS + 1] AHB0;
-
 #endif
