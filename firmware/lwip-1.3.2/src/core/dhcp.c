@@ -124,7 +124,7 @@ static err_t dhcp_reboot(struct netif *netif);
 static void dhcp_set_state(struct dhcp *dhcp, u8_t new_state);
 
 /* receive, unfold, parse and free incoming messages */
-static void dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, struct ip_addr *addr, u16_t port);
+static void dhcp_recv(struct udp_pcb *pcb, struct pbuf *p, struct ip_addr *addr, u16_t port);
 
 static int dhcp_get_option(struct pbuf *p, u8_t option_type, int max, void * buf);
 
@@ -1220,9 +1220,9 @@ dhcp_option_long(struct dhcp *dhcp, u32_t value)
 /**
  * If an incoming DHCP message is in response to us, then trigger the state machine
  */
-static void dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, struct ip_addr *addr, u16_t port)
+static void dhcp_recv(struct udp_pcb *pcb, struct pbuf *p, struct ip_addr *addr, u16_t port)
 {
-  struct netif *netif = (struct netif *)arg;
+  struct netif *netif = (struct netif *)(pcb->recv_arg);
   struct dhcp *dhcp = netif->dhcp;
   struct dhcp_msg *reply_msg = (struct dhcp_msg *)p->payload;
   u8_t msg_type = 211;

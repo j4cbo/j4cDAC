@@ -315,7 +315,7 @@ end:
 }
  
 void NOINLINE FPA_udp_recv(struct udp_pcb *pcb, struct pbuf *p, struct ip_addr *addr, u16_t port) {
-        pcb->recv(pcb->recv_arg, pcb, p, addr, port);
+        pcb->recv(pcb, p, addr, port);
 }
 
 /**
@@ -758,7 +758,7 @@ udp_disconnect(struct udp_pcb *pcb)
  */
 void
 udp_recv(struct udp_pcb *pcb,
-         void (* recv)(void *arg, struct udp_pcb *upcb, struct pbuf *p,
+         void (* recv)(struct udp_pcb *upcb, struct pbuf *p,
                        struct ip_addr *addr, u16_t port),
          void *recv_arg)
 {

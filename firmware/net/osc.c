@@ -219,7 +219,7 @@ void osc_parse_packet(char *data, int length) {
 	}
 }
 
-void osc_recv(void *arg, struct udp_pcb * pcb, struct pbuf * pbuf,
+void osc_recv_FPV_udp_recv(struct udp_pcb * pcb, struct pbuf * pbuf,
 	       struct ip_addr *addr, u16_t port) {
 	osc_last_source = addr;
 	osc_parse_packet(pbuf->payload, pbuf->len);
@@ -231,7 +231,7 @@ struct udp_pcb osc_pcb;
 void osc_init(void) {
 	udp_new(&osc_pcb);
 	udp_bind(&osc_pcb, IP_ADDR_ANY, 60000);
-	udp_recv(&osc_pcb, osc_recv, 0);
+	udp_recv(&osc_pcb, osc_recv_FPV_udp_recv, 0);
 }
 
 static struct pbuf * osc_setup_pbuf(const char *path, char **data, int datalen) {

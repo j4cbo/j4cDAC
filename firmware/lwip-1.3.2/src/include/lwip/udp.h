@@ -102,7 +102,7 @@ struct udp_pcb {
    * @param addr the remote IP address from which the packet was received
    * @param port the remote port from which the packet was received
    */
-  void (* recv)(void *arg, struct udp_pcb *pcb, struct pbuf *p,
+  void (* recv)(struct udp_pcb *pcb, struct pbuf *p,
     struct ip_addr *addr, u16_t port);
   /* user-supplied argument for the recv callback */
   void *recv_arg;  
@@ -124,7 +124,7 @@ err_t            udp_connect    (struct udp_pcb *pcb, struct ip_addr *ipaddr,
                  u16_t port);
 void             udp_disconnect    (struct udp_pcb *pcb);
 void             udp_recv       (struct udp_pcb *pcb,
-         void (* recv)(void *arg, struct udp_pcb *upcb,
+         void (* recv)(struct udp_pcb *upcb,
                  struct pbuf *p,
                  struct ip_addr *addr,
                  u16_t port),
