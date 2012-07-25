@@ -27,6 +27,8 @@
 #include <playback.h>
 #include <file_player.h>
 
+static int walk_fs_request = 0;
+
 /* walk_fs() does two different things:
  *
  * - If index <= 0:
@@ -84,6 +86,8 @@ static void walk_fs(int index) {
 
 		i++;
 	}
+
+	walk_fs_request = 0;
 }
 
 static void NOINLINE refresh_readouts() {
@@ -105,19 +109,23 @@ static void NOINLINE refresh_readouts() {
 		 && (playback_source_flags & ILDA_PLAYER_REPEAT)));
 }
 
-static void refresh_display() {
-	refresh_readouts();
-	walk_fs(-1);
-}
-
 static void ilda_tab_enter_FPV_param(const char *path) {
 	playback_set_src(SRC_ILDAPLAYER);
-	refresh_display();
+	walk_fs_request = -1;
 }
 
 static void ilda_reload_FPV_param(const char *path) {
-	refresh_display();
+	walk_fs_request = -1;
 }
+
+static void ilda_osc_poll(void) {
+	if (walk_fs_request == -1)
+		refresh_readouts();
+	if (walk_fs_request)
+		walk_fs(walk_fs_request);
+}
+
+INITIALIZER(poll, ilda_osc_poll);
 
 void ilda_play_FPV_param(const char *path) {
 	/* Figure out which file index this was */
@@ -131,7 +139,7 @@ void ilda_play_FPV_param(const char *path) {
 		return;
 	}
 
-	walk_fs(index);
+	walk_fs_request = index;
 }
 
 static void ilda_pps_FPV_param(const char *path, int32_t v) {
