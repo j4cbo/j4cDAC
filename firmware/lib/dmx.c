@@ -54,9 +54,6 @@ struct {
 
 static LPC_UART_TypeDef * const dmx_uarts[] = {
 	0,	// Channel 0 is bogus
-	((LPC_UART_TypeDef *) LPC_UART1_BASE),
-	((LPC_UART_TypeDef *) LPC_UART2_BASE),
-	((LPC_UART_TypeDef *) LPC_UART3_BASE),
 };
 
 static uint8_t * const dmx_buffers[] = {
@@ -66,20 +63,11 @@ static uint8_t * const dmx_buffers[] = {
 	dmx_universe_3,
 };
 
-/* dmx_enable_universe
+/* dmx_tx_enable_uart
  *
- * Enable the UART for a given DMX output and set flags to start
- * transmitting. Returns 0 on success, -1 if universe is invalid.
+ * Enable the UART for a given DMX output.
  */
-int dmx_enable_universe(int universe) {
-	if (universe < 1 || universe > 3)
-		return -1;
-
-	if (dmx_tx_enabled_universes & (1 << universe))
-		return 0;
-
-	LPC_UART_TypeDef *uart = dmx_uarts[universe];
-
+void dmx_tx_enable_uart(LPC_UART_TypeDef *uart) {
 	uart->FCR = UARTnFCR_FIFO_Enable | UARTnFCR_RX_Reset \
 		| UARTnFCR_TX_Reset;
 	uart->FCR = 0;
@@ -92,6 +80,16 @@ int dmx_enable_universe(int universe) {
 	uart->FDR = 0x10;
 	uart->FCR = UARTnFCR_FIFO_Enable;
 	uart->TER |= UARTnTER_TX_Enable;
+}
+
+/* dmx_enable_universe
+ *
+ * Set flags to start transmitting on a given DMX output. Returns 0 on
+ * success, -1 if universe is invalid.
+ */
+int dmx_enable_universe(int universe) {
+	if (universe < 1 || universe > 3)
+		return -1;
 
 	dmx_tx_enabled_universes |= (1 << universe);
 	return 0;
@@ -117,6 +115,9 @@ void dmx_init(void) {
 	DMX_TIMER->MCR = 02111;
 
 	/* DMA for data */
+	dmx_tx_enable_uart((LPC_UART_TypeDef *) LPC_UART1_BASE);
+	dmx_tx_enable_uart((LPC_UART_TypeDef *) LPC_UART2_BASE);
+	dmx_tx_enable_uart((LPC_UART_TypeDef *) LPC_UART3_BASE);
 	DMX_TX1_DMA->DMACCConfig = DMACC_Config_M2P
 		| DMACC_Config_DestPeripheral_UART1Tx;
 	DMX_TX1_DMA->DMACCLLI = 0;
@@ -218,39 +219,45 @@ void DMX_TX_IRQHandler(void) {
 	uint8_t universes = dmx_tx_enabled_universes;
 	if (ir & 1) {
 		/* Start break */
-		if (universes & (1 << 1))
+		if (universes & (1 << 1)) {
+			dmx_tx_enabled_universes |= (1 << 4);
 			LPC_UART1->LCR = UARTnLCR_8bit | UARTnLCR_2stop | (1 << 6);
-		if (universes & (1 << 2))
+		}
+		if (universes & (1 << 2)) {
+			dmx_tx_enabled_universes |= (1 << 5);
 			LPC_UART2->LCR = UARTnLCR_8bit | UARTnLCR_2stop | (1 << 6);
-		if (universes & (1 << 3))
+		}
+		if (universes & (1 << 3)) {
+			dmx_tx_enabled_universes |= (1 << 6);
 			LPC_UART3->LCR = UARTnLCR_8bit | UARTnLCR_2stop | (1 << 6);
+		}
 		DMX_TIMER->IR = 1;
 	} else if (ir & 2) {
 		/* Stop break */
-		if (universes & (1 << 1))
+		if (universes & (1 << 4))
 			LPC_UART1->LCR = UARTnLCR_8bit | UARTnLCR_2stop;
-		if (universes & (1 << 2))
+		if (universes & (1 << 5))
 			LPC_UART2->LCR = UARTnLCR_8bit | UARTnLCR_2stop;
-		if (universes & (1 << 3))
+		if (universes & (1 << 6))
 			LPC_UART3->LCR = UARTnLCR_8bit | UARTnLCR_2stop;
 		DMX_TIMER->IR = 2;
 	} else if (ir & 4) {
 		/* Start write */
-		if (universes & (1 << 1)) {
+		if (universes & (1 << 4)) {
 			DMX_TX1_DMA->DMACCSrcAddr = (uint32_t)dmx_universe_1;
 			DMX_TX1_DMA->DMACCControl = DMX_DMACCControl_FLAGS;
 			DMX_TX1_DMA->DMACCConfig =
 				  DMACC_Config_DestPeripheral_UART1Tx
 				| DMACC_Config_M2P | DMACC_Config_E;
 		}
-		if (universes & (1 << 2)) {
+		if (universes & (1 << 5)) {
 			DMX_TX2_DMA->DMACCSrcAddr = (uint32_t)dmx_universe_2;
 			DMX_TX2_DMA->DMACCControl = DMX_DMACCControl_FLAGS;
 			DMX_TX2_DMA->DMACCConfig =
 				  DMACC_Config_DestPeripheral_UART2Tx
 				| DMACC_Config_M2P | DMACC_Config_E;
 		}
-		if (universes & (1 << 3)) {
+		if (universes & (1 << 6)) {
 			DMX_TX3_DMA->DMACCSrcAddr = (uint32_t)dmx_universe_3;
 			DMX_TX3_DMA->DMACCControl = DMX_DMACCControl_FLAGS;
 			DMX_TX3_DMA->DMACCConfig =
