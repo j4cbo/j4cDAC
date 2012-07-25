@@ -71,17 +71,16 @@ static char * autoplay_next_newline(void) {
  * Returns 1 if the handler was called; 0 if the line was not suitable
  * due to bad argument count.
  */
-static int32_t autoplay_params[3];
 static int NOINLINE autoplay_invoke(const volatile param_handler *h, const char *path,
                            int argc, char * const * const argv) {
 
-	int32_t *params = autoplay_params;
+	int32_t params[3];
 	/* String parameter? */
 	if (h->type == PARAM_TYPE_S1 && argc == 1) {
 		params[0] = (int32_t)argv[0];
-	} else if (h->type == argc) {
+	} else if (h->type == PARAM_TYPE_IN || h->type == argc) {
 		int p;
-		for (p = 0; p < argc; p++) {
+		for (p = 0; p < argc && p < ARRAY_NELEMS(params); p++) {
 			if (h->intmode == PARAM_MODE_INT)
 				params[p] = atoi(argv[p]);
 			else
@@ -107,12 +106,15 @@ static int NOINLINE autoplay_invoke(const volatile param_handler *h, const char 
 	case PARAM_TYPE_I3:
 		outputf("ap: %s %d %d %d", h->address, params[0], params[1], params[2]);
 		break;
+	case PARAM_TYPE_IN:
+		outputf("ap: %s ...", h->address);
+		break;
 	case PARAM_TYPE_S1:
 		outputf("ap: %s \"%s\"", h->address, argv[0]);
 		break;
 	}
 
-	return FPA_param(h, path, params);
+	return FPA_param(h, path, params, argc);
 }
 
 /* autoplay_process_line

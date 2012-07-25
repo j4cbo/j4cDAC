@@ -26,17 +26,19 @@
 typedef struct param_handler {
 	const char *address;
 	enum {
-		PARAM_TYPE_0 = 0,
-		PARAM_TYPE_I1 = 1,
-		PARAM_TYPE_I2 = 2,
-		PARAM_TYPE_I3 = 3,
-		PARAM_TYPE_S1 = 42
+		PARAM_TYPE_0,
+		PARAM_TYPE_I1,
+		PARAM_TYPE_I2,
+		PARAM_TYPE_I3,
+		PARAM_TYPE_IN,
+		PARAM_TYPE_S1
 	} type;
 	union {
 		void (*f0) (const char *);
 		void (*f1) (const char *, int32_t);
 		void (*f2) (const char *, int32_t, int32_t);
 		void (*f3) (const char *, int32_t, int32_t, int32_t);
+		void (*fi) (const char *, int32_t *, int);
 		void (*fs) (const char *, const char *);
 	};
 	enum {
@@ -47,7 +49,7 @@ typedef struct param_handler {
 	fixed max;
 } param_handler;
 
-int FPA_param(const volatile param_handler *h, const char *addr, int32_t *params);
+int FPA_param(const volatile param_handler *h, const char *addr, int32_t *params, int n);
 void param_invocation_dump(const struct param_handler *h,
 	const char *addr, int32_t *params);
 

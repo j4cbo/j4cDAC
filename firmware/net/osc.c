@@ -42,19 +42,33 @@ TABLE(param_handler, param_handler)
 
 TABLE_ITEMS(param_handler, default_handlers,
 	{ "/accxyz", PARAM_TYPE_I3, { .f3 = handle_acc_FPV_param } },
-	{ "/1/fader1", PARAM_TYPE_I3, { .f1 = handle_fader_FPV_param } }
+	{ "/1/fader1", PARAM_TYPE_I1, { .f1 = handle_fader_FPV_param } }
 )
+
+static const int8_t param_count_required[] = {
+	[PARAM_TYPE_0] = 0,
+	[PARAM_TYPE_I1] = 1,
+	[PARAM_TYPE_I2] = 2,
+	[PARAM_TYPE_I3] = 3,
+	[PARAM_TYPE_IN] = -1,
+	[PARAM_TYPE_S1] = 1
+};
 
 /* FPA_osc
  *
  * Accessor for parameter update functions. In addition to performing the
  * indirect call, this also clamps parameters to the handler's range.
  */
-int FPA_param(const volatile param_handler *h, const char *addr, int32_t *p) {
+int FPA_param(const volatile param_handler *h, const char *addr, int32_t *p, int n) {
 	int i;
 
+	/* Ensure that we have the right number of parameters */
+	int8_t parameters_expected = param_count_required[h->type];
+	if (parameters_expected != -1 && n != parameters_expected)
+		return 0;
+
 	if (h->type != PARAM_TYPE_S1 && (h->min || h->max)) {
-		for (i = 0; i < h->type; i++) {
+		for (i = 0; i < n; i++) {
 			if (p[i] > h->max) p[i] = h->max;
 			if (p[i] < h->min) p[i] = h->min;
 		}
@@ -73,6 +87,9 @@ int FPA_param(const volatile param_handler *h, const char *addr, int32_t *p) {
 	case PARAM_TYPE_I3:
 		h->f3(addr, p[0], p[1], p[2]);
 		break;
+	case PARAM_TYPE_IN:
+		h->fi(addr, p, n);
+		break;
 	case PARAM_TYPE_S1:
 		h->fs(addr, (const char *)p[0]);
 		break;
@@ -83,6 +100,7 @@ int FPA_param(const volatile param_handler *h, const char *addr, int32_t *p) {
 	return 1;
 }
 
+int osc_try_handler(volatile const param_handler *h, char *address, char *type, uint32_t *data, int length) ALWAYS_INLINE;
 void osc_parse_packet(char *data, int length) {
 
 	/* If the length isn't a multiple of 4, someting is very fishy -
@@ -121,102 +139,75 @@ void osc_parse_packet(char *data, int length) {
 	data += type_padded;
 	length -= type_padded;
 
-	uint32_t *idata = (uint32_t *)data;
-
-	/* Parse in all the parameters */
-	int count = 0;
-	int32_t raw_params[3];
-
-	while (type[count] && count < 3) {
-		char t = type[count];
-		switch (t) {
-		case 'i':
-		case 'f':
-			/* We don't know whether we should be processing
-			 * as int or fixed until we've found the handler,
-			 * so to avoid loss of precision, don't do float
-			 * conversion until then. */
-			raw_params[count] = ntohl(*idata);
-			idata++;
-			break;
-		case 'T':
-			raw_params[count] = 1;
-			break;
-		case 'F':
-			raw_params[count] = 0;
-			break;
-		case 'N':
-			raw_params[count] = -1;
-			break;
-		default:
-			/* Unrecognized type code - we must ignore
-			 * this message. */
-			outputf("osc: unk type '%c' (%d)", t, t);
-			return;
-		}
-		count++;
-	}
-
+	/* Try matching against each parameter handler */
 	int nmatched = 0;
-	int i;
-	const volatile param_handler *h;
+	volatile const param_handler *h;
 	foreach_matching_handler(h, address) {
-		int32_t params[3];
-
-		switch (h->type) {
-		case PARAM_TYPE_S1:
-			/* Accept this iff we got one string parameter */
-			if (count != 1 || type[0] != 's') continue;
-			params[0] = raw_params[0];
-			break;
-
-		case PARAM_TYPE_0:
-		case PARAM_TYPE_I1:
-		case PARAM_TYPE_I2:
-		case PARAM_TYPE_I3:
-			/* Convert floats as needed */
-			for (i = 0; i < count; i++) {
-				union float_int f;
-				if (type[i] == 's') continue; /* XXX want to continue outer */
-				if (type[i] == 'f') {
-					f.i = raw_params[i];
-					if (h->intmode == PARAM_MODE_INT) {
-						params[i] = f.f;
-					} else {
-						params[i] = FIXED(f.f);
-					}
-				} else {
-					if (h->intmode == PARAM_MODE_INT) {
-						params[i] = raw_params[i];
-					} else {
-						params[i] = FIXED(raw_params[i]);
-					}
-				}
-			}
-
-			/* Check parameter count - needs to match, with the
-			 * exception that if we get a single nonzero param
-			 * for something that wants 0, we accept it */
-			if (h->type == PARAM_TYPE_0 && count == 1) {
-				/* Swallow release events */
-				if (!params[0]) {
-					nmatched++;
-					continue;
-				}
-			} else if (h->type != count) {
-				continue;
-			}
-		}
-
-		/* Now, call the appropriate function */
-		nmatched++;
-		FPA_param(h, address, params);
+		nmatched += osc_try_handler(h, address, type, (uint32_t *)data, length);
 	}
 
 	if (!nmatched && address_len >= 2 && address[address_len - 1] != 'z' \
 	    && address[address_len - 2] != '/') {
 		outputf("unk: %s", address);
 	}
+}
+
+int osc_try_handler(volatile const param_handler *h, char *address, char *type, uint32_t *data, int length) {
+	int32_t params[50];
+	int i;
+	union float_int f;
+
+	/* Parse in all the parameters according to how the parameter wants them
+	 * to be interpreted. */
+	for (i = 0; i < ARRAY_NELEMS(params) && type[i] && length >= 4; i++) {
+		char t = type[i];
+		switch (t) {
+		case 'i':
+			if (h->intmode == PARAM_MODE_INT) {
+				params[i] = ntohl(*data);
+			} else {
+				params[i] = FIXED(ntohl(*data));
+			}
+			data++;
+			break;
+		case 'f':
+			f.i = ntohl(*data);
+			if (h->intmode == PARAM_MODE_INT) {
+				params[i] = f.f;
+			} else {
+				params[i] = FIXED(f.f);
+			}
+			data++;
+			break;
+		case 'T':
+			params[i] = 1;
+			break;
+		case 'F':
+			params[i] = 0;
+			break;
+		case 'N':
+			params[i] = -1;
+			break;
+		default:
+			/* Unrecognized type code - we must ignore
+			 * this message. */
+			outputf("osc: unk type '%c' (%d)", t, t);
+			return -1;
+		}
+	}
+
+	/* If we get a single parameter for something that expects none, and
+	 * it's nonzero, pretend we got no parameters; if it is zero, swallow
+	 * the event. This makes things like TouchOSC pushbuttons work right.
+	 */
+	if (h->type == PARAM_TYPE_0 && i == 1) {
+		if (params[0]) i = 0;
+		else return 1;
+	}
+
+	/* Finally, call FPA_param with our inputs */
+	FPA_param(h, address, params, i);
+	return 1;
 }
 
 void osc_recv_FPV_udp_recv(struct udp_pcb * pcb, struct pbuf * pbuf,
