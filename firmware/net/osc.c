@@ -317,9 +317,12 @@ void osc_send_string(const char *path, const char *value) {
 
 int osc_parameter_matches(const char *handler, const char *packet) {
 	while (1) {
-		if (*handler == '*')
+		if (*handler == '*') {
+			/* Make sure this was the last field in the path */
+			while (*packet)
+				if (*packet++ == '/') return 0;
 			return 1;
-		else if (*handler != *packet)
+		} else if (*handler != *packet)
 			return 0;
 		else if (*handler == '\0')
 			return 1;
