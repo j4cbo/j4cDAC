@@ -40,9 +40,9 @@ uint8_t dmx_universe_2[DMX_CHANNELS + 1];
 uint8_t dmx_universe_3[DMX_CHANNELS + 1];
 uint8_t dmx_input_buffer[DMX_CHANNELS] AHB0;
 
-uint8_t dmx_tx_enabled_universes;
+static uint8_t dmx_tx_enabled_universes;
 
-struct {
+static struct {
 	enum {
 		DMX_RX_IGNORE,
 		DMX_RX_GOT_BREAK,
@@ -52,12 +52,8 @@ struct {
 	int position;
 } dmx_rx_state;
 
-static LPC_UART_TypeDef * const dmx_uarts[] = {
-	0,	// Channel 0 is bogus
-};
-
 static uint8_t * const dmx_buffers[] = {
-	0,	// Channel 0 is bogus
+	0,
 	dmx_universe_1,
 	dmx_universe_2,
 	dmx_universe_3,
@@ -67,7 +63,7 @@ static uint8_t * const dmx_buffers[] = {
  *
  * Enable the UART for a given DMX output.
  */
-void dmx_tx_enable_uart(LPC_UART_TypeDef *uart) {
+static void dmx_tx_enable_uart(LPC_UART_TypeDef *uart) {
 	uart->FCR = UARTnFCR_FIFO_Enable | UARTnFCR_RX_Reset \
 		| UARTnFCR_TX_Reset;
 	uart->FCR = 0;
@@ -80,19 +76,6 @@ void dmx_tx_enable_uart(LPC_UART_TypeDef *uart) {
 	uart->FDR = 0x10;
 	uart->FCR = UARTnFCR_FIFO_Enable;
 	uart->TER |= UARTnTER_TX_Enable;
-}
-
-/* dmx_enable_universe
- *
- * Set flags to start transmitting on a given DMX output. Returns 0 on
- * success, -1 if universe is invalid.
- */
-int dmx_enable_universe(int universe) {
-	if (universe < 1 || universe > 3)
-		return -1;
-
-	dmx_tx_enabled_universes |= (1 << universe);
-	return 0;
 }
 
 void dmx_init(void) {
@@ -272,40 +255,42 @@ void DMX_TX_IRQHandler(void) {
 	}
 }
 
-void dmx_set_channel(int universe, int channel, int32_t v) {
-	if (channel < 1 || channel > DMX_CHANNELS) return;
-	if (v < 0) v = 0;
-	if (v > 255) v = 255;
+static void dmx_set_channel(unsigned universe, unsigned channel, int32_t v) {
+	if (channel == 0) return;
+	if (channel > DMX_CHANNELS) return;
 
-	if (dmx_enable_universe(universe) < 0)
-		return;
-
+	asm ("usat %0, 8, %1" : "=r"(v) : "r"(v));
 	dmx_buffers[universe][channel] = v;
 }
 
-void dmx_FPV_param(const char *path, int32_t v) {
-	dmx_set_channel(path[4] - '0', atoi(path + 14), v);
+void dmx_set_channels(int universe, int base, int32_t *vs, int n) {
+	if (universe == 0) return;
+	if (universe > 3) return;
+
+	int i;
+	for (i = 0; i < n; i++)
+		dmx_set_channel(universe, base + i, vs[i]);
+
+	dmx_tx_enabled_universes |= (1 << universe);
 }
 
-void dmx_multi_FPV_param(const char *path, int32_t *vs, int n) {
+static void dmx_FPV_param(const char *path, int32_t *vs, int n) {
+	if (n < 1) return;
+	dmx_set_channels(path[4] - '0', atoi(path + 6), vs, n);
+}
+
+static void dmx_indexed_FPV_param(const char *path, int32_t *vs, int n) {
 	if (n < 2) return;
-	int universe = path[4] - '0';
-	int i;
-	if (dmx_enable_universe(universe) < 0)
-		return;
-	int32_t base_channel = vs[0];
-	for (i = 0; i < n-1; i++) {
-		dmx_set_channel(universe, base_channel + i, vs[i + 1]);
-	}
+	dmx_set_channels(path[4] - '0', vs[0], vs + 1, n - 1);
 }
 
 TABLE_ITEMS(param_handler, dmx_osc_handlers,
-	{ "/dmx1/channel/*", PARAM_TYPE_I1, { .f1 = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
-	{ "/dmx2/channel/*", PARAM_TYPE_I1, { .f1 = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
-	{ "/dmx3/channel/*", PARAM_TYPE_I1, { .f1 = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
-	{ "/dmx1", PARAM_TYPE_IN, { .fi = dmx_multi_FPV_param }, PARAM_MODE_INT, 0, 255 },
-	{ "/dmx2", PARAM_TYPE_IN, { .fi = dmx_multi_FPV_param }, PARAM_MODE_INT, 0, 255 },
-	{ "/dmx3", PARAM_TYPE_IN, { .fi = dmx_multi_FPV_param }, PARAM_MODE_INT, 0, 255 },
+	{ "/dmx1/*", PARAM_TYPE_IN, { .fi = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
+	{ "/dmx2/*", PARAM_TYPE_IN, { .fi = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
+	{ "/dmx3/*", PARAM_TYPE_IN, { .fi = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
+	{ "/dmx1", PARAM_TYPE_IN, { .fi = dmx_indexed_FPV_param }, PARAM_MODE_INT, 0, 255 },
+	{ "/dmx2", PARAM_TYPE_IN, { .fi = dmx_indexed_FPV_param }, PARAM_MODE_INT, 0, 255 },
+	{ "/dmx3", PARAM_TYPE_IN, { .fi = dmx_indexed_FPV_param }, PARAM_MODE_INT, 0, 255 },
 )
 
 INITIALIZER(hardware, dmx_init);
