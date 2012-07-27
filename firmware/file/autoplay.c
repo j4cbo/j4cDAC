@@ -109,6 +109,9 @@ static int NOINLINE autoplay_invoke(const volatile param_handler *h, const char 
 	case PARAM_TYPE_IN:
 		outputf("ap: %s ...", h->address);
 		break;
+	case PARAM_TYPE_BLOB:
+		// can't pass blobs from autoplay
+		return 0;
 	case PARAM_TYPE_S1:
 		outputf("ap: %s \"%s\"", h->address, argv[0]);
 		break;

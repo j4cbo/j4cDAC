@@ -284,6 +284,16 @@ static void dmx_indexed_FPV_param(const char *path, int32_t *vs, int n) {
 	dmx_set_channels(path[4] - '0', vs[0], vs + 1, n - 1);
 }
 
+static void dmx_blob_FPV_param(const char *path, uint8_t *blob, int n) {
+        if (n > 512) return;
+        int universe = path[4] - '0';
+        if (universe == 0) return;
+        if (universe > 3) return;
+
+        memcpy(dmx_buffers[universe] + 1, blob, n);
+	dmx_tx_enabled_universes |= (1 << universe);
+}
+
 TABLE_ITEMS(param_handler, dmx_osc_handlers,
 	{ "/dmx1/*", PARAM_TYPE_IN, { .fi = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
 	{ "/dmx2/*", PARAM_TYPE_IN, { .fi = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
@@ -291,6 +301,9 @@ TABLE_ITEMS(param_handler, dmx_osc_handlers,
 	{ "/dmx1", PARAM_TYPE_IN, { .fi = dmx_indexed_FPV_param }, PARAM_MODE_INT, 0, 255 },
 	{ "/dmx2", PARAM_TYPE_IN, { .fi = dmx_indexed_FPV_param }, PARAM_MODE_INT, 0, 255 },
 	{ "/dmx3", PARAM_TYPE_IN, { .fi = dmx_indexed_FPV_param }, PARAM_MODE_INT, 0, 255 },
+	{ "/dmx1", PARAM_TYPE_BLOB, { .fb = dmx_blob_FPV_param } },
+	{ "/dmx2", PARAM_TYPE_BLOB, { .fb = dmx_blob_FPV_param } },
+	{ "/dmx3", PARAM_TYPE_BLOB, { .fb = dmx_blob_FPV_param } },
 )
 
 INITIALIZER(hardware, dmx_init);

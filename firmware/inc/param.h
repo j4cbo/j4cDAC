@@ -31,6 +31,7 @@ typedef struct param_handler {
 		PARAM_TYPE_I2,
 		PARAM_TYPE_I3,
 		PARAM_TYPE_IN,
+		PARAM_TYPE_BLOB,
 		PARAM_TYPE_S1
 	} type;
 	union {
@@ -39,6 +40,7 @@ typedef struct param_handler {
 		void (*f2) (const char *, int32_t, int32_t);
 		void (*f3) (const char *, int32_t, int32_t, int32_t);
 		void (*fi) (const char *, int32_t *, int);
+		void (*fb) (const char *, uint8_t *, int);
 		void (*fs) (const char *, const char *);
 	};
 	enum {

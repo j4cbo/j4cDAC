@@ -42,7 +42,7 @@ TABLE(param_handler, param_handler)
 
 TABLE_ITEMS(param_handler, default_handlers,
 	{ "/accxyz", PARAM_TYPE_I3, { .f3 = handle_acc_FPV_param } },
-	{ "/1/fader1", PARAM_TYPE_I1, { .f1 = handle_fader_FPV_param } }
+	{ "/1/fader1", PARAM_TYPE_I1, { .f1 = handle_fader_FPV_param } },
 )
 
 static const int8_t param_count_required[] = {
@@ -51,6 +51,7 @@ static const int8_t param_count_required[] = {
 	[PARAM_TYPE_I2] = 2,
 	[PARAM_TYPE_I3] = 3,
 	[PARAM_TYPE_IN] = -1,
+	[PARAM_TYPE_BLOB] = -1,
 	[PARAM_TYPE_S1] = 1
 };
 
@@ -92,6 +93,9 @@ int FPA_param(const volatile param_handler *h, const char *addr, int32_t *p, int
 		break;
 	case PARAM_TYPE_S1:
 		h->fs(addr, (const char *)p[0]);
+		break;
+	case PARAM_TYPE_BLOB:
+		h->fb(addr, (uint8_t *)p, n);
 		break;
 	default:
 		panic("bad type in param def: %s %d", h->address, h->type);
@@ -157,6 +161,30 @@ int osc_try_handler(volatile const param_handler *h, char *address, char *type, 
 	int i;
 	union float_int f;
 
+	/* Special case - string */
+	if (h->type == PARAM_TYPE_S1 && type[0] == 's' && !type[1]) {
+		/* TODO */
+		return 0;
+	} else if (h->type == PARAM_TYPE_S1) {
+		/* Didn't get exactly one string - no match */
+		return 0;
+	} else if (h->type == PARAM_TYPE_BLOB && type[0] == 'b' && !type[1]) {
+		unsigned bytes = ntohl(*data);
+		data++;
+		length -= 4;
+		if (bytes > length) {
+			/* They've sent us a bogus length value... */
+			return 0;
+		}
+
+		/* Pass blob directly to handler */
+		FPA_param(h, address, (int32_t *)data, bytes);
+		return 1;
+	} else if (h->type == PARAM_TYPE_BLOB) {
+		/* Didn't get exactly one blob - no match */
+		return 0;
+	}
+
 	/* Parse in all the parameters according to how the parameter wants them
 	 * to be interpreted. */
 	for (i = 0; i < ARRAY_NELEMS(params) && type[i] && length >= 4; i++) {
@@ -188,11 +216,15 @@ int osc_try_handler(volatile const param_handler *h, char *address, char *type, 
 		case 'N':
 			params[i] = -1;
 			break;
+		case 'b':
+			/* This should have been handled earlier - if not,
+			 * don't emit a bad type warning, just swallow it. */
+			return 0;
 		default:
 			/* Unrecognized type code - we must ignore
 			 * this message. */
 			outputf("osc: unk type '%c' (%d)", t, t);
-			return -1;
+			return 0;
 		}
 	}
 
@@ -330,6 +362,6 @@ int osc_parameter_matches(const char *handler, const char *packet) {
 		handler++;
 		packet++;
 	}
-}	
+}
 
 INITIALIZER(protocol, osc_init)
