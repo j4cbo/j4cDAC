@@ -83,6 +83,8 @@ void dmx_init(void) {
 
 	/* Configure UART1 TX and RX pins */
 	LPC_PINCON->PINSEL4 = (LPC_PINCON->PINSEL4 & ~0xF) | 0xA;
+	LPC_PINCON->PINSEL0 = (LPC_PINCON->PINSEL0 & ~0x300000) | 0x100000;
+	LPC_PINCON->PINSEL1 |= (3 << 18);
 
 	/* Set up timer */
 	DMX_TIMER->TCR = TnTCR_Counter_Enable | TnTCR_Counter_Reset;
