@@ -69,7 +69,7 @@ all: j4cDAC.hex j4cDAC.bin size
 PC_SRCS = pc.c unix/rawif.c unix/sdcard.c unix/dac.c
 
 pc: $(PC_SRCS) $(APP_SRCS)
-	gcc $(PC_SRCS) $(APP_SRCS) $(INCLUDES) -DPC_BUILD '-DTABLE_PREFIX=".fini_array.table."' -o pc -Wall -g -m32
+	gcc $(PC_SRCS) $(APP_SRCS) $(INCLUDES) -DPC_BUILD '-DTABLE_PREFIX=".fini_array.table."' -o pc -Wall -g -m32 -Wl,-Map,pc.map
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@

@@ -27,7 +27,7 @@ FILE *outputf_file;
 
 void outputf(const char *fmt, ...) {
 	if (!outputf_file) {
-		otputf_file = fopen("etherdream-pc.log", "w");
+		outputf_file = fopen("etherdream-pc.log", "w");
 	}
 	char buf[160];
 	va_list va;
@@ -104,6 +104,11 @@ int main() {
 	for (i = 0; i < TABLE_LENGTH(hardware); i++) {
 		printf("initializing %s\n", hardware_table[i].name);
 		hardware_table[i].f();
+	}
+
+	for (i = 0; i < TABLE_LENGTH(protocol); i++) {
+		printf("initializing %s\n", protocol_table[i].name);
+		protocol_table[i].f();
 	}
 
 	playback_src = SRC_ILDAPLAYER;
