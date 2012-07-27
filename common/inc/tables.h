@@ -65,14 +65,14 @@ typedef struct {
 #endif
 
 #define TABLE_ITEMS(typ, sym, ...) const typ sym[] \
-	__attribute__((section(TABLE_PREFIX #typ ".1"))) = { __VA_ARGS__ };
+	__attribute__((section(TABLE_PREFIX #typ ".1"), aligned(4))) = { __VA_ARGS__ };
 
 #define TABLE(typ, name) \
 	const volatile typ name##_table[0] __attribute__((section(TABLE_PREFIX #name )));		\
 	const volatile typ name##_table_end[0] __attribute__((section(TABLE_PREFIX #name ".END")));
 
 #define INITIALIZER(table, f) const initializer_t f##_ptr \
-	__attribute__((section(TABLE_PREFIX #table ".1." #f))) = { f, #f };
+	__attribute__((section(TABLE_PREFIX #table ".1." #f), aligned(4))) = { f, #f };
 
 #define INITIALIZER_TABLE(name) \
 	const volatile initializer_t name##_table[0] __attribute__((section(TABLE_PREFIX #name )));		\
