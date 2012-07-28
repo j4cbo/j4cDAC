@@ -41,6 +41,7 @@
  */
 typedef struct dac_conn_s {
 	SOCKET sock;
+	SOCKET udp_sock;
 	char buf[1024];
 	int size;
 	struct dac_response resp;

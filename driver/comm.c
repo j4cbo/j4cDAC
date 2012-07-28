@@ -106,11 +106,13 @@ int dac_read_bytes(dac_t *d, char *buf, int len) {
 
 		if (res < 0) {
 			closesocket(d->conn.sock);
+			closesocket(d->conn.udp_sock);
 			d->conn.sock = INVALID_SOCKET;
 			return -1;
 		} else if (res == 0) {
 			trace(d, "!! Read from DAC timed out.\n");
 			closesocket(d->conn.sock);
+			closesocket(d->conn.udp_sock);
 			d->conn.sock = INVALID_SOCKET;
 			return -1;
 		}
@@ -206,6 +208,11 @@ int dac_connect(dac_t *d, const char *host, const char *port) {
 	unsigned long nonblocking = 1;
 	ioctlsocket(conn->sock, FIONBIO, &nonblocking);
 
+	struct sockaddr_in udp_target = { 0 };
+	udp_target.sin_family = AF_INET;
+	udp_target.sin_addr.s_addr = ((struct sockaddr_in *)(ptr->ai_addr))->sin_addr.s_addr;
+	udp_target.sin_port = htons(60000);
+
 	// Connect to host. Because the socket is nonblocking, this
 	// will always return WSAEWOULDBLOCK.
 	connect(conn->sock, ptr->ai_addr, (int)ptr->ai_addrlen);
@@ -270,6 +277,17 @@ int dac_connect(dac_t *d, const char *host, const char *port) {
 
 	trace(d, "Connected.\n");
 
+	// Create socket for OSC
+	conn->udp_sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (conn->udp_sock == INVALID_SOCKET) {
+		log_socket_error(d, "socket(AF_INET, SOCK_DRGAM)");
+	} else {
+		res = connect(conn->udp_sock, (struct sockaddr *)&udp_target, sizeof(udp_target));
+		if (res == SOCKET_ERROR) {
+			log_socket_error(d, "connect(udp_sock)");
+		}
+	}
+
 	// After we connect, the host will send an initial status response. 
 	dac_read_resp(d, DEFAULT_TIMEOUT);
 	dac_dump_resp(d);
@@ -297,6 +315,7 @@ int dac_connect(dac_t *d, const char *host, const char *port) {
 
 int dac_disconnect(dac_t *d) {
 	closesocket(d->conn.sock);
+	closesocket(d->conn.udp_sock);
 	d->conn.sock = INVALID_SOCKET;
 	return 0;
 }

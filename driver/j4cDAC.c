@@ -475,6 +475,25 @@ EXPORT void __stdcall EtherDreamGetDeviceName(const int *CardNum, char *buf, int
 	dac_get_name(d, buf, max);
 }
 
+EXPORT bool __stdcall EtherDreamWriteDMX(const int *CardNum, int universe, const unsigned char *data) {
+	dac_t *d = dac_get(*CardNum);
+	if (!d) return 0;
+
+	if (universe < 1) return 0;
+	if (universe > 3) return 0;
+
+	char dmx_message[532] = {
+		'/', 'd', 'm', 'x', universe + '0', 0, 0, 0,
+		',', 'b', 0, 0, 0, 0, 2, 0
+	};
+
+	memcpy(dmx_message + 16, data, 512);
+	send(d->conn.udp_sock, dmx_message, 532, 0);
+
+	return 1;
+}
+
+
 /****************************************************************************/
 
 /* Wrappers and stubs
