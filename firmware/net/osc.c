@@ -24,7 +24,8 @@
 #include <osc.h>
 #include <tables.h>
 
-static struct ip_addr *osc_last_source;
+struct ip_addr *osc_last_source;
+uint16_t osc_last_port;
 
 union float_int {
 	float f;
@@ -275,6 +276,7 @@ int osc_try_handler(volatile const param_handler *h, char *address, char *type, 
 void osc_recv_FPV_udp_recv(struct udp_pcb * pcb, struct pbuf * pbuf,
 	       struct ip_addr *addr, u16_t port) {
 	osc_last_source = addr;
+	osc_last_port = port;
 	osc_parse_packet(pbuf->payload, pbuf->len);
 	pbuf_free(pbuf);
 }

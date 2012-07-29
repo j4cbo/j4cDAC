@@ -29,5 +29,7 @@ void osc_send_fixed2(const char *path, fixed v1, fixed v2);
 void osc_send_string(const char *path, const char *value);
 
 extern struct udp_pcb osc_pcb;
+extern struct ip_addr *osc_last_source;
+extern uint16_t osc_last_port;
 
 #endif

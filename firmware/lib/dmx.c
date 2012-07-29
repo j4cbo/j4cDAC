@@ -328,11 +328,15 @@ static void dmx_blob_FPV_param(const char *path, uint8_t *blob, int n) {
 
 static void dmx_input_FPV_param(const char *path, const char *ip, int32_t port) {
 	outputf("DMX: %s %d", ip, port);
-	if (port <= 0 || port > 65535) {
+	if (port < 0 || port > 65535) {
 		dmx_in_dest_port == 0;
 		return;
 	}
-	if (inet_aton(ip, (struct in_addr *)&dmx_in_dest))
+	if (!strcmp(ip, "me")) {
+		dmx_in_dest = *osc_last_source;
+		if (!port) dmx_in_dest_port = osc_last_port;
+		else dmx_in_dest_port = port;
+	} else if (inet_aton(ip, (struct in_addr *)&dmx_in_dest))
 		dmx_in_dest_port = port;
 	else
 		dmx_in_dest_port = 0;
