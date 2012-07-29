@@ -74,11 +74,21 @@ static char * autoplay_next_newline(void) {
 static int NOINLINE autoplay_invoke(const volatile param_handler *h, const char *path,
                            int argc, char * const * const argv) {
 
+	int parameters_expected = param_count_required[h->type];
+	if (parameters_expected != -1 && argc != parameters_expected) {
+		outputf("ap: bad param count for %s: expect %d got %d",
+			h->address, parameters_expected, argc);
+	}
+
 	int32_t params[3];
-	/* String parameter? */
+
+	/* Special-case parameter types */
 	if (h->type == PARAM_TYPE_S1 && argc == 1) {
 		params[0] = (int32_t)argv[0];
-	} else if (h->type == PARAM_TYPE_IN || h->type == argc) {
+	} else if (h->type == PARAM_TYPE_S1I1) {
+		params[0] = (int32_t)argv[0];
+		params[1] = atoi(argv[1]);
+	} else if (h->type <= PARAM_TYPE_IN) {
 		int p;
 		for (p = 0; p < argc && p < ARRAY_NELEMS(params); p++) {
 			if (h->intmode == PARAM_MODE_INT)
@@ -86,11 +96,6 @@ static int NOINLINE autoplay_invoke(const volatile param_handler *h, const char 
 			else
 				params[p] = strtofixed(argv[p]);
 		}
-	} else {
-		int expected = (h->type == PARAM_TYPE_S1) ? 1 : h->type;
-		outputf("ap: bad param count for %s: expect %d got %d",
-			h->address, expected, argc);
-		return 0;
 	}
 
 	switch (h->type) {
@@ -114,6 +119,9 @@ static int NOINLINE autoplay_invoke(const volatile param_handler *h, const char 
 		return 0;
 	case PARAM_TYPE_S1:
 		outputf("ap: %s \"%s\"", h->address, argv[0]);
+		break;
+	case PARAM_TYPE_S1I1:
+		outputf("ap: %s \"%s\" %d", h->address, argv[0], params[1]);
 		break;
 	}
 

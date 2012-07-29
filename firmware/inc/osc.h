@@ -28,4 +28,6 @@ void osc_send_int2(const char *path, uint32_t v1, uint32_t v2);
 void osc_send_fixed2(const char *path, fixed v1, fixed v2);
 void osc_send_string(const char *path, const char *value);
 
+extern struct udp_pcb osc_pcb;
+
 #endif

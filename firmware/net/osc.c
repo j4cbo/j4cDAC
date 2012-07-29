@@ -45,14 +45,15 @@ TABLE_ITEMS(param_handler, default_handlers,
 	{ "/1/fader1", PARAM_TYPE_I1, { .f1 = handle_fader_FPV_param } },
 )
 
-static const int8_t param_count_required[] = {
+const int8_t param_count_required[] = {
 	[PARAM_TYPE_0] = 0,
 	[PARAM_TYPE_I1] = 1,
 	[PARAM_TYPE_I2] = 2,
 	[PARAM_TYPE_I3] = 3,
 	[PARAM_TYPE_IN] = -1,
 	[PARAM_TYPE_BLOB] = -1,
-	[PARAM_TYPE_S1] = 1
+	[PARAM_TYPE_S1] = 1,
+	[PARAM_TYPE_S1I1] = 2,
 };
 
 /* FPA_osc
@@ -96,6 +97,9 @@ int FPA_param(const volatile param_handler *h, const char *addr, int32_t *p, int
 		break;
 	case PARAM_TYPE_BLOB:
 		h->fb(addr, (uint8_t *)p, n);
+		break;
+	case PARAM_TYPE_S1I1:
+		h->fsi(addr, (const char *)p[0], p[1]);
 		break;
 	default:
 		panic("bad type in param def: %s %d", h->address, h->type);
@@ -161,12 +165,12 @@ int osc_try_handler(volatile const param_handler *h, char *address, char *type, 
 	int i;
 	union float_int f;
 
-	/* Special case - string */
+	/* First, handle the special-case param types - those involving
+	 * strings and blobs */
 	if (h->type == PARAM_TYPE_S1 && type[0] == 's' && !type[1]) {
 		/* TODO */
 		return 0;
 	} else if (h->type == PARAM_TYPE_S1) {
-		/* Didn't get exactly one string - no match */
 		return 0;
 	} else if (h->type == PARAM_TYPE_BLOB && type[0] == 'b' && !type[1]) {
 		unsigned bytes = ntohl(*data);
@@ -181,8 +185,32 @@ int osc_try_handler(volatile const param_handler *h, char *address, char *type, 
 		FPA_param(h, address, (int32_t *)data, bytes);
 		return 1;
 	} else if (h->type == PARAM_TYPE_BLOB) {
-		/* Didn't get exactly one blob - no match */
 		return 0;
+	} else if (h->type == PARAM_TYPE_S1I1 &&
+	           (!strcmp(type, "si") || !strcmp(type, "sf"))) {
+		/* One string, one int */
+		params[0] = (uint32_t)data;
+		char *strstart = (char *)data;
+		int strlength = 0;
+		/* Find end of string. Bail if it's malformed (extends past
+		 * the end of the packet). */
+		while (strstart[strlength])
+			if (strlength++ == length) return 0;
+
+		strlength += 4 - (strlength % 4);
+		data += (strlength / 4);
+
+		/* Make sure there's exactly one int/float left */
+		if (strlength + 4 != length) return 0;
+
+		if (type[1] == 'i') {
+			params[1] = ntohl(*data);
+		} else {
+			f.i = ntohl(*data);
+			params[1] = f.f;
+		}
+
+		FPA_param(h, address, params, 2);
 	}
 
 	/* Parse in all the parameters according to how the parameter wants them
@@ -197,6 +225,7 @@ int osc_try_handler(volatile const param_handler *h, char *address, char *type, 
 				params[i] = FIXED(ntohl(*data));
 			}
 			data++;
+			length -= 4;
 			break;
 		case 'f':
 			f.i = ntohl(*data);
@@ -206,6 +235,7 @@ int osc_try_handler(volatile const param_handler *h, char *address, char *type, 
 				params[i] = FIXED(f.f);
 			}
 			data++;
+			length -= 4;
 			break;
 		case 'T':
 			params[i] = 1;

@@ -60,6 +60,8 @@ void print_dac_cycle_count(void) {
 	outputf("dac %d", dac_cycle_count);
 }
 
+extern void dmx_in_poll(void);
+
 struct periodic_event {
 	void (*f)(void);
 	int period;
@@ -70,6 +72,7 @@ struct periodic_event {
 	{ ip_reass_tmr, 1000, "ip_reass", 17 },
 	{ etharp_tmr, 5000, "ip_reass", 177 },
 	{ dhcp_coarse_tmr, 60000, "dhcp c", 35 },
+	{ dmx_in_poll, 25, "dmx", 4 },
 	{ dhcp_fine_tmr, 500, "dhcp f", 25 },
 	{ autoip_tmr, AUTOIP_TMR_INTERVAL, "autoip", 10 },
 	{ broadcast_send, 1000, "broadcast", 10 },

@@ -32,7 +32,8 @@ typedef struct param_handler {
 		PARAM_TYPE_I3,
 		PARAM_TYPE_IN,
 		PARAM_TYPE_BLOB,
-		PARAM_TYPE_S1
+		PARAM_TYPE_S1,
+		PARAM_TYPE_S1I1
 	} type;
 	union {
 		void (*f0) (const char *);
@@ -42,6 +43,7 @@ typedef struct param_handler {
 		void (*fi) (const char *, int32_t *, int);
 		void (*fb) (const char *, uint8_t *, int);
 		void (*fs) (const char *, const char *);
+		void (*fsi) (const char *, const char *, int32_t);
 	};
 	enum {
 		PARAM_MODE_INT,
@@ -50,6 +52,8 @@ typedef struct param_handler {
 	fixed min;
 	fixed max;
 } param_handler;
+
+extern const int8_t param_count_required[];
 
 int FPA_param(const volatile param_handler *h, const char *addr, int32_t *params, int n);
 void param_invocation_dump(const struct param_handler *h,

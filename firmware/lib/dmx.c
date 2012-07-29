@@ -23,7 +23,11 @@
 #include <serial.h>
 #include <string.h>
 #include <stdlib.h>
+#include <osc.h>
 #include <param.h>
+
+#include <lwip/pbuf.h>
+#include <lwip/udp.h>
 
 #define DMX_TIMER		LPC_TIM1
 #define DMX_TX_IRQHandler	TIMER1_IRQHandler
@@ -36,20 +40,21 @@
 #define DMX_BAUD		250000
 
 uint8_t dmx_universe_1[DMX_CHANNELS + 1] AHB0;
-uint8_t dmx_universe_2[DMX_CHANNELS + 1];
+uint8_t dmx_universe_2[DMX_CHANNELS + 1] AHB0;
 uint8_t dmx_universe_3[DMX_CHANNELS + 1];
-uint8_t dmx_input_buffer[DMX_CHANNELS] AHB0;
 
 static uint8_t dmx_tx_enabled_universes;
 
 static struct {
+	uint8_t input_buffer[DMX_CHANNELS + 4];
 	enum {
 		DMX_RX_IGNORE,
 		DMX_RX_GOT_BREAK,
 		DMX_RX_ACTIVE
 	} state;
-	uint8_t unrecognized_start_code;
 	int position;
+	uint8_t unrecognized_start_code;
+	uint8_t dirty;
 } dmx_rx_state;
 
 static uint8_t * const dmx_buffers[] = {
@@ -58,6 +63,16 @@ static uint8_t * const dmx_buffers[] = {
 	dmx_universe_2,
 	dmx_universe_3,
 };
+
+static struct pbuf * dmx_in_pbuf;
+
+static uint8_t osc_output_header[] = {
+	'/', 'd', 'm', 'x', '1', 0, 0, 0,
+	',', 'b', 0, 0, 0, 0, 2, 0
+};
+
+static struct ip_addr dmx_in_dest;
+static uint16_t dmx_in_dest_port;
 
 /* dmx_tx_enable_uart
  *
@@ -122,7 +137,7 @@ void dmx_init(void) {
 	memset(dmx_universe_1, 0, sizeof(dmx_universe_1));
 	memset(dmx_universe_2, 0, sizeof(dmx_universe_2));
 	memset(dmx_universe_3, 0, sizeof(dmx_universe_3));
-	memset(dmx_input_buffer, 0, sizeof(dmx_input_buffer));
+	memset(dmx_rx_state.input_buffer, 0, sizeof(dmx_rx_state.input_buffer));
 
 	/* Start transmission! */
 	DMX_TIMER->TCR = TnTCR_Counter_Enable;
@@ -131,6 +146,13 @@ void dmx_init(void) {
 	NVIC_SetPriority(UART1_IRQn, 0);
 	NVIC_EnableIRQ(UART1_IRQn);
 	DMX_RX_UART->IER = (1 << 2) | (1<<0);
+
+	/* Set up pbuf for outgoing OSC packets */
+	dmx_in_pbuf = pbuf_alloc(PBUF_TRANSPORT, 16, PBUF_ROM);
+	dmx_in_pbuf->payload = (uint8_t *)osc_output_header;
+	struct pbuf *data_pbuf = pbuf_alloc(PBUF_TRANSPORT, 512, PBUF_ROM);
+	data_pbuf->payload = dmx_rx_state.input_buffer;
+	pbuf_cat(dmx_in_pbuf, data_pbuf);
 }
 
 void UART1_IRQHandler(void) {
@@ -138,7 +160,8 @@ void UART1_IRQHandler(void) {
 
 	uint32_t iir = uart->IIR;
 	uint32_t lsr;
-	uint8_t ch;
+	uint32_t ch_old, ch;
+	int pos;
 
 	switch (iir & 0xF) {
 	case 1:
@@ -157,7 +180,7 @@ void UART1_IRQHandler(void) {
 	case 0x4:
 		/* RX */
 		lsr = uart->LSR;
-		ch = uart->RBR;
+		asm volatile("uxtb %0, %1" : "=r"(ch) : "r"(uart->RBR));
 
 		switch (dmx_rx_state.state) {
 		case DMX_RX_IGNORE:
@@ -176,10 +199,17 @@ void UART1_IRQHandler(void) {
 			return;
 
 		default:
-			dmx_input_buffer[dmx_rx_state.position++] = ch;
-			if (dmx_rx_state.position == DMX_CHANNELS)
+			pos = dmx_rx_state.position;
+
+			ch_old = dmx_rx_state.input_buffer[pos];
+			if (ch != ch_old)
+				dmx_rx_state.dirty = 1;
+			dmx_rx_state.input_buffer[pos] = ch;
+
+			if (pos == DMX_CHANNELS - 1)
 				dmx_rx_state.state = DMX_RX_IGNORE;
 
+			dmx_rx_state.position = pos + 1;
 			return;
 		}
 
@@ -296,6 +326,18 @@ static void dmx_blob_FPV_param(const char *path, uint8_t *blob, int n) {
 	dmx_tx_enabled_universes |= (1 << universe);
 }
 
+static void dmx_input_FPV_param(const char *path, const char *ip, int32_t port) {
+	outputf("DMX: %s %d", ip, port);
+	if (port <= 0 || port > 65535) {
+		dmx_in_dest_port == 0;
+		return;
+	}
+	if (inet_aton(ip, (struct in_addr *)&dmx_in_dest))
+		dmx_in_dest_port = port;
+	else
+		dmx_in_dest_port = 0;
+}
+
 TABLE_ITEMS(param_handler, dmx_osc_handlers,
 	{ "/dmx1/*", PARAM_TYPE_IN, { .fi = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
 	{ "/dmx2/*", PARAM_TYPE_IN, { .fi = dmx_FPV_param }, PARAM_MODE_INT, 0, 255 },
@@ -306,6 +348,23 @@ TABLE_ITEMS(param_handler, dmx_osc_handlers,
 	{ "/dmx1", PARAM_TYPE_BLOB, { .fb = dmx_blob_FPV_param } },
 	{ "/dmx2", PARAM_TYPE_BLOB, { .fb = dmx_blob_FPV_param } },
 	{ "/dmx3", PARAM_TYPE_BLOB, { .fb = dmx_blob_FPV_param } },
+	{ "/dmx1/input", PARAM_TYPE_S1I1, { .fsi = dmx_input_FPV_param } },
 )
+
+void dmx_in_poll(void) {
+	if (!dmx_in_dest_port)
+		return;
+
+	__disable_irq();
+	if (!dmx_rx_state.dirty) {
+		__enable_irq();
+		return;
+	}
+
+	dmx_rx_state.dirty = 0;
+	__enable_irq();
+
+	udp_sendto(&osc_pcb, dmx_in_pbuf, &dmx_in_dest, dmx_in_dest_port);
+}
 
 INITIALIZER(hardware, dmx_init);
