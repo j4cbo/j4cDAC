@@ -25,7 +25,8 @@
 
 enum hw_board_rev {
 	HW_REV_PROTO = 0,
-	HW_REV_MP1 = 1
+	HW_REV_MP1 = 1,
+	HW_REV_MP2 = 2,
 };
 
 extern enum hw_board_rev hw_board_rev;

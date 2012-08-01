@@ -54,8 +54,20 @@ void hw_get_board_rev(void) {
 		hw_board_rev = HW_REV_MP1;
 		/* Put P1[31] back */
 		LPC_GPIO1->FIODIR &= ~(1 << 31);
+
+		/* Pull-up or pull-down on interlock pin indicates MP2 */
+		if (LPC_GPIO2->FIOPIN & (1 << 8))
+			hw_board_rev = HW_REV_MP1;
+		else
+			hw_board_rev = HW_REV_MP2;
 	} else {
 		hw_board_rev = HW_REV_PROTO;
+	}
+
+	if (hw_board_rev != HW_REV_PROTO) {
+		/* Turn on interlock output */
+		LPC_GPIO2->FIOSET = (1 << 8);
+		LPC_GPIO2->FIODIR |= (1 << 8);
 	}
 }
 
@@ -223,10 +235,7 @@ void __attribute__((noreturn)) hw_open_interlock_forever(void) {
 	/* Turn off all DAC channels. */
 	hw_dac_init();
 
-	if (hw_board_rev == HW_REV_PROTO) {
-		/* Just do nothing */
-		while (1);
-	} else {
+	if (hw_board_rev == HW_REV_MP1) {
 		/* Square wave */
 		int i;
 		LPC_GPIO2->FIODIR |= (1 << 8);
@@ -238,6 +247,9 @@ void __attribute__((noreturn)) hw_open_interlock_forever(void) {
 			LPC_GPIO2->FIOCLR = (1 << 8);
 			watchdog_feed();
 		}
+	} else {
+		/* Just do nothing */
+		while (1);
 	}
 }
 

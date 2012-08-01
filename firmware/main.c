@@ -35,23 +35,38 @@
 #include <file_player.h>
 #include <dac_settings.h>
 
-volatile uint32_t time;
-volatile uint32_t mtime;
+struct {
+	volatile uint32_t time;
+	volatile uint8_t mtime;
+} clock;
 extern int f0ad_flag;
 extern const char build[];
 
 dac_settings_t settings;
 
 void SysTick_Handler(void) {
-	mtime++;
-	if (mtime % 10 != 0) return;
+	uint8_t mtime_buf = clock.mtime + 1;
 
-	time++;
+	if (hw_board_rev == HW_REV_MP2) {
+		if (mtime_buf % 2)
+			LPC_GPIO2->FIOSET = (1 << 8);
+		else
+			LPC_GPIO2->FIOCLR = (1 << 8);
+	}
+
+	if (mtime_buf < 10) {
+		clock.mtime = mtime_buf;
+		return;
+	}
+
+	clock.mtime = 0;
+	uint32_t time = clock.time;
+	clock.time = time + 1;
 
 	/* If we're in an estop condition, slow-blink the LED */
-	if (time % 500 == 0) {
+	if (time % 512 == 0) {
 		led_set_frontled(1);
-	} else if (time % 500 == 450 && le_state == LIGHTENGINE_ESTOP) {
+	} else if (time % 512 == 450 && le_state == LIGHTENGINE_ESTOP) {
 		led_set_frontled(0);
 	}
 }
@@ -79,7 +94,7 @@ struct periodic_event {
 #if DAC_INSTRUMENT_TIME
 	{ print_dac_cycle_count, 1000, "dac_cycle_count", 4 },
 #endif
-	{ eth_check_link, 100, "eth_check_link", 2 }
+	{ eth_check_link, 100, "eth_check_link", 2 },
 };
 
 int events_last[sizeof(events) / sizeof(events[0])];
@@ -109,7 +124,7 @@ static void COLD NOINLINE FPA_init() {
 void check_periodic_timers() {
 	int i;
 	for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
-		if (time > events_last[i] + events[i].period) {
+		if (clock.time > events_last[i] + events[i].period) {
 			events[i].f();
 			events_last[i] += events[i].period;
 			watchdog_feed();
@@ -121,6 +136,7 @@ int main(int argc, char **argv) __attribute__((noreturn));
 int main(int argc, char **argv) {
 	__disable_irq();
 
+	LPC_GPIO2->FIODIR &= ~(1 << 8);
 	LPC_SC->PCLKSEL0 = PCLKSEL0_INIT_VALUE;
 	LPC_SC->PCLKSEL1 = PCLKSEL1_INIT_VALUE;
 	LPC_SC->PCONP = PCONP_INIT_VALUE;
@@ -148,6 +164,7 @@ int main(int argc, char **argv) {
 	LPC_SC->RSID = 0xF;
 
 	hw_get_board_rev();
+	debugf("Hardware Revision %d\n", hw_board_rev);
 
 	debugf("Starting up: led");
 	led_init();
@@ -159,7 +176,8 @@ int main(int argc, char **argv) {
 	debugf(" lwip\r\n");
 	lwip_init();
 
-	time = 0;
+	clock.time = 0;
+	clock.mtime = 0;
 	SysTick_Config(SystemCoreClock / 10000);
 
 	/* Initialize hardware */
@@ -172,7 +190,7 @@ int main(int argc, char **argv) {
 	 * timers. */
 	int i;
 	for (i = 0; i < (sizeof(events) / sizeof(events[0])); i++) {
-		events_last[i] = events[i].start + time;
+		events_last[i] = events[i].start + clock.time;
 	}
 
 	__enable_irq();
