@@ -525,18 +525,16 @@ EXPORT bool __stdcall EtherDreamReadDMX(const int *CardNum, int universe, unsign
 			sizeof(udp_buf), 0, (struct sockaddr *)&udp_from, &fromlen);
 		trace(d, "got %d bytes of udp\n", len);
 
-		if (len != 532)
+		if (len != 528)
 			break;
 		if (udp_from.sin_addr.s_addr != d->conn.udp_target.sin_addr.s_addr)
 			continue;
-		if (!strcmp(udp_buf, "/dmx1"))
+		if (strcmp(udp_buf, "/dmx1"))
 			continue;
 
 		memcpy(data, udp_buf + 16, 512);
 		success = 1;
         }
-
-	trace(d, "dmx: %d %d %d\n", data[0], data[1], data[2]);
 
 	return success;
 }
