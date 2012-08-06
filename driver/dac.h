@@ -41,6 +41,7 @@
  */
 typedef struct dac_conn_s {
 	SOCKET sock;
+	struct sockaddr_in udp_target;
 	SOCKET udp_sock;
 	char buf[1024];
 	int size;
@@ -99,6 +100,8 @@ typedef struct dac_s {
 	enum dac_state state;
 
 	char version[32];
+
+	int dmx_rx_enabled;
 
 	struct dac_s * next;
 } dac_t;

@@ -493,6 +493,54 @@ EXPORT bool __stdcall EtherDreamWriteDMX(const int *CardNum, int universe, const
 	return 1;
 }
 
+EXPORT bool __stdcall EtherDreamReadDMX(const int *CardNum, int universe, unsigned char *data) {
+	char udp_buf[532];
+	struct sockaddr_in udp_from;
+	socklen_t fromlen = sizeof(udp_from);
+	int success = 0;
+
+	dac_t *d = dac_get(*CardNum);
+	if (!d) return 0;
+
+	if (universe < 1) return 0;
+	if (universe > 3) return 0;
+
+	if (!d->dmx_rx_enabled) {
+		const char dmx_input_message[24] = {
+			'/', 'd', 'm', 'x', '1', '/', 'i', 'n', 'p', 'u', 't', 0,
+			',', 's', 'i', 0,
+			'm', 'e', 0, 0,
+			0, 0, 0, 0
+		};
+
+		send(d->conn.udp_sock, dmx_input_message,
+			sizeof(dmx_input_message), 0);
+
+		d->dmx_rx_enabled = 1;
+		return 0;
+	}
+
+	while (1) {
+		int len = recvfrom(d->conn.udp_sock, udp_buf,
+			sizeof(udp_buf), 0, (struct sockaddr *)&udp_from, &fromlen);
+		trace(d, "got %d bytes of udp\n", len);
+
+		if (len != 532)
+			break;
+		if (udp_from.sin_addr.s_addr != d->conn.udp_target.sin_addr.s_addr)
+			continue;
+		if (!strcmp(udp_buf, "/dmx1"))
+			continue;
+
+		memcpy(data, udp_buf + 16, 512);
+		success = 1;
+        }
+
+	trace(d, "dmx: %d %d %d\n", data[0], data[1], data[2]);
+
+	return success;
+}
+
 
 /****************************************************************************/
 

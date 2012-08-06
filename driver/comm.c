@@ -208,10 +208,10 @@ int dac_connect(dac_t *d, const char *host, const char *port) {
 	unsigned long nonblocking = 1;
 	ioctlsocket(conn->sock, FIONBIO, &nonblocking);
 
-	struct sockaddr_in udp_target = { 0 };
-	udp_target.sin_family = AF_INET;
-	udp_target.sin_addr.s_addr = ((struct sockaddr_in *)(ptr->ai_addr))->sin_addr.s_addr;
-	udp_target.sin_port = htons(60000);
+	memset(&conn->udp_target, 0, sizeof(conn->udp_target));
+	conn->udp_target.sin_family = AF_INET;
+	conn->udp_target.sin_addr.s_addr = ((struct sockaddr_in *)(ptr->ai_addr))->sin_addr.s_addr;
+	conn->udp_target.sin_port = htons(60000);
 
 	// Connect to host. Because the socket is nonblocking, this
 	// will always return WSAEWOULDBLOCK.
@@ -282,11 +282,14 @@ int dac_connect(dac_t *d, const char *host, const char *port) {
 	if (conn->udp_sock == INVALID_SOCKET) {
 		log_socket_error(d, "socket(AF_INET, SOCK_DRGAM)");
 	} else {
-		res = connect(conn->udp_sock, (struct sockaddr *)&udp_target, sizeof(udp_target));
+		res = connect(conn->udp_sock, (struct sockaddr *)&conn->udp_target, sizeof(conn->udp_target));
 		if (res == SOCKET_ERROR) {
 			log_socket_error(d, "connect(udp_sock)");
 		}
 	}
+
+	nonblocking = 1;
+	ioctlsocket(conn->udp_sock, FIONBIO, &nonblocking);
 
 	// After we connect, the host will send an initial status response. 
 	dac_read_resp(d, DEFAULT_TIMEOUT);
