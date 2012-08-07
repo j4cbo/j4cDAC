@@ -28,7 +28,10 @@ function post(dict) {
 	}
 
 	var cmd = "ed:" + cmds.join("_");
-//	window.location = cmd;
+	if (window.Touch)
+		window.location = cmd;
+	else
+		// alert(cmd);
 }
 
 /* isDescendant
@@ -208,6 +211,7 @@ JSlider = function(ctx, props) {
 	this.setValue = function(v) {
 		var pos = (v - min) * posLimit / rangeDiff;
 		setBoxPosition(pos, false);
+		value = v;
 	}
 
 	this.setValue(0);

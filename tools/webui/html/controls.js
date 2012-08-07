@@ -123,6 +123,12 @@ function createChannel(prefix, xb, yb) {
 	        d[prefix] = (phaseButton.state
 	                ? (multiplier.getState() + "=" + (phaseSlider.getValue() * 2147483647 / 180).toFixed())
 	                : (absSlider.getValue() * 65536).toFixed());
+
+		if (isEnabled && wfmButton) {
+			d[prefix + "wfm"] = wfmButton.state + 1;
+		} else {
+			d[prefix + "wfm"] = 0;
+		}
 	}
 
 	function updateReadouts() {
@@ -135,7 +141,7 @@ function createChannel(prefix, xb, yb) {
 		phaseButton.container.style.display = (isEnabled && !ast) ? "table" : "none";
 		multiplier.container.style.display = (isEnabled && !ast) ? "block" : "none";
 		absButton.container.style.display = isEnabled ? "table" : "none";
-		wfmButton.container.style.display = isEnabled ? "table" : "none";
+		if (wfmButton) wfmButton.container.style.display = isEnabled ? "table" : "none";
 
 		var str = (absSlider.getValue().toFixed(1) + " Hz<br>"
 			+ "<small>" + multiplier.getStr() + "<i>f</i>");
@@ -266,18 +272,25 @@ function createChannel(prefix, xb, yb) {
 		"color": bcolor, "bs": bs,
 		"options": [ " <i>f</i> &times;", "&#8709;" ],
 		"onchange": function(v) {
-			if (v.state) updateFromPhase(phaseSlider.getValue());
+			if (v) updateFromPhase(phaseSlider.getValue());
 			else updateFromRel(relSlider.getValue());
 		}
 	});
 
-	/* Waveform button */
-	wfmButton = new JToggle(b, {
-		"bounds": [ xb, yb + .92, .08, .06 ],
-		"tdstyle": { "fontFamily": "sans-serif" },
-		"bs": bs, "color": bcolor,
-		"options": [ "sin", "saw", "tri", "sq25", "sq50", "sq75" ]
-	});
+	if (!isAxis) {
+		/* Waveform button */
+		wfmButton = new JToggle(b, {
+			"bounds": [ xb, yb + .92, .08, .06 ],
+			"tdstyle": { "fontFamily": "sans-serif" },
+			"bs": bs, "color": bcolor,
+			"options": [ "sin", "sq25", "sq50", "sq75" ],
+			"onchange": function(v) {
+				var h = {};
+				h[prefix + "wfm"] = v + 1;
+				post(h);
+			}
+		});
+	}
 
 	updateFromRel(0);
 }
