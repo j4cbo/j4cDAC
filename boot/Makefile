@@ -1,7 +1,7 @@
 PREFIX = arm-none-eabi-
 
 CFLAGS = -Iinc -Ilib/lpc17xx -I../common/inc -fno-common -mcpu=cortex-m3 -mthumb -Os -g -Inet
-CFLAGS += -Wall -ffunction-sections -fdata-sections -fshort-enums -gdwarf-2 -gstrict-dwarf -Wl,--gc-sections -nostdlib -nostdinc -Werror
+CFLAGS += -Wall -ffunction-sections -fdata-sections -fshort-enums -gdwarf-2 -gstrict-dwarf -Wl,--gc-sections -nostdlib -nostdinc -Werror -Wno-unused -Wno-address
 LDFLAGS = -Tlib/lpc17xx/lpc1758.lds -mcpu=cortex-m3 -mthumb -fwhole-program -gdwarf-2 -gstrict-dwarf -Wl,-Map=boot.map -Wl,--gc-sections -nostdlib -nostdinc
 
 # Cortex-M3 support code
