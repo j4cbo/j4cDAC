@@ -45,6 +45,6 @@ class NullPointStream(object):
 
 #dac.find_dac()
 
-d = dac.DAC("169.254.13.29")
+d = dac.DAC(dac.find_first_dac())
 
 d.play_stream(SquarePointStream())
