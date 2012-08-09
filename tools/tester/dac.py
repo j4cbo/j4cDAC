@@ -29,7 +29,7 @@ def pack_point(x, y, r, g, b, i = -1, u1 = 0, u2 = 0, flags = 0):
 	if i < 0:
 		i = max(r, g, b)
 
-	return struct.pack("<HhhHHHHHH", flags, x, y, i, r, g, b, u1, u2)
+	return struct.pack("<HhhHHHHHH", flags, x, y, r, g, b, i, u1, u2)
 
 
 class ProtocolError(Exception):
