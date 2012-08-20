@@ -47,7 +47,7 @@ dac_settings_t settings;
 void SysTick_Handler(void) {
 	uint8_t mtime_buf = clock.mtime + 1;
 
-	if (hw_board_rev == HW_REV_MP2) {
+	if (hw_board_rev == HW_REV_MP2 && le_state != LIGHTENGINE_ESTOP) {
 		if (mtime_buf % 2)
 			LPC_GPIO2->FIOSET = (1 << 8);
 		else
