@@ -229,3 +229,11 @@ PWM1_IRQHandler:
 	bx r0
 
 PWM1_IRQHandler_end:
+
+.global goto_dac16_handle_irq
+goto_dac16_handle_irq:
+	movw r0, :lower16:dac16_handle_irq
+	movt r0, :upper16:dac16_handle_irq
+	bx r0
+.global goto_dac16_handle_irq_end
+goto_dac16_handle_irq_end:

@@ -380,6 +380,11 @@ void color_corr_set_gain(int color_index, int32_t gain) {
 	else dac_control.blue_gain = gain;
 }
 
+extern uint8_t goto_dac16_handle_irq[];
+extern uint8_t goto_dac16_handle_irq_end[];
+extern char hw_dac_16bit;
+extern uint8_t PWM1_IRQHandler[];
+
 /* dac_init
  *
  * Initialize the DAC. This must be called once after reset.
@@ -427,6 +432,10 @@ void COLD dac_init() {
 	dac_control.red_gain = COORD_MAX;
 	dac_control.green_gain = COORD_MAX;
 	dac_control.blue_gain = COORD_MAX;
+
+	if (hw_dac_16bit) {
+		memcpy(PWM1_IRQHandler, goto_dac16_handle_irq, goto_dac16_handle_irq_end - goto_dac16_handle_irq);
+	}
 }
 
 /* dac_configure
@@ -615,6 +624,27 @@ uint32_t dac_get_count() {
 void dac_stop_underflow() {
 	LPC_PWM1->IR = PWM_IR_PWMMRn(0);
 	dac_stop(DAC_FLAG_STOP_UNDERFLOW);
+}
+
+void dac16_handle_irq(void) {
+	LPC_PWM1->IR = PWM_IR_PWMMRn(0);
+
+	uint16_t produce = dac_control.produce;
+	uint16_t consume = dac_control.consume;
+	if (produce == consume) {
+		dac_stop_underflow();
+		return;
+	}
+
+	packed_point_t *point = &dac_buffer[consume];
+	consume++;
+	if (consume == DAC_BUFFER_POINTS) consume = 0;
+	dac_control.consume = consume;
+
+	uint32_t xv = (((uint16_t)point->x) + 0x8000) << 4;
+	uint32_t yv = (((uint16_t)point->y) + 0x8000) << 4;
+	hw_dac_write32(0x00100000 | xv);
+	hw_dac_write32(0x02300000 | yv);
 }
 
 INITIALIZER(hardware, dac_init);
