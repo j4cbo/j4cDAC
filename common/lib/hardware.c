@@ -28,6 +28,7 @@ uint32_t SystemCoreClock = 4000000;
 #define DAC_SHUTTER_EN_PIN      7
 
 enum hw_board_rev hw_board_rev;
+char hw_dac_16bit;
 
 void hw_get_board_rev(void) {
 
@@ -81,12 +82,21 @@ void hw_get_board_rev(void) {
  */
 void hw_dac_zero_all_channels(void) {
 	int i;
-	for (i = 0; i < 8; i++) {
-		hw_dac_write((i << 12) | (i > 5 ? 0x800 : 0));
-	}
 
-	/* Force an LDAC */
-	hw_dac_write(0xA002);
+	if (hw_dac_16bit) {
+		for (i = 0; i < 8; i++) {
+			int initializer = (i == 1 || i == 3)
+				? (0x8000 << 4) : 0;
+			hw_dac_write32((3 << 24) | (i << 20) | initializer);
+		}
+	} else {
+		for (i = 0; i < 8; i++) {
+			hw_dac_write((i << 12) | (i > 5 ? 0x800 : 0));
+		}
+
+		/* Force an LDAC */
+		hw_dac_write(0xA002);
+	}
 
 	/* Close shutter */
 	LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_PIN);
@@ -99,30 +109,61 @@ void hw_dac_zero_all_channels(void) {
  * Initialize the DAC hardware and sets it to output 0.
  */
 void hw_dac_init(void) {
+	LPC_PINCON->PINSEL0 &= ~(3 << 12);
+	LPC_GPIO0->FIODIR &= ~(1 << 6);
 
-	/* Set up the SPI pins: SCLK, SYNC, DIN. */
-	LPC_PINCON->PINSEL0 =
-		  (LPC_PINCON->PINSEL0 & ~((3 << 12) | (3 << 14) | (3 << 18)))
-		| (2 << 12) | (2 << 14) | (2 << 18);
+	/* Pull-down on /SYNC indicates 16-bit DAC */
+	if (!(LPC_GPIO0->FIOPIN & (1 << 6))) {
+		hw_dac_16bit = 1;
+		/* Set up the SPI pins: SCLK, DIN. */
+		LPC_PINCON->PINSEL0 =
+			  (LPC_PINCON->PINSEL0 & ~((3 << 14) | (3 << 18)))
+			| (2 << 14) | (2 << 18);
+		LPC_GPIO0->FIOSET = (1 << 6);
+		LPC_GPIO0->FIODIR |= (1 << 6) | (1 << 9);
+	} else {
+		hw_dac_16bit = 0;
+		/* Drive SYNC from the SPI peripheral also. */
+		LPC_PINCON->PINSEL0 =
+			  (LPC_PINCON->PINSEL0 & ~((3 << 14) | (3 << 18)))
+			| (2 << 12) | (2 << 14) | (2 << 18);
+	}
+
+	if (hw_dac_16bit) {
+		LPC_PINCON->PINSEL0 &= ~(3 << 12);
+	}
 
 	/* Turn on the SSP peripheral. */
 	LPC_SSP1->CR0 = 0xF | (1 << 6);	/* 16-bit, CPOL = 1; no prescale */
 	LPC_SSP1->CR1 = (1 << 1); /* Enable */
-	LPC_SSP1->CPSR = 4; /* Divide by 4 -> 24 MHz SPI clock */
+
+	if (hw_dac_16bit) {
+		LPC_SSP1->CPSR = 4; /* 32 MHz SPI clock */
+	} else {
+		LPC_SSP1->CPSR = 4; /* 24 MHz SPI clock */
+	}
 
 	hw_dac_zero_all_channels();
 
-	/* Set Vref in buffered mode */
-	hw_dac_write(0x800C);
+	if (!hw_dac_16bit) {
+		/* Set Vref in buffered mode */
+		hw_dac_write(0x800C);
 
-	/* Power up the output buffers */
-	hw_dac_write(0xC000);
+		/* Power up the output buffers */
+		hw_dac_write(0xC000);
+	}
 
 	/* Set up the shutter output */
 	LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_PIN);
 	LPC_GPIO2->FIODIR |= (1 << DAC_SHUTTER_PIN);
 	LPC_GPIO2->FIOCLR = (1 << DAC_SHUTTER_EN_PIN);
 	LPC_GPIO2->FIODIR |= (1 << DAC_SHUTTER_EN_PIN);
+
+	if (hw_dac_16bit) {
+		outputf("  16-bit DAC");
+	} else {
+		outputf("  12-bit DAC");
+	}
 }
 
 /* led_set_frontled()

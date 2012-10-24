@@ -48,6 +48,16 @@ hw_dac_write(uint16_t word) {
 	LPC_SSP1->DR = word;
 }
 
+static inline void __attribute__((always_inline, unused))
+hw_dac_write32(uint32_t word) {
+	while (!(LPC_SSP1->SR & SSPnSR_Transmit_Empty));
+	LPC_GPIO0->FIOCLR = (1 << 6);
+	LPC_SSP1->DR = word >> 16;
+	LPC_SSP1->DR = word & 0xFFFF;
+	while ((LPC_SSP1->SR & SSP_SR_BSY));
+	LPC_GPIO0->FIOSET = (1 << 6);
+}
+
 void watchdog_init(void);
 void watchdog_feed(void);
 

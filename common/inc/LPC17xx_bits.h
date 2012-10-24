@@ -18,6 +18,7 @@
 #define TnTCR_Counter_Enable		(1 << 0)
 #define TnTCR_Counter_Reset		(1 << 1)
 
+#define SSPnSR_Transmit_Empty		(1 << 0)
 #define SSPnSR_Transmit_Not_Full	(1 << 1)
 
 #define UARTnFCR_FIFO_Enable		(1 << 0)
