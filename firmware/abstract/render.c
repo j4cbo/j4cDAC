@@ -33,9 +33,12 @@ static oscillator_t osc_blank = { "blank", 0, 0, -1 };
 static param_t x_rot = { "xrot", 0 };
 static param_t y_rot = { "yrot", 0 };
 static param_t mode_sel = { "mode", 0 };
-static param_t rwfm = { "redwfm", 1 };
-static param_t gwfm = { "greenwfm", 1 };
-static param_t bwfm = { "bluewfm", 1 };
+static param_t rwfm = { "redwfm", 0 };
+static param_t gwfm = { "greenwfm", 0 };
+static param_t bwfm = { "bluewfm", 0 };
+static param_t rmul = { "redmul", 65536 };
+static param_t gmul = { "greenmul", 65536 };
+static param_t bmul = { "bluemul", 65536 };
 static param_t blankwfm = { "blankwfm", 0 };
 
 static const int mul_coeffs[] = {
@@ -54,7 +57,8 @@ oscillator_t * const oscillators[] = {
 
 param_t * const params[] = {
 	&x_rot, &y_rot, &mode_sel, &blankwfm,
-	&rwfm, &gwfm, &bwfm, NULL
+	&rwfm, &gwfm, &bwfm,
+	&rmul, &gmul, &bmul, NULL
 };
 
 fixed fix_sine(uint32_t phase);
@@ -84,16 +88,36 @@ param_t *get_param(const char *name) {
 }
 
 static fixed render_oscillator(oscillator_t *osc, int mode) {
+	if (!osc->freq)
+		return 65535;
+
 	switch (mode) {
+	case 0:
+		return (fix_sine(osc->pos - (1<<30)) >> 1) + 32768;
 	case 1:
-		return (fix_sine(osc->pos) >> 1) + 32768;
-	case 2:
-	case 3:
-	case 4:
-		if (osc->freq && osc->pos < ((unsigned long)(mode - 1) << 30))
-			return 65535;
+		if (osc->pos < (1<<31))
+			return osc->pos >> 15;
 		else
-			return 0;
+			return (-osc->pos) >> 15;
+	case 2:
+		return osc->pos >> 16;
+	case 3:
+		return (-osc->pos) >> 16;
+	case 4:
+		if (osc->pos < ((1U << 31) / 5)) return 65535;
+		else return 0;
+	case 5:
+		if (osc->pos < ((1U << 30) * 1)) return 65535;
+		else return 0;
+	case 6:
+		if (osc->pos < ((1U << 30) * 2)) return 65535;
+		else return 0;
+	case 7:
+		if (osc->pos < ((1U << 30) * 3)) return 65535;
+		else return 0;
+	case 8:
+		if (osc->pos < (((1U << 31) / 5) * 9)) return 65535;
+		else return 0;
 	default:
 		return 0;
 	}
@@ -102,14 +126,10 @@ static fixed render_oscillator(oscillator_t *osc, int mode) {
 void get_next_point(dac_point_t *p) {
 	fixed blank;
 
-	if (blankwfm.value)
-		blank = render_oscillator(&osc_blank, blankwfm.value);
-	else
-		blank = 65536;
-
-	p->r = fix_mul(render_oscillator(&osc_red, rwfm.value), blank);
-	p->g = fix_mul(render_oscillator(&osc_green, gwfm.value), blank);
-	p->b = fix_mul(render_oscillator(&osc_blue, bwfm.value), blank);
+	blank = render_oscillator(&osc_blank, blankwfm.value);
+	p->r = fix_mul(render_oscillator(&osc_red, rwfm.value), fix_mul(blank, rmul.value));
+	p->g = fix_mul(render_oscillator(&osc_green, gwfm.value), fix_mul(blank, gmul.value));
+	p->b = fix_mul(render_oscillator(&osc_blue, bwfm.value), fix_mul(blank, bmul.value));
 
 	fixed xv, yv, zv, r;
 

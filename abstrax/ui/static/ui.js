@@ -128,13 +128,17 @@ function createChannel(prefix, xb, allowShape) {
 
 	function writeToDict(d) {
 		if (!relative && prefix == "blank")
-			d[prefix] = "";
-		else if (!relative && !isXYZ)
-			d[prefix] = "a" + (absSlider.value * 2.55).toFixed();
-		else if (relative && phaseButton.state == 2)
+			d[prefix] = "0";
+		else if (!relative && !isXYZ) {
+			d[prefix] = 0;
+			d[prefix + "mul"] = (absSlider.value * 655.36).toFixed();
+		} else if (relative && phaseButton.state == 2) {
 			d[prefix] = (multiplier.state + ":" + (phaseSlider.value * 2147483647 / 180).toFixed());
-		else
+			if (!isXYZ && prefix != "blank") d[prefix + "mul"] = 65536;
+		} else {
 			d[prefix] = (frequency * 65536).toFixed();
+			if (!isXYZ && prefix != "blank") d[prefix + "mul"] = 65536;
+		}
 	}
 
 	function updateReadouts() {
@@ -259,7 +263,8 @@ function createChannel(prefix, xb, allowShape) {
 		}
 	});
 
-	var waveforms = isXYZ ? [ "sin", "tri" ] : [ "sin", "tri", "saw", "sq25", "sq50", "sq75" ];
+	var waveforms = isXYZ ? [ "sin", "rtri", "stri", "rsq" ]
+	                      : [ "sin", "saw", "+tri", "-tri", "10%", "25%", "50%", "75%", "90%" ];
 
 	wfmButton = createMultistateButton(prefix + "waveform", layouts.waveformButton,
 		waveforms, function(root, layout, td) {
@@ -283,7 +288,7 @@ function createChannel(prefix, xb, allowShape) {
 	} });
 
 	absSlider.setValue(100);
-	relSlider.setValue(0);
+	relSlider.setValue(prefix == "x" ? relUnMunge(.998) : 0);
 	offSlider.setValue(0);
 	phaseSlider.setValue(0);
 	updateVisibility();

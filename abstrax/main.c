@@ -23,6 +23,9 @@
 #include <protocol.h>
 #include "render.h"
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+
 SDL_Surface * screen;
 
 void abs_parse_line(char *line);
@@ -67,46 +70,89 @@ void renderPoints() {
 	glEnd();
 }
 
-int line_available(void) {
-	struct timeval tv;
-	fd_set fds;
-	tv.tv_sec = 0;
-	tv.tv_usec = 0;
-	FD_ZERO(&fds);
-	FD_SET(0, &fds);
-	select(1, &fds, NULL, NULL, &tv);
-	return FD_ISSET(0, &fds);
+void dump_state_to_stdout(void) {
+	char statebuf[300];
+	dump_state(statebuf, sizeof(statebuf));
+	printf("--> %s\n", statebuf);
+}
+
+char abstract_prefix[] = "/abstract/conf\0\0,s\0";
+
+void run(int udpfd) {
+	/* Handle SDL events */
+	SDL_Event event;
+	while (SDL_PollEvent(&event)) {
+		switch (event.type) {
+		default:
+			break;
+		}
+	}
+
+	/* Check for input from stdin or OSC */
+	int got_something = 0;
+	do {
+		char buf[300];
+
+		got_something = 0;
+		struct timeval tv;
+		fd_set fds;
+		tv.tv_sec = 0;
+		tv.tv_usec = 0;
+		FD_ZERO(&fds);
+		FD_SET(0, &fds);
+		FD_SET(udpfd, &fds);
+		select(udpfd + 1, &fds, NULL, NULL, &tv);
+
+		if (FD_ISSET(0, &fds)) {
+			fgets(buf, sizeof buf, stdin);
+			abs_parse_line(buf);
+			got_something = 1;
+		}
+
+		if (FD_ISSET(udpfd, &fds)) {
+			int len = recv(udpfd, buf, sizeof buf, 0);
+			if (len < 0) {
+				perror("recv");
+			} else if (buf[len - 1]) {
+				printf("Bogus OSC data\n");
+			} else if (memcmp(buf, abstract_prefix, sizeof abstract_prefix)) {
+				printf("Bogus OSC data\n");
+			} else {
+				abs_parse_line(buf + sizeof abstract_prefix);
+				got_something = 1;
+			}
+		}
+
+		if (got_something)
+			dump_state_to_stdout();
+
+	} while(got_something);
+
+	glClear(GL_COLOR_BUFFER_BIT);
+	renderPoints();
+	SDL_GL_SwapBuffers();
+	SDL_Delay(1000 / FPS);
 }
 
 int main(int argc, char **argv) {
 	init(450);
 
 	glTranslatef(225, 225, 0);
-	SDL_Event event;
 
-	while (!SDL_QuitRequested()) {
-		while (SDL_PollEvent(&event)) {
-			switch (event.type) {
-			default:
-				break;
-			}
-		}
+	int udpfd = socket(PF_INET, SOCK_DGRAM, 0);
 
-		while (line_available()) {
-			char l[300];
-			fgets(l, sizeof(l), stdin);
-			abs_parse_line(l);
-
-			char statebuf[300];
-			dump_state(statebuf, sizeof(statebuf));
-			printf("--> %s\n", statebuf);
-		}
-
-		glClear(GL_COLOR_BUFFER_BIT);
-		renderPoints();
-		SDL_GL_SwapBuffers();
-		SDL_Delay(1000 / FPS);
+	struct sockaddr_in addr;
+	memset(&addr, 0, sizeof addr);
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(60000);
+	addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	if (bind(udpfd, (struct sockaddr *)&addr, sizeof addr) < 0) {
+		perror("bind");
+		exit(1);
 	}
+
+	while (!SDL_QuitRequested())
+		run(udpfd);
 
 	return 0;
 }
