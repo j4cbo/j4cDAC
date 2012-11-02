@@ -169,8 +169,14 @@ int osc_try_handler(volatile const param_handler *h, char *address, char *type, 
 	/* First, handle the special-case param types - those involving
 	 * strings and blobs */
 	if (h->type == PARAM_TYPE_S1 && type[0] == 's' && !type[1]) {
-		/* TODO */
-		return 0;
+		/* Make sure it's null-terminated */
+		uint8_t *sdata = (uint8_t *)data;
+		if (sdata[length - 1]) {
+			outputf("not null term'd");
+			return 0;
+		}
+
+		return FPA_param(h, address, (int32_t *)&sdata, 1);
 	} else if (h->type == PARAM_TYPE_S1) {
 		return 0;
 	} else if (h->type == PARAM_TYPE_BLOB && type[0] == 'b' && !type[1]) {

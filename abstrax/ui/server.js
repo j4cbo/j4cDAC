@@ -20,9 +20,16 @@ var static = require('node-static')
   , osc = require('node-osc')
   , socketio = require('socket.io');
  
-var oscClient = new osc.Client('255.255.255.255', 60000);
-oscClient._sock.bind();
-oscClient._sock.setBroadcast(true);
+var ip = '255.255.255.255';
+if (process.argv[2]) {
+    ip = process.argv[2];
+}
+console.log(ip);
+
+var oscClient1 = new osc.Client(ip, 60000);
+var oscClient2 = new osc.Client('255.255.255.255', 60000);
+oscClient2._sock.bind();
+oscClient2._sock.setBroadcast(true);
 
 var file = new(static.Server)("./static", { cache: false });
 
@@ -35,6 +42,7 @@ var server = http.createServer(function(req, res) {
 socketio.listen(server).on('connection', function (socket) {
     socket.on('message', function (msg) {
         console.log(msg);
-        oscClient.send('/abstract/conf', msg);
+        oscClient1.send('/abstract/conf', msg);
+        oscClient2.send('/abstract/conf', msg);
     });
 });

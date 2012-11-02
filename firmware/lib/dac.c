@@ -508,27 +508,23 @@ void dac_pop_rate_change(void) {
 	}
 }
 
-#if 0
 static void __attribute__((always_inline)) dac_write_point(dac_point_t *p) {
 
 	#define MASK_XY(v)	((((v) >> 4) + 0x800) & 0xFFF)
 
-	delay_line_write(&blue_delay, (p->b >> 4) | 0x3000);
+	LPC_SSP1->DR = (p->b >> 4) | 0x2000;
 
 	uint32_t xi = p->x, yi = p->y;
-	int32_t x = translate_x(xi, yi);
-	int32_t y = translate_y(xi, yi);
+	int32_t x = xi;// translate_x(xi, yi);
+	int32_t y = yi; //translate_y(xi, yi);
 	LPC_SSP1->DR = MASK_XY(x) | 0x7000;
 	LPC_SSP1->DR = MASK_XY(y) | 0x6000;
-
-	delay_line_write(&delay_lines.red, (p->r >> 4) | 0x4000);
-	delay_line_write(&delay_lines.green, (p->g >> 4) | 0x2000);
-
+	LPC_SSP1->DR = (p->r >> 4) | 0x4000;
+	LPC_SSP1->DR = (p->g >> 4) | 0x3000;
 	LPC_SSP1->DR = (p->i >> 4) | 0x5000;
 	LPC_SSP1->DR = (p->u1 >> 4) | 0x1000;
 	LPC_SSP1->DR = (p->u2 >> 4);
 }
-#endif
 
 static NOINLINE COLD __attribute__((noreturn)) void dac_panic_not_playing(void) {
 	panic("dac_control not PLAYING in PWM1 IRQ");
@@ -557,7 +553,7 @@ void NOINLINE dac_handle_abstract() {
 		memset(&dp, 0, sizeof(dp));
 	}
 
-	//dac_write_point(&dp);
+	dac_write_point(&dp);
 	dac_control.count++;
 }
 

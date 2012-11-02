@@ -221,7 +221,7 @@ PWM1_IRQHandler:
 .L.goto_dac_handle_abstract:
 	movw r0, :lower16:dac_handle_abstract
 	movt r0, :upper16:dac_handle_abstract
-	blx r0
+	bx r0
 
 .L.goto_dac_stop_underflow:
 	movw r0, :lower16:dac_stop_underflow
