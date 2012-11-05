@@ -67,7 +67,7 @@ function createReadout(elemName, layout) {
 	getParent(layout).appendChild(root);
 
 	root.className = "readout";
-//	root.style.lineHeight = layout.h + "px";
+	root.style.color = "white";
 	applyLayout(root, layout);
 	root.id = elemName + "_readout";
 
@@ -99,7 +99,7 @@ function createSlider(elemName, layout, range, onchange) {
 	if (layout.color) box.style.background = layout.color;
 
 	var rel = (layout.horizontal ? root.x : root.y) + 1;
-	var rangeDiff = range[1] - range[0];
+	var rangeDiff = range[0] - range[1];
 	var posLimit = (layout.horizontal ? root.w : root.h) - boxh;
 
 	function setPos(position, trigger) {
@@ -116,7 +116,7 @@ function createSlider(elemName, layout, range, onchange) {
 			box.style.top = position + "px";
 		}
 
-		root.value = (position / posLimit) * rangeDiff + range[0];
+		root.value = (position / posLimit) * rangeDiff + range[1];
 		if (trigger) {
 			onchange(root.value);
 		}
@@ -138,7 +138,7 @@ function createSlider(elemName, layout, range, onchange) {
 	}
 
 	root.setValue = function(v) {
-		var pos = (v - range[0]) * posLimit / rangeDiff;
+		var pos = (v - range[1]) * posLimit / rangeDiff;
 		setPos(pos, false);
 		root.value = v;
 	}
@@ -398,6 +398,7 @@ function createMultistateButton(elemName, layout, states, modifier) {
 	return createButton(elemName, layout, function(root, layout, td) {
 		modifier(root, layout, td);
 		root.state = 0;
+		root.states = states;
 		td.innerHTML = states[0];
 		clickify(root, function() {
 			root.state = root.state + 1;
@@ -420,19 +421,6 @@ function lockToggle(elem, layout) {
 	});
 }
 
-function oscPhaseToggle(elem, layout) {
-	var c = false;
-	elem.style.fontSize = "30px";
-	elem.style.fontFamily = "serif";
-	function update() {
-		c = !c;
-		td.innerHTML = c ? " <i>f</i> &times;" : "&#8709;";
-	}
-	clickify(elem, update);
-	elem.getState = function() { return c; }
-	update();
-}
-	
 addEventListener("load", function() {
 	setTimeout(function() { 
 		window.scrollTo(0, 1); 

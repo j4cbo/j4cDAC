@@ -95,27 +95,22 @@ static fixed render_oscillator(oscillator_t *osc, int mode) {
 	case 0:
 		return (fix_sine(osc->pos - (1<<30)) >> 1) + 32768;
 	case 1:
-		if (osc->pos < (1<<31))
-			return osc->pos >> 15;
-		else
-			return (-osc->pos) >> 15;
-	case 2:
 		return osc->pos >> 16;
-	case 3:
+	case 2:
 		return (-osc->pos) >> 16;
-	case 4:
+	case 3:
 		if (osc->pos < ((1U << 31) / 5)) return 65535;
 		else return 0;
-	case 5:
+	case 4:
 		if (osc->pos < ((1U << 30) * 1)) return 65535;
 		else return 0;
-	case 6:
+	case 5:
 		if (osc->pos < ((1U << 30) * 2)) return 65535;
 		else return 0;
-	case 7:
+	case 6:
 		if (osc->pos < ((1U << 30) * 3)) return 65535;
 		else return 0;
-	case 8:
+	case 7:
 		if (osc->pos < (((1U << 31) / 5) * 9)) return 65535;
 		else return 0;
 	default:

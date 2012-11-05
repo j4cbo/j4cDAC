@@ -82,7 +82,7 @@ var layout = {
 				x: xb, y: yb + 0.9, w: cw, h: 0.08,
 				bs: bsb, color: bcolor
 			},
-			range : [ 0, 250 ]
+			range : [ 0.1, 250 ]
 		};
 	},
 }
@@ -108,6 +108,7 @@ function createChannel(prefix, xb, allowShape) {
 
 	var readout = createButton(null, layouts.readout,
 		function(root, layout, td) {
+			td.style.fontSize = "14px";
 			root.update = function(v) { td.innerHTML = v; };
 			root.style.color = "white";
 
@@ -143,26 +144,26 @@ function createChannel(prefix, xb, allowShape) {
 
 	function updateReadouts() {
 		var str = (frequency.toFixed(1) + " Hz<br>"
-			+ "<small>" + multiplier.getStr() + "<i>f</i>");
+			+ "<span class='fcalc'>" + multiplier.getStr() + "<i>f</i>");
 
 		if (prefix == "blank" && !relative) {
 			str = "";
 		} else if (!isXYZ && !relative) {
-			str = absSlider.value.toFixed(0) + "%";
+			str = absSlider.value.toFixed(0) + "%</span>";
 		} else if (!relative || phaseButton.state == 0) {
-			str += " * " + (100*relMunge(relSlider.value)).toFixed(1) + "%</small>";
+			str += " &times; " + (100*relMunge(relSlider.value)).toFixed(1) + "%</span>";
 		} else if (phaseButton.state == 1) {
 			var v = offSlider.value;
 			if (v >= 0)
-				str += " + " + v.toFixed(2) + " Hz</small>";
+				str += " + " + v.toFixed(2) + " Hz</span>";
 			else
-				str += " - " + (-v).toFixed(2) + " Hz</small>";
+				str += " - " + (-v).toFixed(2) + " Hz</span>";
 		} else {
 			var deg = phaseSlider.value;
 			if (deg >= 0) {
-				str += " + " + deg.toFixed(0) + "&deg;";
+				str += " + " + deg.toFixed(0) + "&deg;</span>";
 			} else {
-				str += " - " + (-deg).toFixed(0) + "&deg;";
+				str += " - " + (-deg).toFixed(0) + "&deg;</span>";
 			}
 		}
 
@@ -264,11 +265,10 @@ function createChannel(prefix, xb, allowShape) {
 	});
 
 	var waveforms = isXYZ ? [ "sin", "rtri", "stri", "rsq" ]
-	                      : [ "sin", "saw", "+tri", "-tri", "10%", "25%", "50%", "75%", "90%" ];
+	                      : [ "sin", "+tri", "-tri", "10%", "25%", "50%", "75%", "90%" ];
 
 	wfmButton = createMultistateButton(prefix + "waveform", layouts.waveformButton,
 		waveforms, function(root, layout, td) {
-		td.style.fontFamily = "sans-serif";
 		td.style.fontSize = "20px";
 		root.updateCallback = function() {
 			var d = {};
@@ -288,7 +288,7 @@ function createChannel(prefix, xb, allowShape) {
 	} });
 
 	absSlider.setValue(100);
-	relSlider.setValue(prefix == "x" ? relUnMunge(.998) : 0);
+	relSlider.setValue(prefix == "x" ? relUnMunge(1.001) : 0);
 	offSlider.setValue(0);
 	phaseSlider.setValue(0);
 	updateVisibility();
@@ -299,7 +299,6 @@ var modeButton = createButton("mode",
 
 	root.state = 1;
 	root.style.fontSize = "20px";
-	root.style.fontFamily = "sans-serif";
 	function update() {
 		td.innerHTML = "MODE " + root.state;
 		post({mode: root.state});
@@ -322,13 +321,13 @@ createChannel("blank", 0.91, true);
 
 var xrotReadout = createReadout("xrot", layout.xrotReadout);
 var yrotReadout = createReadout("yrot", layout.yrotReadout);
-var xrotSlider = createSlider("master", layout.xrotSlider, [ -90, 90 ],
+var xrotSlider = createSlider("xrots", layout.xrotSlider, [ -90, 90 ],
 	function(v) {
 		xrotReadout.update("X: " + v.toFixed(1) + "&deg;");
 		post({xrot: (v * 2147483647 / 180).toFixed()});
 	}
 );
-var yrotSlider = createSlider("master", layout.yrotSlider, [ -90, 90 ],
+var yrotSlider = createSlider("yrots", layout.yrotSlider, [ -90, 90 ],
 	function(v) {
 		yrotReadout.update("Y: " + v.toFixed(1) + "&deg;");
 		post({yrot: (v * 2147483647 / 180).toFixed()});
@@ -339,20 +338,29 @@ yrotSlider.setValue(0);
 xrotSlider.pushUpdate();
 yrotSlider.pushUpdate();
 
-var masterReadout = createReadout("master", layout.masterReadout);
-var masterSlider = createSlider("master", layout.masterSlider, [ 0, 250 ],
-	function(v) {
-		master_frequency = v;
-		var d = { master: (v * 65536).toFixed() };
-		masterReadout.update(v.toFixed(1) + " Hz");
-		for (var i = 0; i < channels.length; i++) {
-			channels[i].updateChannel(d);
+var masterReadout;
+
+function set_master(f) {
+	master_frequency = f;
+	var d = { master: (f * 65536).toFixed() };
+	//masterReadout.update(f.toFixed(1) + " Hz");
+	for (var i = 0; i < channels.length; i++) {
+		channels[i].updateChannel(d);
+	}
+	post(d);
+}
+
+var freqs = [ 75, 100, 50 ];
+masterReadout = createMultistateButton("master", layout.masterReadout,
+	[ "75 Hz", "100 Hz", "50 Hz" ],
+	function(root, layout, td) {
+		root.style.color = "white";
+		root.updateCallback = function() {
+			set_master(freqs[root.state]);
 		}
-		post(d);
 	}
 );
 
-masterSlider.setValue(100);
-masterSlider.pushUpdate();
+set_master(75);
 
 //createQuadrilateral("image", { x : 250, y: 120, w: 450, h: 450 });
