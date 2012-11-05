@@ -242,7 +242,7 @@ function createChannel(prefix, xb, allowShape) {
 	}
 
 	absSlider = createSlider(prefix + "abs",
-		layouts.absSlider, isXYZ ? layouts.range : [ 100, 0 ], updateFromAbs);
+		layouts.absSlider, isXYZ ? layouts.range : [ 0, 100 ], updateFromAbs);
 	relSlider = createSlider(prefix + "rel",
 		layouts.relSlider, [ -1, 1 ], updateFromRel);
 	offSlider = createSlider(prefix + "offs",
