@@ -28,6 +28,7 @@ body {
 	border: 1px solid red;
 	-webkit-border-radius: 5px;
 	-moz-border-radius: 5px;
+	border-radius: 5px;
 }
 
 .sliderv div {
@@ -38,6 +39,7 @@ body {
 	height: 100%;
 	-webkit-border-radius: 4px;
 	-moz-border-radius: 4px;
+	border-radius: 4px;
 	border: 0px none;
 	background: red;
 }
@@ -47,6 +49,7 @@ canvas.quadrilateral {
 	border: 1px solid blue;
 	-webkit-border-radius: 5px;
 	-moz-border-radius: 5px;
+	border-radius: 5px;
 }
 
 .quadrilateralproxy {
@@ -67,6 +70,7 @@ td {
 	display: table;
 	-webkit-border-radius: 5px;
 	-moz-border-radius: 5px;
+	border-radius: 5px;
 	border: 1px solid blue;
 	text-align: center;
 	background: black;
@@ -82,6 +86,7 @@ td {
 	border: 1px solid green;
 	-webkit-border-radius: 5px;
 	-moz-border-radius: 5px;
+	border-radius: 5px;
 	line-height: 120px;
 	text-align: center;
 	font-size: 30px;
@@ -102,6 +107,7 @@ td {
 	border: 5px solid transparent;
 	line-height: 10px;
 	-moz-border-radius: 4px;
+	border-radius: 4px;
 }
 
 .multiplier .ubtn, .multiplier .dbtn {
@@ -121,6 +127,7 @@ td {
 	border: 5px solid transparent;
 	line-height: 35px;
 	-moz-border-radius: 4px;
+	border-radius: 4px;
 }
 
 .multiplier .ubtn {
