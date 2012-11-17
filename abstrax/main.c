@@ -65,7 +65,7 @@ void renderPoints() {
 	for (i = 0; i < PERSIST_POINTS; i++) {
 		struct dac_point * p = &buffer[(buffer_pos + i) % PERSIST_POINTS];
 		glColor3f(p->r / 65535.0, p->g / 65535.0, p->b / 65535.0);
-		glVertex2i(p->x / 150, p->y / 150);
+		glVertex2i(p->x / 100, p->y / 100);
 	}
 	glEnd();
 }
@@ -135,9 +135,9 @@ void run(int udpfd) {
 }
 
 int main(int argc, char **argv) {
-	init(450);
+	init(600);
 
-	glTranslatef(225, 225, 0);
+	glTranslatef(300, 300, 0);
 
 	int udpfd = socket(PF_INET, SOCK_DGRAM, 0);
 
