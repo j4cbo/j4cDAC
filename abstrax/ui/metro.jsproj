@@ -47,13 +47,15 @@
     <TargetPlatformIdentifier>Windows</TargetPlatformIdentifier>
     <TargetPlatformVersion>8.0</TargetPlatformVersion>
     <DefaultLanguage>en-US</DefaultLanguage>
-    <PackageCertificateKeyFile>metro_TemporaryKey.pfx</PackageCertificateKeyFile>
-    <PackageCertificateThumbprint>E6565A0C4016A00B1B9DC067B963244958334CD0</PackageCertificateThumbprint>
+    <PackageCertificateKeyFile>EtherDreamAbstract_StoreKey.pfx</PackageCertificateKeyFile>
+    <PackageCertificateThumbprint>099E6181C78CA6BB69BE0B41E71A2566EBDAE19A</PackageCertificateThumbprint>
+    <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
   </PropertyGroup>
   <ItemGroup>
     <AppxManifest Include="package.appxmanifest">
       <SubType>Designer</SubType>
     </AppxManifest>
+    <None Include="EtherDreamAbstract_StoreKey.pfx" />
     <Content Include="images\logo.png" />
     <Content Include="images\smalllogo.png" />
     <Content Include="images\splashscreen.png" />
@@ -62,12 +64,12 @@
     <Content Include="metro\default.html" />
     <Content Include="metro\default.js" />
     <Content Include="metro\navigator.js" />
+    <None Include="Package.StoreAssociation.xml" />
     <Content Include="static\index.html" />
     <Content Include="static\osc.css" />
     <Content Include="static\osc.js" />
     <Content Include="static\platform.js" />
     <Content Include="static\ui.js" />
-    <None Include="metro_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
     <SDKReference Include="Microsoft.WinJS.1.0, Version=1.0" />

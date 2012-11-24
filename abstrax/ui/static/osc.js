@@ -1,4 +1,4 @@
-/* Ether Dream abstract controller
+﻿/* Ether Dream abstract controller
  *
  * Copyright 2012 Jacob Potter
  *
