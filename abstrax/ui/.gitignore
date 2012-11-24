@@ -1,3 +1,6 @@
+AppPackages
+bin
+bld
 *.pfx
 *.user
 *.suo
