@@ -164,3 +164,27 @@ td {
 .fcalc {
 	font-size: 10px;
 }
+
+.button td:hover, .sliderv:hover, .multiplier:hover {
+	cursor: pointer;
+}
+
+#saveForm {
+	display: none;
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	border: 0;
+	margin: 0;
+	padding: 0;
+	background: rgba(0, 0, 0, 0.7);
+	z-index: 5;
+}
+
+#saveForm input {
+	position: absolute;
+	width: 30%;
+	left: 35%;
+	top: 20%;
+	font-size: 30px;
+}

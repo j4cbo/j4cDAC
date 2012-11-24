@@ -47,6 +47,10 @@ var layout = {
 		{ x: 0.51, y: 0.11, w: cw, h: 0.78, box: 34, color: "white" },
 	modeButton:
 		{ x: 0.41, y: 0.91, w: 0.18, h: 0.08, color: "white" },
+	loadButton:
+		{ x: 0.01, y: 0.71, w: 0.08, h: 0.08, color: "white" },
+	saveButton:
+		{ x: 0.01, y: 0.81, w: 0.08, h: 0.08, color: "white" },
 	xyz: function(prefix, xb) {
 		var yb = 0.01;
 		var q = (prefix == "x" || prefix == "y" || prefix == "z");
@@ -311,6 +315,27 @@ var modeButton = createButton("mode",
 	update();
 });
 
+var loadButton = createButton("load",
+	layout.loadButton, function(root, layout, td) {
+		td.innerHTML = "load";
+		root.style.fontSize = "20px";
+		clickify(root, function() {
+		});
+	}
+);
+
+var saveButton = createButton("save",
+	layout.saveButton, function(root, layout, td) {
+		td.innerHTML = "save";
+		root.style.fontSize = "20px";
+		clickify(root, function() {
+			document.getElementById("saveField").value = "";
+			document.getElementById("saveForm").style.display = "block";
+			document.getElementById("saveField").focus();
+		});
+	}
+);
+
 createChannel("x",     0.11, false);
 createChannel("y",     0.21, false);
 createChannel("z",     0.31, false);
@@ -363,4 +388,34 @@ masterReadout = createMultistateButton("master", layout.masterReadout,
 
 set_master(75);
 
+document.getElementById("saveForm").onsubmit = function(e) {
+	var name = document.getElementById("saveField").value;
+	if (name)
+		post({ save : name });
+	document.getElementById("saveForm").style.display = "none";
+	document.getElementById("saveField").blur();
+	e.preventDefault();
+	return false;
+}
 //createQuadrilateral("image", { x : 250, y: 120, w: 450, h: 450 });
+
+function process(k, v) {
+	if (k == "xrot") {
+		v = Number(v) / 2147483647 * 180;
+		xrotReadout.update("X: " + v.toFixed(1) + "&deg;");
+		xrotSlider.setValue(v);
+	} else if (k == "yrot") {
+		v = Number(v) / 2147483647 * 180;
+		yrotReadout.update("Y: " + v.toFixed(1) + "&deg;");
+		yrotSlider.setValue(v);
+	}
+}
+
+socket.on('message', function(data) {
+	var sections = data.split(" ");
+	for (var i in sections) {
+		var c = sections[i].indexOf(":");
+		if (c == -1) continue;
+		process(sections[i].substr(0, c), sections[i].substr(c + 1));
+	}
+});
