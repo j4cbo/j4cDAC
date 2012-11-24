@@ -411,6 +411,7 @@ function process(k, v) {
 	}
 }
 
+/*
 socket.on('message', function(data) {
 	var sections = data.split(" ");
 	for (var i in sections) {
@@ -419,3 +420,4 @@ socket.on('message', function(data) {
 		process(sections[i].substr(0, c), sections[i].substr(c + 1));
 	}
 });
+*/

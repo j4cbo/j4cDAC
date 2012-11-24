@@ -131,6 +131,7 @@ function createSlider(elemName, layout, range, onchange) {
 	var rel = (layout.horizontal ? root.x : root.y) + 1;
 	var rangeDiff = range[0] - range[1];
 	var posLimit = (layout.horizontal ? root.w : root.h) - boxh;
+	var lastSetPosition;
 
 	function setPos(position, trigger) {
 		if (position < 0) {
@@ -139,6 +140,8 @@ function createSlider(elemName, layout, range, onchange) {
 		if (position > posLimit) {
 			position = posLimit;
 		}
+
+		lastSetPosition = position;
 
 		if (layout.horizontal) {
 			box.style.left = position + "px";
@@ -152,43 +155,46 @@ function createSlider(elemName, layout, range, onchange) {
 		}
 	}
 
+	function getEventPos(e) {
+		if ("pageX" in e)
+			return layout.horizontal ? e.pageX : e.pageY;
+		else
+			return layout.horizontal ? e.clientX : e.clientY;
+	}
+
+	var offset = 0;
+
 	function move(e) {
-        if ("pageX" in e)
-    	    setPos((layout.horizontal ? e.pageX : e.pageY) - rel - (boxh / 2), true);
-        else
-            setPos((layout.horizontal ? e.clientX : e.clientY) - rel - (boxh / 2), true);
+		setPos(getEventPos(e) - offset, true);
 	}
 
-	function up() {
-		document.onmouseup = null;
-		document.onmousemove = null;
-	}
+	function handleInitial(e) {
+		offset = getEventPos(e) - lastSetPosition;
 
-	function barDown(e) {
-		document.onmouseup = up;
-		document.onmousemove = move;
-		move(e);
-	}
+		var mismatch = offset - rel - (boxh / 2);
 
-	root.setValue = function(v) {
-		var pos = (v - range[1]) * posLimit / rangeDiff;
-		setPos(pos, false);
-		root.value = v;
-	}
-
-	root.pushUpdate = function() { if (onchange) onchange(root.value); }
-
-	root.getValue = function() { return root.value; }
-
-	function barTouch(e) {
-	    e.preventDefault();
-	    move(e.changedTouches[0]);
+		if (Math.abs(mismatch) > (boxh / 2)) {
+			offset = rel + (boxh / 2);
+			move(e);
+		}
 	}
 
 	if (pointerApi == "portable") {
-	    root.onmousedown = barDown;
-	    root.ontouchstart = barTouch;
-	    root.ontouchmove = barTouch;
+		root.onmousedown = function(e) {
+			handleInitial(e);
+			document.onmousemove = move;
+			document.onmouseup = function() {
+				document.onmouseup = null;
+				document.onmousemove = null;
+			};
+		};
+		root.ontouchstart = function(e) {
+			e.preventDefault();
+			handleInitial(e.changedTouches[0]);
+		};
+		root.ontouchmove = function(e) {
+			move(e.changedTouches[0]);
+		};
 	} else if (pointerApi == "mspointer") {
 	    var gesture = new MSGesture();
 	    gesture.target = root;
@@ -198,6 +204,16 @@ function createSlider(elemName, layout, range, onchange) {
 	    root.addEventListener("MSPointerDown", function (e) { gesture.addPointer(e.pointerId); }, false);
 	}
 
+	root.setValue = function(v) {
+		var pos = (v - range[1]) * posLimit / rangeDiff;
+		setPos(pos, false);
+		root.value = v;
+	}
+
+	root.pushUpdate = function() {
+		if (onchange) onchange(root.value);
+	}
+
 	return root;
 }
 
@@ -205,7 +221,7 @@ function roundRect(ctx, x1, y1, x2, y2, r) {
 	var pi = Math.PI;
 	ctx.beginPath();
 	ctx.moveTo(x1 + r, y1);
-    	ctx.lineTo(x2 - r, y1);
+	ctx.lineTo(x2 - r, y1);
 	ctx.arc(x2 - r, y1 + r, r, pi * 3/2, pi * 2, false);
 	ctx.lineTo(x2, y2 - r);
 	ctx.arc(x2 - r, y2 - r, r, 0, pi / 2, false);
