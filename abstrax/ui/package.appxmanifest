@@ -14,7 +14,7 @@
     <Resource Language="x-generate" />
   </Resources>
   <Applications>
-    <Application Id="App" StartPage="metro\default.html">
+    <Application Id="App" StartPage="static\index.html">
       <VisualElements DisplayName="Ether Dream Abstract" Logo="images\logo.png" SmallLogo="images\smalllogo.png" Description="Controller for EtherDream laser DAC abstract pattern generator." ForegroundText="light" BackgroundColor="#464646">
         <DefaultTile ShowName="allLogos" />
         <SplashScreen Image="images\splashscreen.png" />
