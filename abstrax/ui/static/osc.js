@@ -15,7 +15,37 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-var socket = io.connect();
+// Set up socket backend
+function sendOsc() {
+    // Drop packets until connection established
+}
+
+if (socketApi == "socket.io") {
+    var sTag = document.createElement("script");
+    sTag.src = "/socket.io/socket.io.js";
+    sTag.onload = function () {
+        var socket = io.connect();
+        sendOsc = function (msg) {
+            socket.send(msg);
+        }
+    }
+    document.documentElement.firstChild.appendChild(sTag);
+} else if (socketApi == "winrt") {
+    var socket = new Windows.Networking.Sockets.DatagramSocket();
+    socket.getOutputStreamAsync(new Windows.Networking.HostName("255.255.255.255"), "60000").then(
+        function (os) {
+            var socketWriter = new Windows.Storage.Streams.DataWriter(os);
+            sendOsc = function (msg) {
+                socketWriter.writeString("/abstract/conf\0\0,s\0\0" + msg + "\r\n\0");
+                socketWriter.storeAsync().then(
+                    function () {
+                        socketWriter.flushAsync();
+                    }
+                );
+            }
+        }
+    );
+}
 var topBar = 0;
 
 function clickify(elem, f) {
@@ -32,7 +62,7 @@ function post(kv) {
 		kvpairs.push(k + ":" + kv[k]);
 	}
 
-	socket.send(kvpairs.join(" "));
+	sendOsc(kvpairs.join(" "));
 }
 
 function applyLayout(root, layout) {
@@ -123,8 +153,11 @@ function createSlider(elemName, layout, range, onchange) {
 	}
 
 	function move(e) {
-		setPos((layout.horizontal ? e.pageX : e.pageY) - rel - (boxh / 2), true);
-	}	
+        if ("pageX" in e)
+    	    setPos((layout.horizontal ? e.pageX : e.pageY) - rel - (boxh / 2), true);
+        else
+            setPos((layout.horizontal ? e.clientX : e.clientY) - rel - (boxh / 2), true);
+	}
 
 	function up() {
 		document.onmouseup = null;
@@ -148,13 +181,22 @@ function createSlider(elemName, layout, range, onchange) {
 	root.getValue = function() { return root.value; }
 
 	function barTouch(e) {
-		e.preventDefault();
-		move(e.changedTouches[0]);
+	    e.preventDefault();
+	    move(e.changedTouches[0]);
 	}
 
-	root.onmousedown = barDown;
-	root.ontouchstart = barTouch;
-	root.ontouchmove = barTouch;
+	if (pointerApi == "portable") {
+	    root.onmousedown = barDown;
+	    root.ontouchstart = barTouch;
+	    root.ontouchmove = barTouch;
+	} else if (pointerApi == "mspointer") {
+	    var gesture = new MSGesture();
+	    gesture.target = root;
+	    root.addEventListener("MSGestureChange", move, false);
+	    root.addEventListener("MSGestureTap", move, false);
+	    root.addEventListener("MSGestureEnd", move, false);
+	    root.addEventListener("MSPointerDown", function (e) { gesture.addPointer(e.pointerId); }, false);
+	}
 
 	return root;
 }
