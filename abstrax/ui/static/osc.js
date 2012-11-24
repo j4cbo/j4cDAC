@@ -25,9 +25,7 @@ if (socketApi == "socket.io") {
     sTag.src = "/socket.io/socket.io.js";
     sTag.onload = function () {
         var socket = io.connect();
-        sendOsc = function (msg) {
-            socket.send(msg);
-        }
+        sendOsc = socket.send.bind(socket);
     }
     document.documentElement.firstChild.appendChild(sTag);
 } else if (socketApi == "winrt") {
@@ -102,7 +100,7 @@ function createReadout(elemName, layout) {
 	root.id = elemName + "_readout";
 
 	var span = document.createElement("td");
-	span.appendChild(document.createTextNode());
+	span.appendChild(document.createTextNode(""));
 	span.setTextContents = function(v) {
 		span.firstChild.nodeValue = v;
 	}
@@ -161,7 +159,7 @@ function createSlider(elemName, layout, range, onchange) {
 		if ("pageX" in e)
 			return layout.horizontal ? e.pageX : e.pageY;
 		else
-			return layout.horizontal ? e.clientX : e.clientY;
+			return (layout.horizontal ? e.clientX : e.clientY) - rel - (boxh/2);
 	}
 
 	var offset = 0;
@@ -391,7 +389,7 @@ function createMultiplier(elemName, layout, onchange) {
 	dbtn.appendChild(document.createTextNode("\u2193"));
 
 	var rspan = document.createElement("span");
-	var rtext = document.createTextNode();
+	var rtext = document.createTextNode("");
 	rspan.appendChild(rtext);
 
 	root.appendChild(rspan);
@@ -462,7 +460,7 @@ function createMultistateButton(elemName, layout, states, modifier) {
 		modifier(root, layout, td);
 		root.state = 0;
 		root.states = states;
-		var tn = document.createTextNode();
+		var tn = document.createTextNode("");
 		td.appendChild(tn);
 		tn.nodeValue = states[0];
 		clickify(root, function() {
