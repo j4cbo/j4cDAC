@@ -148,7 +148,7 @@ function createChannel(prefix, xb, allowShape) {
 
 	function updateReadouts() {
 		var str = (frequency.toFixed(1) + " Hz<br>"
-			+ "<span class='fcalc'>" + multiplier.getStr() + "<i>f</i>");
+			+ "<span class='fcalc'>" + multiplier.getStr() + "\u0192");
 
 		if (prefix == "blank" && !relative) {
 			str = "";
@@ -258,7 +258,7 @@ function createChannel(prefix, xb, allowShape) {
 	);
 
 	phaseButton = createMultistateButton(prefix + "phase", layouts.phaseButton,
-		[ " <i>f</i> &times;", " <i>f</i> &pm;", "&#8709;" ],
+		[ "\u0192 \u00D7", "\u0192 \u00B1", "\u2205" ],
 		function(root, layout, td) {
 		root.style.fontSize = "30px";
 		root.style.fontFamily = "serif";
@@ -348,13 +348,13 @@ var xrotReadout = createReadout("xrot", layout.xrotReadout);
 var yrotReadout = createReadout("yrot", layout.yrotReadout);
 var xrotSlider = createSlider("xrots", layout.xrotSlider, [ -90, 90 ],
 	function(v) {
-		xrotReadout.update("X: " + v.toFixed(1) + "&deg;");
+		xrotReadout.setTextContents("X: " + v.toFixed(1) + "\u00B0");
 		post({xrot: (v * 2147483647 / 180).toFixed()});
 	}
 );
 var yrotSlider = createSlider("yrots", layout.yrotSlider, [ -90, 90 ],
 	function(v) {
-		yrotReadout.update("Y: " + v.toFixed(1) + "&deg;");
+		yrotReadout.setTextContents("Y: " + v.toFixed(1) + "\u00B0");
 		post({yrot: (v * 2147483647 / 180).toFixed()});
 	}
 );
@@ -368,7 +368,6 @@ var masterReadout;
 function set_master(f) {
 	master_frequency = f;
 	var d = { master: (f * 65536).toFixed() };
-	//masterReadout.update(f.toFixed(1) + " Hz");
 	for (var i = 0; i < channels.length; i++) {
 		channels[i].updateChannel(d);
 	}
@@ -402,11 +401,11 @@ document.getElementById("saveForm").onsubmit = function(e) {
 function process(k, v) {
 	if (k == "xrot") {
 		v = Number(v) / 2147483647 * 180;
-		xrotReadout.update("X: " + v.toFixed(1) + "&deg;");
+		xrotReadout.setTextContents("X: " + v.toFixed(1) + "\u00B0");
 		xrotSlider.setValue(v);
 	} else if (k == "yrot") {
 		v = Number(v) / 2147483647 * 180;
-		yrotReadout.update("Y: " + v.toFixed(1) + "&deg;");
+		yrotReadout.setTextContents("Y: " + v.toFixed(1) + "\u00B0");
 		yrotSlider.setValue(v);
 	}
 }

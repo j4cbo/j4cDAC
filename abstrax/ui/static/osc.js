@@ -102,10 +102,12 @@ function createReadout(elemName, layout) {
 	root.id = elemName + "_readout";
 
 	var span = document.createElement("td");
+	span.appendChild(document.createTextNode());
+	span.setTextContents = function(v) {
+		span.firstChild.nodeValue = v;
+	}
 	root.appendChild(span);
-	root.update = function(v) { span.innerHTML = v; };
-
-	return root;
+	return span;
 }
 
 function createSlider(elemName, layout, range, onchange) {
@@ -382,14 +384,17 @@ function createMultiplier(elemName, layout, onchange) {
 
 	var ubtn = document.createElement("span");
 	ubtn.className = "ubtn ns " + layout.color;
-	ubtn.innerHTML = "&#8593;";
+	ubtn.appendChild(document.createTextNode("\u2191"));
+
 	var dbtn = document.createElement("span");
 	dbtn.className = "dbtn ns " + layout.color;
-	dbtn.innerHTML = "&#8595;";
+	dbtn.appendChild(document.createTextNode("\u2193"));
 
-	var rtext = document.createElement("span");
+	var rspan = document.createElement("span");
+	var rtext = document.createTextNode();
+	rspan.appendChild(rtext);
 
-	root.appendChild(rtext);
+	root.appendChild(rspan);
 	root.appendChild(ubtn);
 	root.appendChild(dbtn);
 
@@ -409,27 +414,27 @@ function createMultiplier(elemName, layout, onchange) {
 	clickify(ubtn, function() {
 		if (root.state == strs.length - 1) return;
 		root.state++
-		rtext.innerHTML = strs[root.state];
+		rtext.nodeValue = strs[root.state];
 		if (onchange) onchange();
 	});
 
 	clickify(dbtn, function() {
 		if (root.state == 0) return;
 		root.state--;
-		rtext.innerHTML = strs[root.state];
+		rtext.nodeValue = strs[root.state];
 		if (onchange) onchange();
 	});
 
 	root.setState = function(s) {
 		root.state = s;
-		rtext.innerHTML = strs[root.state];
+		rtext.nodeValue = strs[root.state];
 	}
 
 	function f() { return false; }
 	ubtn.onmousemove = f;
 	dbtn.onmousemove = f;
 
-	rtext.innerHTML = strs[root.state];
+	rtext.nodeValue = strs[root.state];
 
 	return root;
 }
@@ -457,12 +462,14 @@ function createMultistateButton(elemName, layout, states, modifier) {
 		modifier(root, layout, td);
 		root.state = 0;
 		root.states = states;
-		td.innerHTML = states[0];
+		var tn = document.createTextNode();
+		td.appendChild(tn);
+		tn.nodeValue = states[0];
 		clickify(root, function() {
 			root.state = root.state + 1;
 			if (root.state >= states.length)
 				root.state = 0;
-			td.innerHTML = states[root.state];
+			tn.nodeValue = states[root.state];
 			root.updateCallback();
 		});
 	});
@@ -470,12 +477,14 @@ function createMultistateButton(elemName, layout, states, modifier) {
 
 function lockToggle(elem, layout) {
 	var c = false;
+	var tn = document.createTextNode();
 	elem.style.color = layout.color ? layout.color : "#800";
 	elem.style.fontSize = "50px";
 	elem.style.lineHeight = "50%";
+	elem.appendChild(tn);
 	clickify(elem, function() {
 		c = !c;
-		elem.innerHTML = c ? "\u2248" : "";
+		tn.nodeValue = c ? "\u2248" : "";
 	});
 }
 
