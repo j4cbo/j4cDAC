@@ -53,7 +53,6 @@ int main() {
 	if (etherdream_connect(d) < 0)
 		return 1;
 
-	printf("write %d\n", etherdream_write(d, circle, CIRCLE_POINTS, 30000, 0));
 	i = 0;
 	while (1) {
 		fill_circle((float)i / 50);
@@ -61,7 +60,7 @@ int main() {
 		if (res != 0) {
 			printf("write %d\n", res);
 		}
-		usleep(18000);
+		etherdream_wait_for_ready(d);
 		i++;
 	}
 

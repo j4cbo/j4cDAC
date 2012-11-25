@@ -44,29 +44,24 @@
 #define BUFFER_POINTS_PER_FRAME 16000
 #define BUFFER_NFRAMES          2
 #define MAX_LATE_ACKS		64
-#define DAC_MIN_SEND		40
+#define MIN_SEND_POINTS		40
 #define DEFAULT_TIMEOUT		2000000
-
-/* Compile-time assert macro.
- *
- * Source: http://www.pixelbeat.org/programming/gcc/static_assert.html
- */
-#define ct_assert(e) ((void)sizeof(char[1 - 2*!(e)]))
+#define DEBUG_THRESHOLD_POINTS	800
 
 struct etherdream_conn {
 	int dc_sock;
 	char dc_read_buf[1024];
 	int dc_read_buf_size;
 	struct dac_response resp;
-	long long last_ack_time;
+	long long dc_last_ack_time;
 
 	struct {
 		struct queue_command queue;
 		struct data_command_header header;
 		struct dac_point data[1000];
-	} __attribute__((packed)) local_buffer;
+	} __attribute__((packed)) dc_local_buffer;
 
-	int begin_sent;
+	int dc_begin_sent;
 	int ackbuf[MAX_LATE_ACKS];
 	int ackbuf_prod;
 	int ackbuf_cons;
@@ -95,7 +90,8 @@ struct etherdream {
 	pthread_cond_t loop_cond;
 
 	struct buffer_item buffer[BUFFER_NFRAMES];
-	int buffer_read, buffer_fullness;
+	int frame_buffer_read;
+	int frame_buffer_fullness;
 	int bounce_count;
 
 	pthread_t workerthread;
@@ -258,7 +254,7 @@ static int read_resp(struct etherdream *d) {
 	if (res < 0)
 		return res;
 
-	d->conn.last_ack_time = mach_absolute_time();
+	d->conn.dc_last_ack_time = mach_absolute_time();
 	return 0;
 }
 
@@ -288,7 +284,7 @@ static int dac_connect(struct etherdream *d) {
 	struct etherdream_conn *conn = &d->conn;
 	memset(conn, 0, sizeof *conn);
 
-	/* Create socket */
+	// Open socket
 	conn->dc_sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (conn->dc_sock < 0) {
 		log_socket_error(d, "socket");
@@ -310,7 +306,7 @@ static int dac_connect(struct etherdream *d) {
 		goto bail;
 	}
 
-	// Wait for connection.
+	// Wait for connection to go through
 	int res = wait_for_fd_activity(d, DEFAULT_TIMEOUT, 1);
 	if (res < 0)
 		goto bail;
@@ -322,38 +318,40 @@ static int dac_connect(struct etherdream *d) {
 	// See if we have *actually* connected
 	int error;
 	unsigned int len = sizeof error;
-	if (getsockopt(conn->dc_sock, SOL_SOCKET, SO_ERROR,
-	                                           (char *)&error, &len) < 0) {
+	if (getsockopt(conn->dc_sock, SOL_SOCKET, SO_ERROR, (char *)&error,
+	                                                           &len) < 0) {
 		log_socket_error(d, "getsockopt");
 		goto bail;
 	}
 
 	if (error) {
+		errno = error;
 		log_socket_error(d, "connect");
 		goto bail;
 	}
 
 	int ndelay = 1;
 	if (setsockopt(conn->dc_sock, IPPROTO_TCP, TCP_NODELAY,
-	               (char *)&ndelay, sizeof(ndelay)) < 0) {
+	                                (char *)&ndelay, sizeof(ndelay)) < 0) {
 		log_socket_error(d, "setsockopt TCP_NODELAY");
 		goto bail;
 	}
 
 	// After we connect, the DAC will send an initial status response
 	if (read_resp(d) < 0)
-		return -1;
+		goto bail;
 
 	char c = 'p';
 	send_all(d, &c, 1);
 
 	if (read_resp(d) < 0)
-		return -1;
+		goto bail;
 	dump_resp(d);
 
 	if (d->sw_revision >= 2) {
 		c = 'v';
-		send_all(d, &c, 1);
+		if (send_all(d, &c, 1) < 0)
+			goto bail;
 		res = read_bytes(d, d->version, sizeof(d->version));
 		if (res < 0)
 			return res;
@@ -369,14 +367,19 @@ bail:
 	return -1;
 }
 
+/* check_data_response(d)
+ *
+ * Handle a response from d: update our record of the number of sent-but-not-
+ * ACKed points, and error if the response was unexpected.
+ */
 static int check_data_response(struct etherdream *d) {
 	struct etherdream_conn *conn = &d->conn;
 	if (conn->resp.dac_status.playback_state == 0)
-		conn->begin_sent = 0;
+		conn->dc_begin_sent = 0;
 
 	if (conn->resp.command == 'd') {
 		if (conn->ackbuf_prod == conn->ackbuf_cons) {
-			trace(d, "!! Protocol error: didn't expect data ack\n");
+			trace(d, "!! protocol error: unexpected data ack\n");
 			return -1;
 		}
 		conn->unacked_points -= conn->ackbuf[conn->ackbuf_cons];
@@ -386,7 +389,7 @@ static int check_data_response(struct etherdream *d) {
 	}
 
 	if (conn->resp.response != 'a' && conn->resp.response != 'I') {
-		trace(d, "!! Protocol error: ACK for '%c' got '%c' (%d)\n",
+		trace(d, "!! protocol error: ACK for '%c' got '%c' (%d)\n",
 			conn->resp.command,
 			conn->resp.response, conn->resp.response);
 		return -1;
@@ -413,7 +416,13 @@ static int dac_get_acks(struct etherdream *d, int wait) {
 	return 0;
 }
 
-static int dac_send_data(struct etherdream *d, struct dac_point *data, int npoints, int rate) { 
+/* dac_send_data(d, data, npoints, rate)
+ *
+ * Send points to the DAC, including prepare or begin commands and changing
+ * the point rate as necessary.
+ */
+static int dac_send_data(struct etherdream *d, struct dac_point *data,
+                         int npoints, int rate) {
 	int res;
 	const struct dac_status *st = &d->conn.resp.dac_status;
 
@@ -425,7 +434,7 @@ static int dac_send_data(struct etherdream *d, struct dac_point *data, int npoin
 
 		d->conn.pending_meta_acks++;
 
-		/* Block here until all ACKs received... */
+		/* Block here until all ACKs received... XXX timeout */
 		while (d->conn.pending_meta_acks)
 			dac_get_acks(d, 1500);
 
@@ -433,17 +442,15 @@ static int dac_send_data(struct etherdream *d, struct dac_point *data, int npoin
 	}
 
 	if (st->buffer_fullness > 1600 && st->playback_state == 1 \
-	    && !d->conn.begin_sent) {
+	    && !d->conn.dc_begin_sent) {
 		trace(d, "L: Sending begin command...\n");
 
-		struct begin_command b;
-		b.command = 'b';
-		b.point_rate = rate;
-		b.low_water_mark = 0;
+		struct begin_command b = { .command = 'b', .point_rate = rate,
+		                           .low_water_mark = 0 };
 		if ((res = send_all(d, (const char *)&b, sizeof b)) < 0)
 			return res;
 
-		d->conn.begin_sent = 1;
+		d->conn.dc_begin_sent = 1;
 		d->conn.pending_meta_acks++;
 	}
 
@@ -453,21 +460,19 @@ static int dac_send_data(struct etherdream *d, struct dac_point *data, int npoin
 	if (npoints <= 0)
 		return 0;
 
-	d->conn.local_buffer.queue.command = 'q';
-	d->conn.local_buffer.queue.point_rate = rate;
+	d->conn.dc_local_buffer.queue.command = 'q';
+	d->conn.dc_local_buffer.queue.point_rate = rate;
 
-	d->conn.local_buffer.header.command = 'd';
-	d->conn.local_buffer.header.npoints = npoints;
+	d->conn.dc_local_buffer.header.command = 'd';
+	d->conn.dc_local_buffer.header.npoints = npoints;
 
-	memcpy(&d->conn.local_buffer.data[0], data,
+	memcpy(&d->conn.dc_local_buffer.data[0], data,
 		npoints * sizeof(struct dac_point));
 
-	d->conn.local_buffer.data[0].control |= DAC_CTRL_RATE_CHANGE;
-
-	ct_assert(sizeof(d->conn.local_buffer) == 18008);
+	d->conn.dc_local_buffer.data[0].control |= DAC_CTRL_RATE_CHANGE;
 
 	/* Write the data */
-	if ((res = send_all(d, (const char *)&d->conn.local_buffer,
+	if ((res = send_all(d, (const char *)&d->conn.dc_local_buffer,
 		8 + npoints * sizeof(struct dac_point))) < 0)
 		return res;
 
@@ -480,36 +485,43 @@ static int dac_send_data(struct etherdream *d, struct dac_point *data, int npoin
 	return 0;
 }
 
-#define DEBUG_THRESHOLD		800
+#define SHOULD_TRACE() (expected_fullness < DEBUG_THRESHOLD_POINTS \
+           || d->conn.resp.dac_status.buffer_fullness < DEBUG_THRESHOLD_POINTS)
 
-#define SHOULD_TRACE() ((d->conn.resp.dac_status.buffer_fullness < DEBUG_THRESHOLD || expected_fullness < DEBUG_THRESHOLD))
-
+/* dac_loop(dv)
+ *
+ * Main thread function for sending data to the DAC.
+ */
 static void *dac_loop(void *dv) {
 	struct etherdream *d = (struct etherdream *)dv;
+	int res = 0;
 
 	pthread_mutex_lock(&d->mutex);
 
 	while (1) {
 		/* Wait for us to have data */
-		while (d->state == ST_READY) {
+		int state;
+		while ((state = d->state) == ST_READY) {
 			trace(d, "L: waiting\n");
 			pthread_cond_wait(&d->loop_cond, &d->mutex);
 		}
 
-		if (d->state != ST_RUNNING)
-			break;
-
 		pthread_mutex_unlock(&d->mutex);
 
-		struct buffer_item *b = &d->buffer[d->buffer_read];
+		if (state != ST_RUNNING)
+			break;
+
+		struct buffer_item *b = &d->buffer[d->frame_buffer_read];
 		int cap;
 		int expected_used, expected_fullness;
 
 		while (1) {
+			res = 0;
+
 			/* Estimate how much data has been consumed since the
 			 * last time we got an ACK. */
 			long long time = mach_absolute_time();
-			long long time_diff = time - d->conn.last_ack_time;
+			long long time_diff = time - d->conn.dc_last_ack_time;
 
 			expected_used = (time_diff * b->pps * timer_freq_numer)
 			                / (1000000 * timer_freq_denom);
@@ -524,7 +536,7 @@ static void *dac_loop(void *dv) {
 			/* Now, see how much data we should write. */
 			cap = 1700 - expected_fullness;
 
-			if (cap > DAC_MIN_SEND)
+			if (cap > MIN_SEND_POINTS)
 				break;
 			if (d->conn.resp.dac_status.playback_state != 2) {
 				usleep(1000);
@@ -532,11 +544,12 @@ static void *dac_loop(void *dv) {
 			}
 
 			/* Wait a little. */
-			int diff = DAC_MIN_SEND - cap;
+			int diff = MIN_SEND_POINTS - cap;
 			int wait_time = 500 + (1000000L * diff / b->pps);
 
 			if (SHOULD_TRACE())
-				trace(d, "L: st %d om %d; b %d + %d - %d = %d -> c %d, wait %d us\n",
+				trace(d, "L: st %d om %d; b %d + %d - %d = %d"
+					" -> c %d, wait %d us\n",
 					d->conn.resp.dac_status.playback_state,
 					d->conn.pending_meta_acks,
 					d->conn.resp.dac_status.buffer_fullness,
@@ -545,13 +558,11 @@ static void *dac_loop(void *dv) {
 
 			usleep(wait_time);
 
-			if (dac_get_acks(d, 0) < 0) {
-				d->state = ST_BROKEN;
+			if ((res = dac_get_acks(d, 0)) < 0)
 				break;
-			}
 		}
 
-		if (d->state == ST_BROKEN)
+		if (res < 0)
 			break;
 
 		/* How many points can we send? */
@@ -563,24 +574,19 @@ static void *dac_loop(void *dv) {
 			cap = 80;
 
 		if (SHOULD_TRACE())
-			trace(d, "L: st %d om %d; b %d + %d - %d = %d -> write %d\n",
+			trace(d, "L: st %d om %d; b %d + %d - %d = %d"
+				" -> write %d\n",
 				d->conn.resp.dac_status.playback_state,
 				d->conn.pending_meta_acks,
 				d->conn.resp.dac_status.buffer_fullness,
 				d->conn.unacked_points, expected_used,
 				expected_fullness, cap);
 
-		int res = dac_send_data(d, b->data + b->idx, cap, b->pps);
+		res = dac_send_data(d, b->data + b->idx, cap, b->pps);
+		if (res < 0)
+			break;
 
 		pthread_mutex_lock(&d->mutex);
-
-		if (res < 0) {
-			/* Welp, something's wrong. There's not much we
-			 * can do at an API level other than start throwing
-			 * "error" returns up to the application... */
-			d->state = ST_BROKEN;
-			break;
-		}
 
 		/* What next? */
 		b->idx += cap;
@@ -595,12 +601,13 @@ static void *dac_loop(void *dv) {
 		if (b->repeatcount > 1) {
 			/* Play this frame again? */
 			b->repeatcount--;
-		} else if (d->buffer_fullness > 1) {
+		} else if (d->frame_buffer_fullness > 1) {
 			/* Move to the next frame */
-			d->buffer_fullness--;
-			d->buffer_read++;
-			if (d->buffer_read >= BUFFER_NFRAMES)
-				d->buffer_read = 0;
+			d->frame_buffer_fullness--;
+			d->frame_buffer_read++;
+			if (d->frame_buffer_read >= BUFFER_NFRAMES)
+				d->frame_buffer_read = 0;
+			pthread_cond_broadcast(&d->loop_cond);
 		} else if (b->repeatcount >= 0) {
 			/* Stop playing until we get a new frame. */
 			trace(d, "L: returning to idle\n");
@@ -612,14 +619,14 @@ static void *dac_loop(void *dv) {
 	}
 
 	trace(d, "L: Shutting down.\n");
-	pthread_mutex_unlock(&d->mutex);
+	d->state = ST_SHUTDOWN;
 	return 0;
 }
 
 int etherdream_connect(struct etherdream *d) {
 	// Initialize buffer
-	d->buffer_read = 0;
-	d->buffer_fullness = 0;
+	d->frame_buffer_read = 0;
+	d->frame_buffer_fullness = 0;
 	memset(d->buffer, sizeof(d->buffer), 0);
 
 	// Connect to the DAC
@@ -649,14 +656,12 @@ void etherdream_disconnect(struct etherdream *d) {
 	pthread_mutex_unlock(&d->mutex);
 
 	pthread_join(d->workerthread, NULL);
-
 	close(d->conn.dc_sock);
-	d->state = ST_DISCONNECTED;
 }
 
 /* etherdream_get_id(d)
  *
- * Documented in libetherdream.h.
+ * Documented in etherdream.h.
  */
 unsigned long etherdream_get_id(struct etherdream *d) {
 	return d->dac_id;
@@ -664,7 +669,7 @@ unsigned long etherdream_get_id(struct etherdream *d) {
 
 /* etherdream_write(d, pts, npts, pps, reps)
  *
- * Documented in libetherdream.h.
+ * Documented in etherdream.h.
  */
 int etherdream_write(struct etherdream *d, const struct etherdream_point *pts,
                      int npts, int pps, int reps) {
@@ -680,14 +685,14 @@ int etherdream_write(struct etherdream *d, const struct etherdream_point *pts,
 	pthread_mutex_lock(&d->mutex);
 
 	/* If not ready for a new frame, bail */
-	if (d->buffer_fullness == BUFFER_NFRAMES) {
+	if (d->frame_buffer_fullness == BUFFER_NFRAMES) {
 		pthread_mutex_unlock(&d->mutex);
 		trace(d, "M: NOT READY: %d points, %d reps\n", npts, reps);
 		return -1;
 	}
 
-	struct buffer_item *next = &d->buffer[
-		(d->buffer_read + d->buffer_fullness) % BUFFER_NFRAMES];
+	struct buffer_item *next = &d->buffer[(d->frame_buffer_read
+	                         + d->frame_buffer_fullness) % BUFFER_NFRAMES];
 
 	pthread_mutex_unlock(&d->mutex);
 
@@ -714,7 +719,7 @@ int etherdream_write(struct etherdream *d, const struct etherdream_point *pts,
 
 	/* Advance buffer and signal the writing thread if necessary */
 	pthread_mutex_lock(&d->mutex);
-	d->buffer_fullness++;
+	d->frame_buffer_fullness++;
 	if (d->state == ST_READY)
 		pthread_cond_signal(&d->loop_cond);
 	d->state = ST_RUNNING;
@@ -723,23 +728,27 @@ int etherdream_write(struct etherdream *d, const struct etherdream_point *pts,
 	return 0;
 }
 
-/* Get the output status.
+/* etherdream_is_ready(d)
+ *
+ * Documented in etherdream.h.
  */
 int etherdream_is_ready(struct etherdream *d) {
 	pthread_mutex_lock(&d->mutex);
-	int ready = (d->buffer_fullness != BUFFER_NFRAMES);
+	int ready = (d->frame_buffer_fullness != BUFFER_NFRAMES);
 	pthread_mutex_unlock(&d->mutex);
-
-	if (!ready) {
-		d->bounce_count++;
-		if (d->bounce_count > 20)
-			trace(d, "M: bouncing\n");
-		usleep(1000);
-	} else {
-		d->bounce_count = 0;
-	}
-
 	return ready;
+}
+
+/* etherdream_wait_for_ready(d)
+ *
+ * Documented in etherdream.h.
+ */
+int etherdream_wait_for_ready(struct etherdream *d) {
+	pthread_mutex_lock(&d->mutex);
+	while (d->frame_buffer_fullness == BUFFER_NFRAMES)
+		pthread_cond_wait(&d->loop_cond, &d->mutex);
+	pthread_mutex_unlock(&d->mutex);
+	return 0;
 }
 
 int etherdream_stop(struct etherdream *d) {
