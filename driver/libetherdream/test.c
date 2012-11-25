@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <math.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -5,6 +7,10 @@
 #include "etherdream.h"
 
 #define CIRCLE_POINTS	600
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 struct etherdream_point circle[CIRCLE_POINTS];
 

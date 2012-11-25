@@ -112,8 +112,10 @@ function createChannel(prefix, xb, allowShape) {
 
 	var readout = createButton(null, layouts.readout,
 		function(root, layout, td) {
-			td.style.fontSize = "14px";
-			root.update = function(v) { td.innerHTML = v; };
+			td.className = "channelreadout";
+			var tn = document.createTextNode("");
+			td.appendChild(tn);
+			root.update = function(v) { tn.nodeValue = v; };
 			root.style.color = "white";
 
 			clickify(root, function() {
@@ -147,27 +149,26 @@ function createChannel(prefix, xb, allowShape) {
 	}
 
 	function updateReadouts() {
-		var str = (frequency.toFixed(1) + " Hz<br>"
-			+ "<span class='fcalc'>" + multiplier.getStr() + "\u0192");
+		var str = frequency.toFixed(1) + " Hz\n" + multiplier.getStr() + "\u0192";
 
 		if (prefix == "blank" && !relative) {
 			str = "";
 		} else if (!isXYZ && !relative) {
-			str = absSlider.value.toFixed(0) + "%</span>";
+			str = absSlider.value.toFixed(0) + "%";
 		} else if (!relative || phaseButton.state == 0) {
-			str += " &times; " + (100*relMunge(relSlider.value)).toFixed(1) + "%</span>";
+			str += " \u00D7 " + (100*relMunge(relSlider.value)).toFixed(1) + "%";
 		} else if (phaseButton.state == 1) {
 			var v = offSlider.value;
 			if (v >= 0)
-				str += " + " + v.toFixed(2) + " Hz</span>";
+				str += " + " + v.toFixed(2) + " Hz";
 			else
-				str += " - " + (-v).toFixed(2) + " Hz</span>";
+				str += " - " + (-v).toFixed(2) + " Hz";
 		} else {
 			var deg = phaseSlider.value;
 			if (deg >= 0) {
-				str += " + " + deg.toFixed(0) + "&deg;</span>";
+				str += " + " + deg.toFixed(0) + "\u00B0";
 			} else {
-				str += " - " + (-deg).toFixed(0) + "&deg;</span>";
+				str += " - " + (-deg).toFixed(0) + "\u00B0";
 			}
 		}
 

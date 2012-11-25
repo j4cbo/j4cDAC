@@ -16,6 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define _POSIX_C_SOURCE 199309L
+#define _DARWIN_C_SOURCE 1
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
@@ -34,8 +37,6 @@
 #ifdef __MACH__
 #include <mach/mach.h>
 #include <mach/mach_time.h>
-#else
-#error only OS X supported right now, sorry :(
 #endif
 
 #include <protocol.h>
@@ -109,7 +110,11 @@ struct etherdream {
 };
 
 static FILE *trace_fp = NULL;
+#if __MACH__
 static long long timer_start, timer_freq_numer, timer_freq_denom;
+#else
+static struct timespec start_time;
+#endif
 static pthread_mutex_t dac_list_lock;
 static struct etherdream *dac_list = NULL;
 
@@ -118,8 +123,24 @@ static struct etherdream *dac_list = NULL;
  * Return the number of microseconds since library initialization.
  */
 static long long microseconds(void) {
+#if __MACH__
 	long long time_diff = mach_absolute_time() - timer_start;
 	return time_diff * timer_freq_numer / timer_freq_denom;
+#else
+	struct timespec t;
+	clock_gettime(CLOCK_REALTIME, &t);
+	return (t.tv_sec - start_time.tv_sec) * 1000000 +
+	       (t.tv_nsec - start_time.tv_nsec) / 1000;
+#endif
+}
+
+/* microsleep(us)
+ *
+ * Like usleep().
+ */
+static void microsleep(long long us) {
+	nanosleep(&(struct timespec){ .tv_sec = us / 1000000,
+	                             .tv_nsec = (us % 1000000) * 1000 }, NULL);
 }
 
 /* trace(d, fmt, ...)
@@ -538,7 +559,7 @@ static void *dac_loop(void *dv) {
 			if (cap > MIN_SEND_POINTS)
 				break;
 			if (d->conn.resp.dac_status.playback_state != 2) {
-				usleep(1000);
+				microsleep(1000);
 				break;
 			}
 
@@ -555,7 +576,7 @@ static void *dac_loop(void *dv) {
 					d->conn.unacked_points, expected_used,
 					expected_fullness, cap, wait_time);
 
-			usleep(wait_time);
+			microsleep(wait_time);
 
 			if ((res = dac_get_acks(d, 0)) < 0)
 				break;
@@ -859,11 +880,15 @@ static void *watch_for_dacs(void *arg) {
  */
 int etherdream_lib_start(void) {
 	// Get high-resolution timer info
+#if __MACH__
 	timer_start = mach_absolute_time();
 	mach_timebase_info_data_t timebase_info;
 	mach_timebase_info(&timebase_info);
 	timer_freq_numer = timebase_info.numer;
 	timer_freq_denom = timebase_info.denom * 1000;
+#else
+	clock_gettime(CLOCK_REALTIME, &start_time);
+#endif
 
 	// Set up the logging fd (just stderr for now)
 	trace_fp = stderr;

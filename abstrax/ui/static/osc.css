@@ -66,6 +66,15 @@ td {
 	margin: 0;
 }
 
+.channelreadout {
+	font-size: 10px;
+	white-space: pre-line;
+}
+
+.channelreadout:first-line {
+	font-size: 14px;
+}
+
 .readout, .button {
 	position: absolute;
 	display: table;
@@ -160,10 +169,6 @@ td {
 .button.red:active { background: darkred; }
 .button.green:active { background: darkgreen; }
 .button.blue:active { background: darkblue; }
-
-.fcalc {
-	font-size: 10px;
-}
 
 .button td:hover, .sliderv:hover, .multiplier:hover {
 	cursor: pointer;
