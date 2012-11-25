@@ -99,13 +99,13 @@ function createReadout(elemName, layout) {
 	applyLayout(root, layout);
 	root.id = elemName + "_readout";
 
-	var span = document.createElement("td");
-	span.appendChild(document.createTextNode(""));
-	span.setTextContents = function(v) {
-		span.firstChild.nodeValue = v;
+	var td = document.createElement("td");
+	td.appendChild(document.createTextNode(""));
+	td.setTextContents = function(v) {
+		td.firstChild.nodeValue = v;
 	}
-	root.appendChild(span);
-	return span;
+	root.appendChild(td);
+	return td;
 }
 
 function createSlider(elemName, layout, range, onchange) {
