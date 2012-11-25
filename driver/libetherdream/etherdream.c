@@ -254,7 +254,7 @@ static int read_resp(struct etherdream *d) {
 	if (res < 0)
 		return res;
 
-	d->conn.dc_last_ack_time = mach_absolute_time();
+	d->conn.dc_last_ack_time = microseconds();
 	return 0;
 }
 
@@ -520,11 +520,10 @@ static void *dac_loop(void *dv) {
 
 			/* Estimate how much data has been consumed since the
 			 * last time we got an ACK. */
-			long long time = mach_absolute_time();
-			long long time_diff = time - d->conn.dc_last_ack_time;
+			long long time_diff = microseconds()
+			                    - d->conn.dc_last_ack_time;
 
-			expected_used = (time_diff * b->pps * timer_freq_numer)
-			                / (1000000 * timer_freq_denom);
+			expected_used = time_diff * b->pps / 1000000;
 
 			if (d->conn.resp.dac_status.playback_state != 2)
 				expected_used = 0;
