@@ -751,14 +751,15 @@ int etherdream_wait_for_ready(struct etherdream *d) {
 	return 0;
 }
 
+/* etherdream_stop(d)
+ *
+ * Documented in etherdream.h.
+ */
 int etherdream_stop(struct etherdream *d) {
 	pthread_mutex_lock(&d->mutex);
-	if (d->state == ST_READY)
-		pthread_cond_broadcast(&d->loop_cond);
-	else
-		d->state = ST_READY;
+	if (d->state == ST_RUNNING)
+		d->buffer[d->frame_buffer_read].repeatcount = 0;
 	pthread_mutex_unlock(&d->mutex);
-
 	return 0;
 }
 
