@@ -2,7 +2,7 @@
 #define ETHERDREAM_H
 
 #ifdef __cplusplus
-extern "c" {
+extern "C" {
 #endif
 
 #include <stdint.h>
