@@ -163,8 +163,10 @@ static void ilda_fps_FPV_param(const char *path, int32_t v) {
 }
 
 static void ilda_repeat_FPV_param(const char *path, int32_t v) {
-	if (playback_src != SRC_ILDAPLAYER)
+	if (playback_set_src(SRC_ILDAPLAYER) < 0) {
+		outputf("src switch err\n");
 		return;
+	}
 
 	if (v)
 		playback_source_flags |= ILDA_PLAYER_REPEAT;
