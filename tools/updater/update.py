@@ -1,3 +1,4 @@
+#!/usr/bin/python
 from Tkinter import *
 from dfu import dfu, update
 import thread

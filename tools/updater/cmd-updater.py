@@ -1,3 +1,4 @@
+#!/usr/bin/python
 from dfu import dfu, update
 import sys
 import time
