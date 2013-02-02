@@ -716,7 +716,7 @@ int etherdream_write(struct etherdream *d, const struct etherdream_point *pts,
 
 	pthread_mutex_unlock(&d->mutex);
 
-	trace(d, "M: Writing: %d points, %d reps, %d pps\n", npts, reps, pps);
+	// trace(d, "M: Writing: %d points, %d reps, %d pps\n", npts, reps, pps);
 
 	/* XXX: automatically pad out small frames */
 
