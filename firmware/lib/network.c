@@ -30,7 +30,8 @@
 #include <dp83848.h>
 #include <tables.h>
 
-static struct netif ether_netif;
+struct netif ether_netif;
+uint8_t ether_manual_ip = 0;
 static struct dhcp dhcp_state;
 
 extern uint8_t mac_address[6];
@@ -150,7 +151,9 @@ void eth_check_link(void) {
 		outputf("Ethernet link up");
 
 		netif_set_up(&ether_netif);
-		dhcp_start(&ether_netif, &dhcp_state);
+
+		if (!ether_manual_ip)
+			dhcp_start(&ether_netif, &dhcp_state);
 	}
 }
 

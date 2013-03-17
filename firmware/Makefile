@@ -57,7 +57,7 @@ BRD_SRCS += lib/lpcusb/usbhw_lpc.c lib/lpcusb/usbinit.c ../common/lib/usbstdreq.
 	../common/lib/usbcontrol.c ../common/lib/usbhw_lpc.c lib/lpcusb/usbtest.c net/bpm.c
 
 APP_SRCS += net/point-stream.c net/broadcast.c net/sink.c net/osc.c \
-	net/ilda-osc.c net/correction-osc.c net/abstract-osc.c lib/transform.c
+	net/ilda-osc.c net/correction-osc.c net/abstract-osc.c lib/transform.c net/ifconfig-osc.c
 
 SRCS = $(BRD_SRCS) $(APP_SRCS)
 
