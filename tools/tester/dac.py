@@ -127,12 +127,17 @@ class DAC(object):
 		"""Connect to the DAC over TCP."""
 		conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		conn.connect((host, port))
+		conn.settimeout(1)
 		self.conn = conn
 		self.buf = ""
 
 		# Read the "hello" message
 		first_status = self.readresp("?")
 		first_status.dump()
+
+		self.conn.sendall('v')
+		self.firmware_string = self.read(32).replace("\x00", " ").strip()
+		print "Firmware: %s" % (self.firmware_string, )
 
 	def begin(self, lwm, rate):
 		cmd = struct.pack("<cHI", "b", lwm, rate)
