@@ -20,8 +20,8 @@ import dac
 
 class SquarePointStream(object):
 	def produce(self):
-		pmax = 32600
-		pstep = 200
+		pmax = 15600
+		pstep = 100
 		cmax = 65535
 		while True:
 			for x in xrange(-pmax, pmax, pstep):
