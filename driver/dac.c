@@ -154,9 +154,13 @@ int dac_get_status(dac_t *d) {
  */
 
 int do_write_frame(dac_t *d, const void * data, int bytes, int pps,
-	int reps, int (*convert)(struct buffer_item *, const void *, int)) {
+	int reps, int (*convert)(struct buffer_item *, const void *, int, int)) {
 
-	int points = convert(NULL, NULL, bytes);
+	int points = convert(NULL, NULL, bytes, 1);
+
+	int pointrep = 16000 / pps;
+	if (pointrep < 1) pointrep = 1;
+	pps *= pointrep;
 
 	if (reps == ((uint16_t) -1))
 		reps = -1;
@@ -184,10 +188,10 @@ int do_write_frame(dac_t *d, const void * data, int bytes, int pps,
 	}
 
 	trace(d, "M: Writing: %d/%d points, %d reps, %d pps\n",
-		points, convert(NULL, NULL, bytes), reps, pps);
+		points, convert(NULL, NULL, bytes, 1), reps, pps);
 
 	struct buffer_item *next = buf_get_write(d);
-	convert(next, data, bytes);
+	convert(next, data, bytes, pointrep);
 	next->pps = pps;
 	next->repeatcount = reps;
 
