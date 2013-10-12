@@ -35,6 +35,8 @@
 #include <file_player.h>
 #include <dac_settings.h>
 
+extern void COLD eth_lockout_disable(void);
+
 struct {
 	volatile uint32_t time;
 	volatile uint8_t mtime;
@@ -194,6 +196,12 @@ int main(int argc, char **argv) {
 	}
 
 	__enable_irq();
+
+	/* Wait a moment. */
+	while (clock.mtime < 250 && clock.time == 0) {
+	}
+
+	eth_lockout_disable();
 
 	playback_set_src(SRC_NETWORK);
 

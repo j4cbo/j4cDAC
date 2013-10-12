@@ -42,6 +42,12 @@ static enum {
 	LINK_GOING_DOWN
 } eth_link_state;
 
+static volatile char eth_lockout_disabled = 0;
+
+void COLD eth_lockout_disable(void) {
+	eth_lockout_disabled = 1;
+}
+
 void EINT3_IRQHandler(void) {
 	if (!(LPC_GPIOINT->IO0IntStatF & (1 << 8))) {
 		panic("Unexpected EINT3");
@@ -57,7 +63,7 @@ void EINT3_IRQHandler(void) {
 	 */
 	mdio_read(DP83848_MISR);
 
-	if (!(mdio_read(DP83848_PHYSTS) & (1 << 0))) {
+	if (!(mdio_read(DP83848_PHYSTS) & (1 << 0)) && eth_lockout_disabled) {
 		le_estop(ESTOP_LINKLOST);
 		eth_link_state = LINK_GOING_DOWN;
 	}
