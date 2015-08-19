@@ -29,8 +29,9 @@ struct WAV8File::Impl {
 
     bool detect_rgb_invert() {
 
-        // Read at most the first 5 seconds for autodetect purposes
-        AFframecount frames_in_5_seconds = afGetRate(m_handle, AF_DEFAULT_TRACK) * 5;
+        // Read at most the first 30 seconds for autodetect purposes. (We need a fairly
+        // long threshold, since some shows don't start until 10+ seconds in.)
+        AFframecount frames_in_5_seconds = afGetRate(m_handle, AF_DEFAULT_TRACK) * 30;
         AFframecount frames_left = std::min(afGetFrameCount(m_handle, AF_DEFAULT_TRACK),
                                             frames_in_5_seconds);
 
