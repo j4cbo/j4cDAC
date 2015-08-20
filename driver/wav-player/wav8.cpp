@@ -27,23 +27,18 @@ struct WAV8File::Impl {
         if (sample < -threshold && sample > (INT16_MIN + threshold)) num_negative++;
     }
 
-    bool detect_rgb_invert() {
-
-        // Read at most the first 30 seconds for autodetect purposes. (We need a fairly
-        // long threshold, since some shows don't start until 10+ seconds in.)
-        AFframecount frames_in_5_seconds = afGetRate(m_handle, AF_DEFAULT_TRACK) * 30;
-        AFframecount frames_left = std::min(afGetFrameCount(m_handle, AF_DEFAULT_TRACK),
-                                            frames_in_5_seconds);
-
-        static constexpr const size_t buffer_size = 1000;
-        int num_positive = 0, num_negative = 0;
-
+    void sample_for_bias(int & num_positive, int & num_negative, AFframecount frames) {
+        static constexpr const AFframecount buffer_size = 1000;
         wav8_sample buf[buffer_size];
 
-        while (frames_left > 0) {
-            int n = std::min(frames_left, static_cast<AFframecount>(buffer_size));
-            afReadFrames(m_handle, AF_DEFAULT_TRACK, buf, n);
-            frames_left -= n;
+        while (frames > 0) {
+            AFframecount n = afReadFrames(m_handle, AF_DEFAULT_TRACK, buf,
+                                          std::min(frames, buffer_size));
+            if (n <= 0) {
+                return;
+            }
+
+            frames -= n;
 
             for (int i = 0; i < n; i++) {
                 adjust_bias(num_positive, num_negative, buf[i].red);
@@ -51,6 +46,26 @@ struct WAV8File::Impl {
                 adjust_bias(num_positive, num_negative, buf[i].blue);
             }
         }
+    }
+
+    bool detect_rgb_invert() {
+        // Autodetect algorithm: we sample 5-second blocks at 0, 25%, 50%, 75%, and 90% of the
+        // way through the track. This should get a robust selection and find regions with
+        // actual color data. We could read the whole track, but that's pretty slow (hundreds
+        // of milliseconds).
+        const AFframecount frames_in_5_seconds = 5 * afGetRate(m_handle, AF_DEFAULT_TRACK);
+        const AFframecount track_frames = afGetFrameCount(m_handle, AF_DEFAULT_TRACK);
+
+        int num_positive = 0, num_negative = 0;
+        sample_for_bias(num_positive, num_negative, frames_in_5_seconds);
+        afSeekFrame(m_handle, AF_DEFAULT_TRACK, track_frames / 4);
+        sample_for_bias(num_positive, num_negative, frames_in_5_seconds);
+        afSeekFrame(m_handle, AF_DEFAULT_TRACK, track_frames / 2);
+        sample_for_bias(num_positive, num_negative, frames_in_5_seconds);
+        afSeekFrame(m_handle, AF_DEFAULT_TRACK, track_frames * 3 / 4);
+        sample_for_bias(num_positive, num_negative, frames_in_5_seconds);
+        afSeekFrame(m_handle, AF_DEFAULT_TRACK, track_frames * 9 / 10);
+        sample_for_bias(num_positive, num_negative, frames_in_5_seconds);
 
         afSeekFrame(m_handle, AF_DEFAULT_TRACK, 0);
         return (num_negative > num_positive);
