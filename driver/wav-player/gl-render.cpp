@@ -39,5 +39,5 @@ void glr_init() {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     glTranslatef(width / 2, width / 2, 0);
-    glScalef(width / 2, width / -2, 0);
+    glScalef(width / -2, width / -2, 0);
 }

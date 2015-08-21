@@ -81,7 +81,7 @@ struct WAV8File::Impl {
         return handle;
     }
 
-    Impl(const char * filename)
+    Impl(const char * filename, double initial_seek)
         : m_handle(open_and_check(filename)) {
 
         afSetVirtualSampleFormat(m_handle, AF_DEFAULT_TRACK, AF_SAMPFMT_TWOSCOMP, 16);
@@ -95,6 +95,15 @@ struct WAV8File::Impl {
 
         m_rate = afGetRate(m_handle, AF_DEFAULT_TRACK);
         m_inverted = detect_rgb_invert();
+
+        if (initial_seek > 0) {
+            if (initial_seek > 1) {
+                initial_seek = 1;
+            }
+
+            const AFframecount track_frames = afGetFrameCount(m_handle, AF_DEFAULT_TRACK);
+            afSeekFrame(m_handle, AF_DEFAULT_TRACK, track_frames * initial_seek);
+        }
     }
 
     const AFfilehandle m_handle;
@@ -104,8 +113,8 @@ struct WAV8File::Impl {
     std::vector<wav8_sample> m_input_buf;
 };
 
-WAV8File::WAV8File(const char * filename)
-    : m_impl(std::make_unique<Impl>(filename)),
+WAV8File::WAV8File(const char * filename, double initial_seek)
+    : m_impl(std::make_unique<Impl>(filename, initial_seek)),
       m_rate(m_impl->m_rate) {}
 
 WAV8File::~WAV8File() = default;

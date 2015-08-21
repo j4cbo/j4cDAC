@@ -7,7 +7,7 @@ struct etherdream_point;
 
 class WAV8File {
 public:
-    WAV8File(const char * filename);
+    WAV8File(const char * filename, double initial_seek = 0);
     ~WAV8File();
 
     double get_rate() const { return m_rate; }
