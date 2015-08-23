@@ -256,11 +256,14 @@ int main(int argc, char **argv) {
         }
 
         if (ed) {
-            etherdream_write(ed, point_buf.data(), point_buf.size(), f.get_rate(), -1);
+            // If an Ether Dream is attached, let it drive timing.
+            etherdream_wait_for_ready(ed);
+            etherdream_write(ed, point_buf.data(), point_buf.size(), f.get_rate(), 1);
+        } else {
+            // If not, use a fixed clock.
+            t += std::chrono::steady_clock::duration(std::chrono::seconds(1)) / int(f.get_rate() / pts);
+            std::this_thread::sleep_until(t);
         }
-
-        t += std::chrono::steady_clock::duration(std::chrono::seconds(1)) / int(f.get_rate() / pts);
-        std::this_thread::sleep_until(t);
     }
 
     return 0;
