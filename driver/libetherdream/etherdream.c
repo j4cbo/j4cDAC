@@ -699,6 +699,14 @@ unsigned long etherdream_get_id(struct etherdream *d) {
 	return d->dac_id;
 }
 
+/* etherdream_get_in_addr(d)
+ *
+ * Documented in etherdream.h.
+ */
+struct in_addr *etherdream_get_in_addr(struct etherdream *d) {
+    return &d->addr;
+}
+
 /* etherdream_write(d, pts, npts, pps, reps)
  *
  * Documented in etherdream.h.
