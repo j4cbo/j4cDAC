@@ -703,7 +703,7 @@ unsigned long etherdream_get_id(struct etherdream *d) {
  *
  * Documented in etherdream.h.
  */
-struct in_addr *etherdream_get_in_addr(struct etherdream *d) {
+const struct in_addr *etherdream_get_in_addr(struct etherdream *d) {
     return &d->addr;
 }
 
