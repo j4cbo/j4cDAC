@@ -652,10 +652,13 @@ static void *dac_loop(void *dv) {
 
 	trace(d, "L: Shutting down.\n");
 	d->state = ST_SHUTDOWN;
+	pthread_cond_broadcast(&d->loop_cond);
 	return 0;
 }
 
 int etherdream_connect(struct etherdream *d) {
+	trace(d, "L: Connecting.\n");
+
 	// Initialize buffer
 	d->frame_buffer_read = 0;
 	d->frame_buffer_fullness = 0;
@@ -681,6 +684,8 @@ int etherdream_connect(struct etherdream *d) {
 }
 
 void etherdream_disconnect(struct etherdream *d) {
+	trace(d, "L: Disconnecting.\n");
+
 	pthread_mutex_lock(&d->mutex);
 	if (d->state == ST_READY)
 		pthread_cond_broadcast(&d->loop_cond);
@@ -785,10 +790,17 @@ int etherdream_is_ready(struct etherdream *d) {
  */
 int etherdream_wait_for_ready(struct etherdream *d) {
 	pthread_mutex_lock(&d->mutex);
-	while (d->frame_buffer_fullness == BUFFER_NFRAMES)
+	while (d->frame_buffer_fullness == BUFFER_NFRAMES && d->state != ST_SHUTDOWN) {
 		pthread_cond_wait(&d->loop_cond, &d->mutex);
+	}
+	int is_shutdown = (d->state == ST_SHUTDOWN);
 	pthread_mutex_unlock(&d->mutex);
-	return 0;
+
+	if (is_shutdown) {
+		return -1;
+	} else {
+		return 0;
+	}
 }
 
 /* etherdream_stop(d)
