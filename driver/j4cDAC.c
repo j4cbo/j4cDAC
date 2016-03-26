@@ -386,56 +386,66 @@ EXPORT bool __stdcall EtherDreamCloseDevice(const int *CardNum) {
 
 /* Data conversion functions
 */
-int EasyLase_convert_data(struct buffer_item *buf, const void *vdata, int bytes) {
+int EasyLase_convert_data(struct buffer_item *buf, const void *vdata, int bytes, int rep) {
 	const struct EL_Pnt_s *data = (const struct EL_Pnt_s *)vdata;
 	int points = bytes / sizeof(*data);
 	int i;
 
-	if (!buf) return points;
+	if (!buf) return points * rep;
 	if (points > BUFFER_POINTS_PER_FRAME) {
 		points = BUFFER_POINTS_PER_FRAME;
 	}
 
+	int o = 0;
 	for (i = 0; i < points; i++) {
-		buf->data[i].x = (data[i].X - 2048) * 16;
-		buf->data[i].y = (data[i].Y - 2048) * 16;
-		buf->data[i].r = data[i].R * 256;
-		buf->data[i].g = data[i].G * 256;
-		buf->data[i].b = data[i].B * 256;
-		buf->data[i].i = data[i].I * 256;
-		buf->data[i].u1 = 0;
-		buf->data[i].u2 = 0;
-		buf->data[i].control = 0;
+		int j;
+		for (j = 0; j < rep; j++) {
+			buf->data[o].x = (data[i].X - 2048) * 16;
+			buf->data[o].y = (data[i].Y - 2048) * 16;
+			buf->data[o].r = data[i].R * 256;
+			buf->data[o].g = data[i].G * 256;
+			buf->data[o].b = data[i].B * 256;
+			buf->data[o].i = data[i].I * 256;
+			buf->data[o].u1 = 0;
+			buf->data[o].u2 = 0;
+			buf->data[o].control = 0;
+			o++;
+		}
 	}
 
-	buf->points = points;
-	return points;
+	buf->points = points * rep;
+	return points * rep;
 }
 
-int EzAudDac_convert_data(struct buffer_item *buf, const void *vdata, int bytes) {
+int EzAudDac_convert_data(struct buffer_item *buf, const void *vdata, int bytes, int rep) {
 	const struct EAD_Pnt_s *data = (const struct EAD_Pnt_s *)vdata;
 	int points = bytes / sizeof(*data);
 	int i;
 
-	if (!buf) return points;
+	if (!buf) return points * rep;
 	if (points > BUFFER_POINTS_PER_FRAME) {
 		points = BUFFER_POINTS_PER_FRAME;
 	}
 
+	int o = 0;
 	for (i = 0; i < points; i++) {
-		buf->data[i].x = data[i].X; //  - 32768;
-		buf->data[i].y = data[i].Y; //  - 32768;
-		buf->data[i].r = data[i].R << 1;
-		buf->data[i].g = data[i].G << 1;
-		buf->data[i].b = data[i].B << 1;
-		buf->data[i].i = data[i].I << 1;
-		buf->data[i].u1 = data[i].AL;
-		buf->data[i].u2 = data[i].AR;
-		buf->data[i].control = 0;
+		int j;
+		for (j = 0; j < rep; j++) {
+			buf->data[o].x = data[i].X; //  - 32768;
+			buf->data[o].y = data[i].Y; //  - 32768;
+			buf->data[o].r = data[i].R << 1;
+			buf->data[o].g = data[i].G << 1;
+			buf->data[o].b = data[i].B << 1;
+			buf->data[o].i = data[i].I << 1;
+			buf->data[o].u1 = data[i].AL;
+			buf->data[o].u2 = data[i].AR;
+			buf->data[o].control = 0;
+			o++;
+		}
 	}
 
-	buf->points = points;
-	return points;
+	buf->points = points * rep;
+	return points * rep;
 }
 
 EXPORT bool __stdcall EtherDreamWriteFrame(const int *CardNum, const struct EAD_Pnt_s* data,

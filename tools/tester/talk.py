@@ -25,13 +25,13 @@ class SquarePointStream(object):
 		cmax = 65535
 		while True:
 			for x in xrange(-pmax, pmax, pstep):
-				yield (x, pmax, cmax, 0, 0)
+				yield (x, pmax, cmax, 0, 0, cmax)
 			for y in xrange(pmax, -pmax, -pstep):
-				yield (pmax, y, 0, cmax, 0)
+				yield (pmax, y, 0, cmax, 0, cmax)
 			for x in xrange(pmax, -pmax, -pstep):
-				yield (x, -pmax, 0, 0, cmax)
+				yield (x, -pmax, 0, 0, cmax, cmax)
 			for y in xrange(-pmax, pmax, pstep):
-				yield (-pmax, y, cmax, cmax, cmax)
+				yield (-pmax, y, cmax, cmax, cmax, cmax)
 
 	def __init__(self):
 		self.stream = self.produce()
