@@ -662,7 +662,7 @@ int etherdream_connect(struct etherdream *d) {
 	// Initialize buffer
 	d->frame_buffer_read = 0;
 	d->frame_buffer_fullness = 0;
-	memset(d->buffer, sizeof(d->buffer), 0);
+	memset(d->buffer, 0, sizeof(d->buffer));
 
 	// Connect to the DAC
 	if (dac_connect(d) < 0) {
