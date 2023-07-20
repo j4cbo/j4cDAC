@@ -134,16 +134,17 @@ size_t WAV8File::read(size_t max,
     assert(frames_read >= 0);
 
     int colorScale = m_impl->m_inverted ? -2 : 2;
-    int xyScale = m_impl->m_inverted ? -1 : 1;
 
     for (int i = 0; i < frames_read; i++) {
         uint16_t r = std::max(0, int(m_impl->m_input_buf[i].red) * colorScale);
         uint16_t g = std::max(0, int(m_impl->m_input_buf[i].green) * colorScale);
         uint16_t b = std::max(0, int(m_impl->m_input_buf[i].blue) * colorScale);
+        int16_t x = m_impl->m_input_buf[i].x;
+        int16_t y = m_impl->m_input_buf[i].y;
 
         point_buf.emplace_back(etherdream_point{
-            int16_t(m_impl->m_input_buf[i].x * xyScale),
-            int16_t(m_impl->m_input_buf[i].y * xyScale),
+            int16_t(m_impl->m_inverted ? x : ~x),
+            int16_t(m_impl->m_inverted ? y : ~y),
             r, g, b, std::max({r, g, b}), 0, 0
         });
 
